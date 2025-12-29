@@ -1,0 +1,800 @@
+import { useState, useCallback, useEffect } from "react";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useNavigate, useParams } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
+import TextAlign from "@tiptap/extension-text-align";
+import ImageExtension from "@tiptap/extension-image";
+import { 
+  Bold, 
+  Italic, 
+  Underline as UnderlineIcon, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight,
+  Image,
+  Link as LinkIcon,
+  Save,
+  ArrowLeft,
+  Eye,
+  List,
+  ListOrdered,
+  Heading1,
+  Heading2,
+  Undo,
+  Redo,
+  Quote,
+  Upload,
+  X,
+  ImagePlus
+} from "lucide-react";
+
+// === Mock API functions (заглушки для CRUD операций с товарами) ===
+
+interface ProductData {
+  id?: string;
+  name: string;
+  description: string;
+  price: number;
+  unit: string;
+  image: string;
+  content: string;
+}
+
+// База данных товаров (статические данные)
+const mockAPIProductsDB: Record<string, ProductData> = {
+  "1": {
+    id: "1",
+    name: "Молоко свежее",
+    description: "Натуральное коровье молоко с нашей фермы",
+    price: 120,
+    unit: "л",
+    image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=800&h=400&fit=crop",
+    content: `<h2>Свежее молоко</h2>
+<p>Наше молоко — это 100% натуральный продукт от здоровых коров, которые пасутся на экологически чистых лугах.</p>
+<h3>Характеристики:</h3>
+<ul>
+<li>Жирность: 3.5-4%</li>
+<li>Срок хранения: 3 дня</li>
+<li>Без консервантов</li>
+</ul>
+<p><strong>Идеально подходит</strong> для детского питания и приготовления домашних блюд.</p>`,
+  },
+  "2": {
+    id: "2",
+    name: "Сыр домашний",
+    description: "Ароматный сыр ручной работы",
+    price: 450,
+    unit: "кг",
+    image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=800&h=400&fit=crop",
+    content: `<h2>Домашний сыр</h2>
+<p>Сыр изготовлен по традиционным рецептам из свежего молока нашей фермы.</p>
+<ul>
+<li>Выдержка: 2 месяца</li>
+<li>Вкус: нежный, сливочный</li>
+</ul>`,
+  },
+  "3": {
+    id: "3",
+    name: "Мёд липовый",
+    description: "Ароматный липовый мёд с пасеки",
+    price: 800,
+    unit: "кг",
+    image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&h=400&fit=crop",
+    content: `<h2>Липовый мёд</h2>
+<p>Натуральный липовый мёд с нашей пасеки.</p>
+<ul>
+<li>Сбор: июнь-июль</li>
+<li>Аромат: цветочный, липовый</li>
+<li>Полезные свойства: укрепляет иммунитет</li>
+</ul>`,
+  },
+  "4": {
+    id: "4",
+    name: "Яйца куриные",
+    description: "Свежие яйца от домашних кур",
+    price: 150,
+    unit: "10 шт",
+    image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=800&h=400&fit=crop",
+    content: `<h2>Домашние яйца</h2>
+<p>Яйца от кур свободного выгула.</p>`,
+  },
+  "5": {
+    id: "5",
+    name: "Творог",
+    description: "Нежный домашний творог",
+    price: 280,
+    unit: "кг",
+    image: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=800&h=400&fit=crop",
+    content: `<h2>Домашний творог</h2>
+<p>Свежий творог из натурального молока.</p>`,
+  },
+  "6": {
+    id: "6",
+    name: "Сметана",
+    description: "Густая домашняя сметана",
+    price: 180,
+    unit: "л",
+    image: "https://images.unsplash.com/photo-1628689469838-524a4a973b8e?w=800&h=400&fit=crop",
+    content: `<h2>Домашняя сметана</h2>
+<p>Густая сметана жирностью 25%.</p>`,
+  },
+};
+
+// Получение данных товара по ID
+const mockAPIGetProduct = async (id: string): Promise<ProductData | null> => {
+  console.log("[mockAPI] Getting product:", id);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  
+  if (id === "new") {
+    return null;
+  }
+  
+  return mockAPIProductsDB[id] || null;
+};
+
+// Сохранение товара
+const mockAPISaveProduct = async (data: ProductData) => {
+  console.log("[mockAPI] Saving product:", data);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  return { success: true, id: data.id || "new-product-" + Date.now() };
+};
+
+// Загрузка изображения в хранилище
+const mockAPIUploadProductImage = async (file: File): Promise<{ url: string }> => {
+  console.log("[mockAPI] Uploading product image:", file.name, file.size);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  return { url: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=800&h=400&fit=crop" };
+};
+
+// Удаление изображения из хранилища
+const mockAPIDeleteProductImage = async (imageUrl: string): Promise<{ success: boolean }> => {
+  console.log("[mockAPI] Deleting product image:", imageUrl);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  return { success: true };
+};
+
+// Валидация файла изображения
+const mockAPIValidateProductImage = (file: File): { valid: boolean; error?: string } => {
+  console.log("[mockAPI] Validating product image:", file.name, file.type, file.size);
+  const maxSize = 5 * 1024 * 1024;
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: "Неподдерживаемый формат. Используйте JPG, PNG, WebP или GIF" };
+  }
+  if (file.size > maxSize) {
+    return { valid: false, error: "Файл слишком большой. Максимум 5MB" };
+  }
+  return { valid: true };
+};
+
+// Данные для предпросмотра
+const mockAPIProductPreviewData = {
+  producerName: "Фермерское хозяйство «Заря»",
+  phone: "+7 (999) 123-45-67",
+};
+
+// Toolbar Button Component
+const ToolbarButton = ({ 
+  onClick, 
+  isActive = false, 
+  disabled = false,
+  children 
+}: { 
+  onClick: () => void; 
+  isActive?: boolean; 
+  disabled?: boolean;
+  children: React.ReactNode;
+}) => (
+  <Button
+    type="button"
+    variant={isActive ? "secondary" : "ghost"}
+    size="icon"
+    className="h-8 w-8"
+    onClick={onClick}
+    disabled={disabled}
+  >
+    {children}
+  </Button>
+);
+
+const ProductEditor = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const isNew = id === "new";
+
+  const [productData, setProductData] = useState<ProductData>({
+    name: "",
+    description: "",
+    price: 0,
+    unit: "шт",
+    image: "",
+    content: "",
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(!isNew);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: "text-primary underline",
+        },
+      }),
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
+      ImageExtension.configure({
+        HTMLAttributes: {
+          class: "max-w-full rounded-lg",
+        },
+      }),
+    ],
+    content: productData.content,
+    onUpdate: ({ editor }) => {
+      setProductData((prev) => ({ ...prev, content: editor.getHTML() }));
+    },
+    editorProps: {
+      attributes: {
+        class: "prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4",
+      },
+    },
+  });
+
+  // Загрузка данных товара при редактировании
+  useEffect(() => {
+    const loadProductData = async () => {
+      if (id && id !== "new") {
+        setIsDataLoading(true);
+        try {
+          const data = await mockAPIGetProduct(id);
+          if (data) {
+            setProductData(data);
+            if (editor && data.content) {
+              editor.commands.setContent(data.content);
+            }
+          } else {
+            toast({
+              title: "Ошибка",
+              description: "Товар не найден",
+              variant: "destructive",
+            });
+            navigate("/dashboard");
+          }
+        } catch (error) {
+          toast({
+            title: "Ошибка",
+            description: "Не удалось загрузить данные товара",
+            variant: "destructive",
+          });
+        } finally {
+          setIsDataLoading(false);
+        }
+      }
+    };
+
+    loadProductData();
+  }, [id, editor, navigate, toast]);
+
+  useEffect(() => {
+    if (editor && productData.content && !isNew && !isDataLoading) {
+      editor.commands.setContent(productData.content);
+    }
+  }, [editor, productData.content, isNew, isDataLoading]);
+
+  const updateField = <K extends keyof ProductData>(field: K, value: ProductData[K]) => {
+    setProductData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!productData.name.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Укажите название товара",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await mockAPISaveProduct({ ...productData, id });
+      toast({
+        title: "Сохранено",
+        description: isNew ? "Товар создан" : "Товар обновлён",
+      });
+      if (isNew && result.id) {
+        navigate(`/dashboard/product/${result.id}`, { replace: true });
+      }
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить товар",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const uploadImage = async (file: File) => {
+    const validation = mockAPIValidateProductImage(file);
+    if (!validation.valid) {
+      toast({
+        title: "Ошибка",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await mockAPIUploadProductImage(file);
+      updateField("image", result.url);
+      toast({
+        title: "Загружено",
+        description: "Изображение успешно загружено",
+      });
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить изображение",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadImage(file);
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    if (productData.image) {
+      try {
+        await mockAPIDeleteProductImage(productData.image);
+        updateField("image", "");
+        toast({
+          title: "Удалено",
+          description: "Изображение удалено",
+        });
+      } catch (error) {
+        toast({
+          title: "Ошибка",
+          description: "Не удалось удалить изображение",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      await uploadImage(file);
+    } else {
+      toast({
+        title: "Ошибка",
+        description: "Перетащите файл изображения",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addImage = useCallback(() => {
+    const url = prompt("Введите URL изображения:");
+    if (url && editor) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  }, [editor]);
+
+  const setLink = useCallback(() => {
+    if (!editor) return;
+    
+    const previousUrl = editor.getAttributes("link").href;
+    const url = prompt("Введите URL ссылки:", previousUrl);
+
+    if (url === null) return;
+
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }, [editor]);
+
+  if (!editor || isDataLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">Загрузка...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/dashboard")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-bold text-foreground">
+              {isNew ? "Создание товара" : "Редактирование товара"}
+            </h1>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+              <Eye className="h-4 w-4 mr-2" />
+              Предпросмотр
+            </Button>
+            <Button onClick={handleSave} disabled={isLoading}>
+              <Save className="h-4 w-4 mr-2" />
+              {isLoading ? "Сохранение..." : "Сохранить"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Основные данные */}
+        <div className="content-card space-y-4">
+          <h2 className="font-semibold text-foreground">Основные данные</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Название товара</label>
+              <Input
+                value={productData.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                placeholder="Название товара"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Цена</label>
+                <Input
+                  type="number"
+                  value={productData.price}
+                  onChange={(e) => updateField("price", Number(e.target.value))}
+                  placeholder="0"
+                  min={0}
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Единица</label>
+                <Input
+                  value={productData.unit}
+                  onChange={(e) => updateField("unit", e.target.value)}
+                  placeholder="шт, кг, л"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Краткое описание</label>
+            <Textarea
+              value={productData.description}
+              onChange={(e) => updateField("description", e.target.value)}
+              placeholder="Краткое описание товара"
+              rows={2}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">Изображение товара</label>
+            
+            {/* Drop Zone */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`
+                relative border-2 border-dashed rounded-lg transition-all duration-200
+                ${isDragging 
+                  ? "border-primary bg-primary/5" 
+                  : "border-border hover:border-primary/50"
+                }
+                ${productData.image ? "p-2" : "p-8"}
+              `}
+            >
+              {productData.image ? (
+                <div className="relative group">
+                  <img 
+                    src={productData.image} 
+                    alt="Товар" 
+                    className="w-full max-h-48 object-cover rounded-lg"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
+                      />
+                      <Button type="button" variant="secondary" size="sm" asChild>
+                        <span>
+                          <Upload className="h-4 w-4 mr-1" />
+                          Заменить
+                        </span>
+                      </Button>
+                    </label>
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={handleDeleteImage}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center">
+                  {isUploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm text-muted-foreground">Загрузка...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <ImagePlus className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Перетащите изображение сюда или
+                      </p>
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <span>
+                            <Upload className="h-4 w-4 mr-1" />
+                            Выберите файл
+                          </span>
+                        </Button>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        JPG, PNG, WebP, GIF до 5MB
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* URL Input */}
+            <div className="flex gap-2 mt-3">
+              <Input
+                value={productData.image}
+                onChange={(e) => updateField("image", e.target.value)}
+                placeholder="Или вставьте URL изображения"
+                className="flex-1"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* TipTap WYSIWYG Editor */}
+        <div className="content-card space-y-4">
+          <h2 className="font-semibold text-foreground">Подробное описание</h2>
+          
+          {/* Toolbar */}
+          <div className="flex flex-wrap gap-1 p-2 bg-muted rounded-lg border border-border">
+            <ToolbarButton
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+            >
+              <Undo className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+            >
+              <Redo className="h-4 w-4" />
+            </ToolbarButton>
+
+            <div className="w-px bg-border mx-1 h-8" />
+
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+              isActive={editor.isActive("heading", { level: 1 })}
+            >
+              <Heading1 className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              isActive={editor.isActive("heading", { level: 2 })}
+            >
+              <Heading2 className="h-4 w-4" />
+            </ToolbarButton>
+
+            <div className="w-px bg-border mx-1 h-8" />
+
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              isActive={editor.isActive("bold")}
+            >
+              <Bold className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              isActive={editor.isActive("italic")}
+            >
+              <Italic className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              isActive={editor.isActive("underline")}
+            >
+              <UnderlineIcon className="h-4 w-4" />
+            </ToolbarButton>
+
+            <div className="w-px bg-border mx-1 h-8" />
+
+            <ToolbarButton
+              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              isActive={editor.isActive({ textAlign: "left" })}
+            >
+              <AlignLeft className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().setTextAlign("center").run()}
+              isActive={editor.isActive({ textAlign: "center" })}
+            >
+              <AlignCenter className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              isActive={editor.isActive({ textAlign: "right" })}
+            >
+              <AlignRight className="h-4 w-4" />
+            </ToolbarButton>
+
+            <div className="w-px bg-border mx-1 h-8" />
+
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              isActive={editor.isActive("bulletList")}
+            >
+              <List className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              isActive={editor.isActive("orderedList")}
+            >
+              <ListOrdered className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              isActive={editor.isActive("blockquote")}
+            >
+              <Quote className="h-4 w-4" />
+            </ToolbarButton>
+
+            <div className="w-px bg-border mx-1 h-8" />
+
+            <ToolbarButton onClick={setLink} isActive={editor.isActive("link")}>
+              <LinkIcon className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={addImage}>
+              <Image className="h-4 w-4" />
+            </ToolbarButton>
+          </div>
+
+          {/* Editor Content */}
+          <div className="border border-border rounded-lg bg-background min-h-[200px]">
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+      </div>
+
+      {/* Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Предпросмотр товара</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {productData.image && (
+              <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                <img
+                  src={productData.image}
+                  alt="Товар"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
+                {productData.name || "Название товара"}
+              </h2>
+              <p className="text-muted-foreground mt-1">
+                {productData.description || "Описание товара"}
+              </p>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-primary">
+                {productData.price || 0} ₽
+              </span>
+              <span className="text-muted-foreground">/ {productData.unit || "шт"}</span>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p>Производитель: {mockAPIProductPreviewData.producerName}</p>
+              <p>Телефон: {mockAPIProductPreviewData.phone}</p>
+            </div>
+
+            {editor?.getHTML() && (
+              <div className="border-t border-border pt-4">
+                <div
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ 
+                    __html: editor.getHTML() 
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </MainLayout>
+  );
+};
+
+export default ProductEditor;
