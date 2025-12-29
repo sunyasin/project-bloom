@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, ChevronLeft, ChevronRight, X, Phone } from "lucide-react";
+import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart } from "lucide-react";
 import { useState, useRef } from "react";
 import {
   Dialog,
@@ -8,6 +8,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+
+// Mock user profile
+const mockAPIUserProfile = {
+  phone: "+7 (999) 123-45-67",
+};
+
+// Mock order API
+const mockAPISendOrder = async (order: { products: SelectedProduct[]; phone: string; businessId: string }) => {
+  console.log("Sending order:", order);
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return { success: true, orderId: `ORD-${Date.now()}` };
+};
 
 // Mock products data
 const mockAPIProducts: Record<string, { id: string; name: string; image: string; price: string }[]> = {
@@ -53,15 +69,30 @@ interface Product {
   price: string;
 }
 
+interface SelectedProduct extends Product {
+  businessId: string;
+  businessName: string;
+}
+
 interface ProductGridProps {
   products: Product[];
   businessName: string;
   businessId: string;
   businessPhone: string;
+  selectedProducts: SelectedProduct[];
   onProductClick: (product: Product, businessName: string, businessId: string, businessPhone: string) => void;
+  onProductSelect: (product: Product, businessId: string, businessName: string, selected: boolean) => void;
 }
 
-const ProductGrid = ({ products, businessName, businessId, businessPhone, onProductClick }: ProductGridProps) => {
+const ProductGrid = ({ 
+  products, 
+  businessName, 
+  businessId, 
+  businessPhone, 
+  selectedProducts,
+  onProductClick, 
+  onProductSelect 
+}: ProductGridProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(products.length > 5);
@@ -85,6 +116,9 @@ const ProductGrid = ({ products, businessName, businessId, businessPhone, onProd
     }
   };
 
+  const isSelected = (productId: string) => 
+    selectedProducts.some(p => p.id === productId && p.businessId === businessId);
+
   return (
     <div className="relative flex items-center gap-2">
       {canScrollLeft && (
@@ -102,24 +136,45 @@ const ProductGrid = ({ products, businessName, businessId, businessPhone, onProd
         className="flex gap-3 overflow-x-auto scrollbar-hide px-1 py-1"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {products.map((product) => (
-          <button
-            key={product.id}
-            onClick={() => onProductClick(product, businessName, businessId, businessPhone)}
-            className="flex-shrink-0 flex flex-col items-center gap-1 group cursor-pointer"
-          >
-            <div className="w-14 h-14 rounded-lg overflow-hidden border border-border group-hover:border-primary/50 transition-colors">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
+        {products.map((product) => {
+          const selected = isSelected(product.id);
+          return (
+            <div
+              key={product.id}
+              className={`flex-shrink-0 flex flex-col items-center gap-1 p-1 rounded-lg transition-all ${
+                selected ? "ring-2 ring-primary bg-primary/5" : ""
+              }`}
+            >
+              <div className="flex items-start gap-1">
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={(checked) => 
+                    onProductSelect(product, businessId, businessName, checked as boolean)
+                  }
+                  className="mt-1"
+                />
+                <button
+                  onClick={() => onProductClick(product, businessName, businessId, businessPhone)}
+                  className="flex flex-col items-center gap-1 group cursor-pointer"
+                >
+                  <div className="w-14 h-14 rounded-lg overflow-hidden border border-border group-hover:border-primary/50 transition-colors">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors w-14 text-center truncate">
+                    {product.name}
+                  </span>
+                  <span className="text-xs font-medium text-primary w-14 text-center truncate">
+                    {product.price}
+                  </span>
+                </button>
+              </div>
             </div>
-            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors w-14 text-center truncate">
-              {product.name}
-            </span>
-          </button>
-        ))}
+          );
+        })}
       </div>
 
       {canScrollRight && (
@@ -137,6 +192,7 @@ const ProductGrid = ({ products, businessName, businessId, businessPhone, onProd
 const CategoryPage = () => {
   const { id } = useParams<{ id: string }>();
   const category = mockAPICategoryData[id || "1"] || { name: "Категория", businesses: [] };
+  const { toast } = useToast();
   
   const [selectedProduct, setSelectedProduct] = useState<{
     product: Product;
@@ -145,8 +201,48 @@ const CategoryPage = () => {
     businessPhone: string;
   } | null>(null);
 
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
+  const [orderDialogOpen, setOrderDialogOpen] = useState<string | null>(null);
+  const [orderPhone, setOrderPhone] = useState(mockAPIUserProfile.phone);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleProductClick = (product: Product, businessName: string, businessId: string, businessPhone: string) => {
     setSelectedProduct({ product, businessName, businessId, businessPhone });
+  };
+
+  const handleProductSelect = (product: Product, businessId: string, businessName: string, selected: boolean) => {
+    if (selected) {
+      setSelectedProducts(prev => [...prev, { ...product, businessId, businessName }]);
+    } else {
+      setSelectedProducts(prev => prev.filter(p => !(p.id === product.id && p.businessId === businessId)));
+    }
+  };
+
+  const getSelectedForBusiness = (businessId: string) => 
+    selectedProducts.filter(p => p.businessId === businessId);
+
+  const handleOrderSubmit = async (businessId: string) => {
+    const products = getSelectedForBusiness(businessId);
+    if (products.length === 0) return;
+
+    setIsSubmitting(true);
+    try {
+      await mockAPISendOrder({ products, phone: orderPhone, businessId });
+      toast({
+        title: "Заказ отправлен",
+        description: `Заказ на ${products.length} товар(ов) успешно отправлен производителю`,
+      });
+      setSelectedProducts(prev => prev.filter(p => p.businessId !== businessId));
+      setOrderDialogOpen(null);
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отправить заказ",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -163,6 +259,7 @@ const CategoryPage = () => {
           <div className="space-y-4">
             {category.businesses.map((business) => {
               const products = mockAPIProducts[business.id] || [];
+              const selectedForBusiness = getSelectedForBusiness(business.id);
               
               return (
                 <div
@@ -171,21 +268,37 @@ const CategoryPage = () => {
                 >
                   <div className="flex flex-col lg:flex-row gap-4">
                     {/* Business info - left side */}
-                    <Link
-                      to={`/business/${business.id}`}
-                      className="flex items-center gap-4 lg:w-64 shrink-0 hover:opacity-80 transition-opacity"
-                    >
-                      <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <Building2 className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-foreground">{business.name}</h3>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {business.location}
+                    <div className="flex items-center gap-4 lg:w-72 shrink-0">
+                      <Link
+                        to={`/business/${business.id}`}
+                        className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
+                      >
+                        <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Building2 className="h-6 w-6 text-muted-foreground" />
                         </div>
-                      </div>
-                    </Link>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-foreground">{business.name}</h3>
+                          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            {business.location}
+                          </div>
+                        </div>
+                      </Link>
+                      <Button
+                        size="sm"
+                        disabled={selectedForBusiness.length === 0}
+                        onClick={() => setOrderDialogOpen(business.id)}
+                        className="shrink-0"
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-1" />
+                        Заказать
+                        {selectedForBusiness.length > 0 && (
+                          <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
+                            {selectedForBusiness.length}
+                          </span>
+                        )}
+                      </Button>
+                    </div>
 
                     {/* Products grid - right side */}
                     {products.length > 0 && (
@@ -195,7 +308,9 @@ const CategoryPage = () => {
                           businessName={business.name}
                           businessId={business.id}
                           businessPhone={business.phone}
+                          selectedProducts={selectedProducts}
                           onProductClick={handleProductClick}
+                          onProductSelect={handleProductSelect}
                         />
                       </div>
                     )}
@@ -256,6 +371,55 @@ const CategoryPage = () => {
                   </a>
                 </div>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Dialog */}
+      <Dialog open={!!orderDialogOpen} onOpenChange={() => setOrderDialogOpen(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Оформление заказа</DialogTitle>
+          </DialogHeader>
+          
+          {orderDialogOpen && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Выбранные товары:</h4>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {getSelectedForBusiness(orderDialogOpen).map((product) => (
+                    <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{product.name}</p>
+                        <p className="text-xs text-primary">{product.price}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Телефон для связи</label>
+                <Input
+                  value={orderPhone}
+                  onChange={(e) => setOrderPhone(e.target.value)}
+                  placeholder="+7 (___) ___-__-__"
+                />
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={() => handleOrderSubmit(orderDialogOpen)}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Отправка..." : "Отправить заказ"}
+              </Button>
             </div>
           )}
         </DialogContent>
