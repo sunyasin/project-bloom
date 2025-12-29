@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,29 +38,67 @@ import {
 
 // === Mock API functions (заглушки для CRUD операций) ===
 
-// Получение данных визитки по ID
-const mockAPIGetBusinessCard = async (id: string) => {
-  console.log("[mockAPI] Getting business card:", id);
-  if (id !== "new") {
-    return {
-      id,
-      title: "Фермерское хозяйство «Заря»",
-      description: "Экологически чистые продукты с нашей фермы. Работаем с 2010 года.",
-      image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&h=400&fit=crop",
-      content: `<h2>О нашем хозяйстве</h2>
+// База данных визиток (статические данные)
+const mockAPIBusinessCardsDB: Record<string, BusinessCardData> = {
+  "1": {
+    id: "1",
+    title: "Фермерское хозяйство",
+    description: "Экологически чистые продукты с нашей фермы. Работаем с 2010 года.",
+    image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&h=400&fit=crop",
+    content: `<h2>О нашем хозяйстве</h2>
 <p>Мы — семейная ферма, расположенная в экологически чистом районе Подмосковья. Наша миссия — обеспечить вас свежими, натуральными продуктами без химических добавок.</p>
 <h3>Наша продукция</h3>
 <ul>
 <li>Молочные продукты: молоко, сметана, творог, сыр</li>
 <li>Мясо и птица: говядина, свинина, курица</li>
 <li>Овощи и фрукты: сезонные, выращенные без пестицидов</li>
-<li>Мёд с собственной пасеки</li>
 </ul>
-<p><strong>Доставка</strong> осуществляется по всей Москве и области.</p>
-<blockquote>Качество — наш главный приоритет!</blockquote>`,
-    };
+<p><strong>Доставка</strong> осуществляется по всей Москве и области.</p>`,
+  },
+  "2": {
+    id: "2",
+    title: "Молочная ферма",
+    description: "Свежие молочные продукты каждый день",
+    image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&h=400&fit=crop",
+    content: `<h2>Молочная ферма «Буренка»</h2>
+<p>Мы производим натуральные молочные продукты высочайшего качества.</p>
+<ul>
+<li>Молоко цельное</li>
+<li>Сметана домашняя</li>
+<li>Творог</li>
+<li>Сыр фермерский</li>
+</ul>
+<blockquote>Свежесть и качество — наш приоритет!</blockquote>`,
+  },
+  "3": {
+    id: "3",
+    title: "Пасека Медовая",
+    description: "Натуральный мёд с собственной пасеки",
+    image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&h=400&fit=crop",
+    content: `<h2>Пасека «Медовая»</h2>
+<p>Мы занимаемся пчеловодством более 20 лет. Наш мёд — это 100% натуральный продукт.</p>
+<h3>Виды мёда:</h3>
+<ul>
+<li>Липовый мёд</li>
+<li>Цветочный мёд</li>
+<li>Гречишный мёд</li>
+<li>Акациевый мёд</li>
+</ul>
+<p>Доставка по всей России!</p>`,
+  },
+};
+
+// Получение данных визитки по ID
+const mockAPIGetBusinessCard = async (id: string): Promise<BusinessCardData | null> => {
+  console.log("[mockAPI] Getting business card:", id);
+  // Имитация задержки сети
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  
+  if (id === "new") {
+    return null;
   }
-  return null;
+  
+  return mockAPIBusinessCardsDB[id] || null;
 };
 
 // Сохранение визитки
@@ -157,6 +195,7 @@ const BusinessCardEditor = () => {
     content: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(!isNew);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -194,6 +233,49 @@ const BusinessCardEditor = () => {
       },
     },
   });
+
+  // Загрузка данных визитки при редактировании
+  useEffect(() => {
+    const loadCardData = async () => {
+      if (id && id !== "new") {
+        setIsDataLoading(true);
+        try {
+          const data = await mockAPIGetBusinessCard(id);
+          if (data) {
+            setCardData(data);
+            // Устанавливаем контент в редактор после загрузки
+            if (editor && data.content) {
+              editor.commands.setContent(data.content);
+            }
+          } else {
+            toast({
+              title: "Ошибка",
+              description: "Визитка не найдена",
+              variant: "destructive",
+            });
+            navigate("/dashboard");
+          }
+        } catch (error) {
+          toast({
+            title: "Ошибка",
+            description: "Не удалось загрузить данные визитки",
+            variant: "destructive",
+          });
+        } finally {
+          setIsDataLoading(false);
+        }
+      }
+    };
+
+    loadCardData();
+  }, [id, editor, navigate, toast]);
+
+  // Обновляем редактор когда данные загружены
+  useEffect(() => {
+    if (editor && cardData.content && !isNew && !isDataLoading) {
+      editor.commands.setContent(cardData.content);
+    }
+  }, [editor, cardData.content, isNew, isDataLoading]);
 
   const updateField = <K extends keyof BusinessCardData>(field: K, value: BusinessCardData[K]) => {
     setCardData((prev) => ({ ...prev, [field]: value }));
@@ -326,8 +408,17 @@ const BusinessCardEditor = () => {
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
-  if (!editor) {
-    return null;
+  if (!editor || isDataLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">Загрузка...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
   }
 
   return (

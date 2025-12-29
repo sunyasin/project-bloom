@@ -64,10 +64,10 @@ const Dashboard = () => {
           <h2 className="section-title">Мои визитки</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {mockBusinessCards.map((card) => (
-              <Link
+              <button
                 key={card.id}
-                to={`/business/${card.id}`}
-                className="content-card hover:border-primary/30 transition-all hover:shadow-md group p-3"
+                onClick={() => navigate(`/dashboard/business-card/${card.id}`)}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left"
               >
                 <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
                   <img
@@ -79,7 +79,7 @@ const Dashboard = () => {
                 <p className="text-sm font-medium text-foreground text-center truncate">
                   {card.name}
                 </p>
-              </Link>
+              </button>
             ))}
             {/* Create new business card */}
             <button
