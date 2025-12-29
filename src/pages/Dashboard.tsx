@@ -1,6 +1,7 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Building2, Tag, Settings, FileText, Bell, UserCircle, Package } from "lucide-react";
-import { Link } from "react-router-dom";
+import { User, Building2, Tag, Settings, FileText, Bell, UserCircle, Package, Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+
 
 // Mock user data
 const mockUser = {
@@ -37,6 +38,8 @@ const dashboardLinks = [
 ];
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -78,6 +81,16 @@ const Dashboard = () => {
                 </p>
               </Link>
             ))}
+            {/* Create new business card */}
+            <button
+              onClick={() => navigate("/dashboard/business-card/new")}
+              className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <Plus className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Создать</p>
+            </button>
           </div>
         </div>
 
