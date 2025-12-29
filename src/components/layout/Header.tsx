@@ -31,6 +31,11 @@ export const Header = () => {
               <User className="h-5 w-5 text-muted-foreground" />
             </Button>
           </Link>
+          <Link to="/auth">
+            <Button variant="default" size="sm">
+              Войти
+            </Button>
+          </Link>
           <Link to="/admin">
             <Button variant="outline" size="sm">
               Админка
