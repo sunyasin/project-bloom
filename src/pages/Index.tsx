@@ -100,6 +100,40 @@ const mockCategories = [
   { id: "13", name: "Яйца", image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop" },
 ].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
+// Mock news data - Valley news
+const mockAPIValleyNews = [
+  { id: "1", title: "Открытие нового фермерского рынка в центре долины запланировано на весну следующего года" },
+  { id: "2", title: "Долина получила грант на развитие экологического земледелия от регионального фонда" },
+  { id: "3", title: "Новые правила сертификации органической продукции вступают в силу с января" },
+  { id: "4", title: "Фестиваль урожая собрал рекордное количество участников и посетителей" },
+  { id: "5", title: "Программа поддержки молодых фермеров расширяется на новые районы области" },
+  { id: "6", title: "В долине построят современный логистический центр для фермерской продукции" },
+  { id: "7", title: "Кооперация производителей позволила снизить затраты на доставку на 30%" },
+  { id: "8", title: "Экологический аудит подтвердил высокое качество почв в западной части долины" },
+  { id: "9", title: "Запущена программа обучения для начинающих производителей с бесплатными курсами" },
+  { id: "10", title: "Долина вошла в топ-5 регионов по производству органической продукции" },
+  { id: "11", title: "Новые технологии капельного орошения внедряются на фермах региона" },
+  { id: "12", title: "Ассоциация производителей провела ежегодное собрание и выбрала новое руководство" },
+];
+
+// Mock news data - Producer news
+const mockAPIProducerNews = [
+  { id: "1", title: "Пасека Иванова получила золотую медаль на международной выставке мёда в Москве" },
+  { id: "2", title: "Ферма Петровых расширяет производство и открывает новый цех переработки молока" },
+  { id: "3", title: "Эко-овощи запустили доставку свежих продуктов прямо с грядки к дому покупателя" },
+  { id: "4", title: "Хлебный дом представил линейку безглютеновых изделий для аллергиков" },
+  { id: "5", title: "Птицеферма Солнечная увеличила поголовье кур и расширила ассортимент продукции" },
+  { id: "6", title: "Сырная лавка освоила производство сыров с плесенью по французской технологии" },
+  { id: "7", title: "Рыбное хозяйство Озёрное начало выращивать форель премиум-класса для ресторанов" },
+  { id: "8", title: "Виноградник Южный собрал рекордный урожай и планирует выпуск вина нового сорта" },
+  { id: "9", title: "Мясной двор получил сертификат халяль и расширяет рынки сбыта продукции" },
+  { id: "10", title: "Травяная ферма Полевая начала экспорт сушёных трав в страны Европы" },
+  { id: "11", title: "Ягодный сад Лесной запустил производство натуральных джемов без сахара" },
+  { id: "12", title: "Кондитерская Сладкий дом открыла школу выпечки для всех желающих" },
+  { id: "13", title: "Молочная ферма Альпийская представила новую линейку йогуртов с ягодами" },
+  { id: "14", title: "Овощевод Зелёная долина построил теплицы для круглогодичного выращивания" },
+];
+
 const Index = () => {
   const [selectedPromotion, setSelectedPromotion] = useState<typeof mockPromotions[0] | null>(null);
 
@@ -221,19 +255,54 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Latest News Preview */}
+        {/* News Section - 2 columns */}
         <section id="news">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Последние новости</h2>
-            <Link to="/news" className="text-sm text-primary hover:underline">
-              Все →
-            </Link>
-          </div>
-          
-          <div className="content-card">
-            <p className="text-muted-foreground text-center py-8">
-              Здесь будут отображаться последние новости долины
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Valley News Column */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="section-title mb-0 text-base">Новости долины</h2>
+                <Link to="/news?type=valley" className="text-sm text-primary hover:underline">
+                  Все →
+                </Link>
+              </div>
+              <div className="bg-card border border-border rounded-lg divide-y divide-border">
+                {mockAPIValleyNews.slice(0, 10).map((news) => (
+                  <Link
+                    key={news.id}
+                    to={`/news/${news.id}`}
+                    className="block px-3 py-2.5 hover:bg-muted/50 transition-colors"
+                  >
+                    <p className="text-sm text-foreground leading-snug line-clamp-2">
+                      {news.title}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Producer News Column */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="section-title mb-0 text-base">Новости производителей</h2>
+                <Link to="/news?type=producers" className="text-sm text-primary hover:underline">
+                  Все →
+                </Link>
+              </div>
+              <div className="bg-card border border-border rounded-lg divide-y divide-border">
+                {mockAPIProducerNews.slice(0, 10).map((news) => (
+                  <Link
+                    key={news.id}
+                    to={`/news/${news.id}`}
+                    className="block px-3 py-2.5 hover:bg-muted/50 transition-colors"
+                  >
+                    <p className="text-sm text-foreground leading-snug line-clamp-2">
+                      {news.title}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       </div>
