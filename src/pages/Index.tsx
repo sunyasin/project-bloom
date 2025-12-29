@@ -1,5 +1,4 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -83,12 +82,6 @@ const mockWeekEvents = [
   { id: "10", title: "Встреча с производителями органических продуктов в конференц-зале", date: "07.01", logo: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=50&h=50&fit=crop" },
 ];
 
-const mockFeaturedBusinesses = [
-  { id: "1", name: "Пасека Иванова", category: "Мёд и продукты пчеловодства", image: null },
-  { id: "2", name: "Ферма Петровых", category: "Молочные продукты", image: null },
-  { id: "3", name: "Эко-овощи", category: "Овощи и зелень", image: null },
-  { id: "4", name: "Хлебный дом", category: "Хлебобулочные изделия", image: null },
-];
 
 // Mock categories data
 const mockCategories = [
@@ -191,40 +184,6 @@ const Index = () => {
                   <p className="text-sm text-foreground leading-tight line-clamp-2">
                     {event.title}
                   </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* Featured Businesses / Products */}
-        <section id="products">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Популярные производители</h2>
-            <Link to="/businesses" className="text-sm text-primary hover:underline">
-              Все →
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {mockFeaturedBusinesses.map((business) => (
-              <Link
-                key={business.id}
-                to={`/business/${business.id}`}
-                className="content-card hover:border-primary/30 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <Building2 className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {business.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {business.category}
-                    </p>
-                  </div>
                 </div>
               </Link>
             ))}
