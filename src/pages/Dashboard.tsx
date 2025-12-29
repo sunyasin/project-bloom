@@ -1,6 +1,14 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { User, Tag, Bell, Newspaper, Package, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 
 // Mock user data
@@ -36,6 +44,11 @@ const dashboardLinks = [
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [mainCardId, setMainCardId] = useState<string | null>("1");
+
+  const handleMainCardChange = (cardId: string, checked: boolean) => {
+    setMainCardId(checked ? cardId : null);
+  };
 
   return (
     <MainLayout>
@@ -60,24 +73,43 @@ const Dashboard = () => {
         <div>
           <h2 className="section-title">Мои визитки</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {mockBusinessCards.map((card) => (
-              <button
-                key={card.id}
-                onClick={() => navigate(`/dashboard/business-card/${card.id}`)}
-                className="content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left"
-              >
-                <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
-                  <img
-                    src={card.image}
-                    alt={card.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+            <TooltipProvider>
+              {mockBusinessCards.map((card) => (
+                <div key={card.id} className="flex flex-col">
+                  <button
+                    onClick={() => navigate(`/dashboard/business-card/${card.id}`)}
+                    className={`content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left ${
+                      mainCardId === card.id ? "ring-2 ring-primary border-primary" : ""
+                    }`}
+                  >
+                    <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                      <img
+                        src={card.image}
+                        alt={card.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    <p className="text-sm font-medium text-foreground text-center truncate">
+                      {card.name}
+                    </p>
+                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <label className="flex items-center gap-2 mt-2 cursor-pointer justify-center">
+                        <Checkbox
+                          checked={mainCardId === card.id}
+                          onCheckedChange={(checked) => handleMainCardChange(card.id, checked === true)}
+                        />
+                        <span className="text-xs text-muted-foreground">главная</span>
+                      </label>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Отображать эту визитку в моей карточке</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                <p className="text-sm font-medium text-foreground text-center truncate">
-                  {card.name}
-                </p>
-              </button>
-            ))}
+              ))}
+            </TooltipProvider>
             {/* Create new business card */}
             <button
               onClick={() => navigate("/dashboard/business-card/new")}
