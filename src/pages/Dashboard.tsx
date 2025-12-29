@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Building2, Tag, Settings, FileText, Bell, UserCircle } from "lucide-react";
+import { User, Building2, Tag, Settings, FileText, Bell, UserCircle, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 
 // Mock user data
@@ -9,6 +9,23 @@ const mockUser = {
   role: "client",
   businessCount: 2,
 };
+
+// Mock business cards (визитки)
+const mockBusinessCards = [
+  { id: "1", name: "Фермерское хозяйство", image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop" },
+  { id: "2", name: "Молочная ферма", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop" },
+  { id: "3", name: "Пасека Медовая", image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=200&h=200&fit=crop" },
+];
+
+// Mock products (товары)
+const mockProducts = [
+  { id: "1", name: "Молоко свежее", price: 120, image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop" },
+  { id: "2", name: "Сыр домашний", price: 450, image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop" },
+  { id: "3", name: "Мёд липовый", price: 800, image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop" },
+  { id: "4", name: "Яйца куриные", price: 150, image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop" },
+  { id: "5", name: "Творог", price: 280, image: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=200&h=200&fit=crop" },
+  { id: "6", name: "Сметана", price: 180, image: "https://images.unsplash.com/photo-1628689469838-524a4a973b8e?w=200&h=200&fit=crop" },
+];
 
 const dashboardLinks = [
   { label: "Профиль производителя", href: "/dashboard/profile", icon: UserCircle },
@@ -36,6 +53,57 @@ const Dashboard = () => {
                 Клиент
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Business Cards (Визитки) */}
+        <div>
+          <h2 className="section-title">Мои визитки</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {mockBusinessCards.map((card) => (
+              <Link
+                key={card.id}
+                to={`/business/${card.id}`}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md group p-3"
+              >
+                <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                  <img
+                    src={card.image}
+                    alt={card.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <p className="text-sm font-medium text-foreground text-center truncate">
+                  {card.name}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Products (Товары) */}
+        <div>
+          <h2 className="section-title flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Товары
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {mockProducts.map((product) => (
+              <div
+                key={product.id}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3"
+              >
+                <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+                <p className="text-sm text-primary font-semibold">{product.price} ₽</p>
+              </div>
+            ))}
           </div>
         </div>
 
