@@ -19,18 +19,30 @@ export const Header = () => {
   return (
     <header className="sticky top-0 z-50 h-16 bg-card border-b border-border">
       <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">ДП</span>
-          </div>
-          <span className="font-semibold text-foreground text-lg hidden sm:inline">
-            Долина Производителей
-          </span>
-        </Link>
+        {/* Logo and Navigation */}
+        <div className="flex items-center gap-6">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">ДП</span>
+            </div>
+          </Link>
+          
+          {/* Main Navigation */}
+          <nav className="hidden sm:flex items-center gap-1">
+            <a href="#products" className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
+              Товары/услуги
+            </a>
+            <a href="#events" className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
+              События
+            </a>
+            <a href="#news" className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
+              Новости
+            </a>
+          </nav>
+        </div>
 
         {/* Mobile menu button */}
-        <Button variant="ghost" size="icon" className="lg:hidden">
+        <Button variant="ghost" size="icon" className="sm:hidden">
           <Menu className="h-5 w-5" />
         </Button>
 
