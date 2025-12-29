@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Building2, Tag, Settings, FileText, Bell, UserCircle, Package, Plus } from "lucide-react";
+import { User, Tag, Bell, Newspaper, Package, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 
@@ -29,12 +29,9 @@ const mockProducts = [
 ];
 
 const dashboardLinks = [
-  { label: "Профиль производителя", href: "/dashboard/profile", icon: UserCircle },
-  { label: "Мои производители", href: "/dashboard/businesses", icon: Building2, count: 2 },
-  { label: "Мои акции", href: "/dashboard/promotions", icon: Tag, count: 3 },
-  { label: "Заявки", href: "/dashboard/requests", icon: FileText, count: 1 },
-  { label: "Уведомления", href: "/dashboard/notifications", icon: Bell, count: 5 },
-  { label: "Настройки", href: "/dashboard/settings", icon: Settings },
+  { label: "Акции", href: "/dashboard/promotions", icon: Tag, count: 3 },
+  { label: "Сообщения", href: "/dashboard/messages", icon: Bell, count: 5 },
+  { label: "Новости", href: "/dashboard/news", icon: Newspaper },
 ];
 
 const Dashboard = () => {
@@ -162,13 +159,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Placeholder for activity */}
-        <div className="content-card">
-          <h2 className="section-title">Последняя активность</h2>
-          <p className="text-muted-foreground text-center py-8">
-            Здесь будет отображаться ваша активность
-          </p>
-        </div>
       </div>
     </MainLayout>
   );
