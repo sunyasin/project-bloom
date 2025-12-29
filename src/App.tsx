@@ -15,6 +15,7 @@ import Businesses from "./pages/Businesses";
 import Auth from "./pages/Auth";
 import BusinessPage from "./pages/BusinessPage";
 import Dashboard from "./pages/Dashboard";
+import ProducerProfile from "./pages/ProducerProfile";
 import Admin from "./pages/Admin";
 import Barter from "./pages/Barter";
 import NotFound from "./pages/NotFound";
@@ -44,6 +45,7 @@ const App = () => (
           
           {/* User dashboard */}
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/profile" element={<ProducerProfile />} />
           <Route path="/dashboard/*" element={<Dashboard />} />
           
           {/* Admin panel */}
