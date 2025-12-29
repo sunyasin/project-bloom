@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,22 @@ const mockAPISendOrder = async (order: { products: any[]; phone: string; busines
 };
 
 // Mock business cards (визитки производителя)
-const mockAPIBusinessCards: Record<string, { id: string; name: string; image: string }[]> = {
+interface BusinessCard {
+  id: string;
+  name: string;
+  image: string;
+  description?: string;
+  isMain?: boolean;
+}
+
+const mockAPIBusinessCards: Record<string, BusinessCard[]> = {
   "1": [
-    { id: "bc1", name: "Мёд липовый", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop" },
-    { id: "bc2", name: "Прополис", image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=200&h=200&fit=crop" },
+    { id: "bc1", name: "Мёд липовый", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop", description: "Натуральный липовый мёд с собственной пасеки. Собран в экологически чистом районе Рязанской области.", isMain: true },
+    { id: "bc2", name: "Прополис", image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=200&h=200&fit=crop", description: "Высококачественный прополис для укрепления иммунитета и здоровья." },
   ],
   "2": [
-    { id: "bc3", name: "Молочное хозяйство", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop" },
-    { id: "bc4", name: "Сырная мастерская", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop" },
+    { id: "bc3", name: "Молочное хозяйство", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop", description: "Свежее молоко и молочные продукты от коров пастбищного содержания.", isMain: true },
+    { id: "bc4", name: "Сырная мастерская", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop", description: "Ремесленные сыры по традиционным европейским рецептам." },
   ],
 };
 
@@ -96,6 +104,10 @@ const BusinessPage = () => {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderPhone, setOrderPhone] = useState(mockAPIUserProfile.phone);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Find the main/default card or first one
+  const defaultCard = businessCards.find(c => c.isMain) || businessCards[0];
+  const [selectedCard, setSelectedCard] = useState<BusinessCard | null>(defaultCard || null);
 
   const handleProductSelect = (product: SelectedProduct, selected: boolean) => {
     if (selected) {
@@ -174,10 +186,12 @@ const BusinessPage = () => {
             <h2 className="section-title">Визитки</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {businessCards.map((card) => (
-                <Link
+                <button
                   key={card.id}
-                  to={`/business/${id}`}
-                  className="content-card hover:border-primary/30 transition-all hover:shadow-md group p-3"
+                  onClick={() => setSelectedCard(card)}
+                  className={`content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left ${
+                    selectedCard?.id === card.id ? "ring-2 ring-primary border-primary" : ""
+                  }`}
                 >
                   <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
                     <img
@@ -189,9 +203,30 @@ const BusinessPage = () => {
                   <p className="text-sm font-medium text-foreground text-center truncate">
                     {card.name}
                   </p>
-                </Link>
+                </button>
               ))}
             </div>
+
+            {/* Selected card preview */}
+            {selectedCard && (
+              <div className="content-card mt-4">
+                <div className="flex gap-4">
+                  <div className="w-32 h-32 rounded-lg overflow-hidden bg-muted shrink-0">
+                    <img
+                      src={selectedCard.image}
+                      alt={selectedCard.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-foreground">{selectedCard.name}</h3>
+                    {selectedCard.description && (
+                      <p className="text-sm text-muted-foreground mt-2">{selectedCard.description}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
