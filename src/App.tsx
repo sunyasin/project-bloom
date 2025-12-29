@@ -12,6 +12,7 @@ import Promotions from "./pages/Promotions";
 import Categories from "./pages/Categories";
 import CategoryPage from "./pages/CategoryPage";
 import Businesses from "./pages/Businesses";
+import Auth from "./pages/Auth";
 import BusinessPage from "./pages/BusinessPage";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
@@ -27,6 +28,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Auth */}
+          <Route path="/auth" element={<Auth />} />
+          
           {/* Public routes */}
           <Route path="/" element={<Index />} />
           <Route path="/news" element={<News />} />
