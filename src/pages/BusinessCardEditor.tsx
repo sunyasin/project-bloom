@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -33,8 +35,32 @@ import {
   Quote,
   Upload,
   X,
-  ImagePlus
+  ImagePlus,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// === Mock Categories Data ===
+const mockCategories = [
+  { id: "1", name: "Молочные продукты" },
+  { id: "2", name: "Мясо и птица" },
+  { id: "3", name: "Овощи и фрукты" },
+  { id: "4", name: "Мёд и продукты пчеловодства" },
+  { id: "5", name: "Хлеб и выпечка" },
+  { id: "6", name: "Яйца" },
+  { id: "7", name: "Рыба и морепродукты" },
+  { id: "8", name: "Крупы и злаки" },
+  { id: "9", name: "Напитки" },
+  { id: "10", name: "Консервация" },
+];
+
+// Mock API для получения категорий
+const mockAPIGetCategories = async () => {
+  console.log("[mockAPI] Getting categories");
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  return mockCategories;
+};
 
 // === Mock API functions (заглушки для CRUD операций) ===
 
@@ -45,6 +71,7 @@ const mockAPIBusinessCardsDB: Record<string, BusinessCardData> = {
     title: "Фермерское хозяйство",
     description: "Экологически чистые продукты с нашей фермы. Работаем с 2010 года.",
     image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&h=400&fit=crop",
+    categoryId: "3",
     content: `<h2>О нашем хозяйстве</h2>
 <p>Мы — семейная ферма, расположенная в экологически чистом районе Подмосковья. Наша миссия — обеспечить вас свежими, натуральными продуктами без химических добавок.</p>
 <h3>Наша продукция</h3>
@@ -60,6 +87,7 @@ const mockAPIBusinessCardsDB: Record<string, BusinessCardData> = {
     title: "Молочная ферма",
     description: "Свежие молочные продукты каждый день",
     image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&h=400&fit=crop",
+    categoryId: "1",
     content: `<h2>Молочная ферма «Буренка»</h2>
 <p>Мы производим натуральные молочные продукты высочайшего качества.</p>
 <ul>
@@ -75,6 +103,7 @@ const mockAPIBusinessCardsDB: Record<string, BusinessCardData> = {
     title: "Пасека Медовая",
     description: "Натуральный мёд с собственной пасеки",
     image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&h=400&fit=crop",
+    categoryId: "4",
     content: `<h2>Пасека «Медовая»</h2>
 <p>Мы занимаемся пчеловодством более 20 лет. Наш мёд — это 100% натуральный продукт.</p>
 <h3>Виды мёда:</h3>
@@ -156,6 +185,7 @@ interface BusinessCardData {
   description: string;
   image: string;
   content: string;
+  categoryId: string;
 }
 
 // Toolbar Button Component
@@ -193,12 +223,24 @@ const BusinessCardEditor = () => {
     description: "",
     image: "",
     content: "",
+    categoryId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(!isNew);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categories, setCategories] = useState<typeof mockCategories>([]);
+
+  // Загрузка категорий
+  useEffect(() => {
+    const loadCategories = async () => {
+      const data = await mockAPIGetCategories();
+      setCategories(data);
+    };
+    loadCategories();
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -461,6 +503,53 @@ const BusinessCardEditor = () => {
               onChange={(e) => updateField("title", e.target.value)}
               placeholder="Название визитки"
             />
+          </div>
+
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Категория</label>
+            <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={categoryOpen}
+                  className="w-full justify-between"
+                >
+                  {cardData.categoryId
+                    ? categories.find((cat) => cat.id === cardData.categoryId)?.name
+                    : "Выберите категорию..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Поиск категории..." />
+                  <CommandList>
+                    <CommandEmpty>Категория не найдена.</CommandEmpty>
+                    <CommandGroup>
+                      {categories.map((category) => (
+                        <CommandItem
+                          key={category.id}
+                          value={category.name}
+                          onSelect={() => {
+                            updateField("categoryId", category.id);
+                            setCategoryOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              cardData.categoryId === category.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {category.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div>
