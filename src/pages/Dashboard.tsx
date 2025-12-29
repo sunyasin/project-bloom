@@ -1,7 +1,7 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Tag, Bell, Newspaper, Package, Plus } from "lucide-react";
+import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef, DragEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -9,7 +9,68 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
+// ============= Mock API functions =============
+
+// Имитация данных профиля клиента
+const mockProfileData = {
+  id: "1",
+  name: "Иван Петров",
+  email: "ivan@example.com",
+  phone: "+7 (999) 123-45-67",
+  address: "Московская область, г. Коломна, ул. Фермерская, д. 15",
+  coordinates: { lat: "55.079201", lng: "38.778389" },
+  avatar: "",
+  telegram: "@ivan_petrov",
+  vk: "https://vk.com/ivan_petrov",
+  instagram: "",
+};
+
+// Имитация получения профиля (GET /api/profile/:id)
+const mockAPIGetProfile = async (id: string) => {
+  console.log(`[mockAPI] GET /api/profile/${id}`);
+  return { ...mockProfileData };
+};
+
+// Имитация сохранения профиля (PUT /api/profile/:id)
+const mockAPISaveProfile = async (id: string, data: typeof mockProfileData) => {
+  console.log(`[mockAPI] PUT /api/profile/${id}`, data);
+  return { success: true, data };
+};
+
+// Имитация загрузки аватара (POST /api/profile/:id/avatar)
+const mockAPIUploadAvatar = async (id: string, file: File) => {
+  console.log(`[mockAPI] POST /api/profile/${id}/avatar`, { fileName: file.name, size: file.size });
+  // Возвращаем локальный URL для превью
+  return { success: true, url: URL.createObjectURL(file) };
+};
+
+// Валидация изображения
+const mockAPIValidateImage = (file: File) => {
+  const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  
+  if (!validTypes.includes(file.type)) {
+    return { valid: false, error: "Допустимые форматы: JPEG, PNG, WebP, GIF" };
+  }
+  if (file.size > maxSize) {
+    return { valid: false, error: "Максимальный размер файла: 5MB" };
+  }
+  return { valid: true, error: null };
+};
+
+// ============= End Mock API =============
 
 // Mock user data
 const mockUser = {
@@ -42,12 +103,121 @@ const dashboardLinks = [
   { label: "Новости", href: "/dashboard/news", icon: Newspaper },
 ];
 
+interface ProfileFormData {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  lat: string;
+  lng: string;
+  avatar: string;
+  telegram: string;
+  vk: string;
+  instagram: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [mainCardId, setMainCardId] = useState<string | null>("1");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [formData, setFormData] = useState<ProfileFormData>({
+    name: mockProfileData.name,
+    email: mockProfileData.email,
+    phone: mockProfileData.phone,
+    address: mockProfileData.address,
+    lat: mockProfileData.coordinates.lat,
+    lng: mockProfileData.coordinates.lng,
+    avatar: mockProfileData.avatar,
+    telegram: mockProfileData.telegram,
+    vk: mockProfileData.vk,
+    instagram: mockProfileData.instagram,
+  });
 
   const handleMainCardChange = (cardId: string, checked: boolean) => {
     setMainCardId(checked ? cardId : null);
+  };
+
+  const handleOpenEditDialog = async () => {
+    // Загружаем данные профиля при открытии диалога
+    const profile = await mockAPIGetProfile("1");
+    setFormData({
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      address: profile.address,
+      lat: profile.coordinates.lat,
+      lng: profile.coordinates.lng,
+      avatar: profile.avatar,
+      telegram: profile.telegram,
+      vk: profile.vk,
+      instagram: profile.instagram,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    const profileData = {
+      id: "1",
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      address: formData.address,
+      coordinates: { lat: formData.lat, lng: formData.lng },
+      avatar: formData.avatar,
+      telegram: formData.telegram,
+      vk: formData.vk,
+      instagram: formData.instagram,
+    };
+    await mockAPISaveProfile("1", profileData);
+    setIsEditDialogOpen(false);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setUploadError(null);
+    const validation = mockAPIValidateImage(file);
+    if (!validation.valid) {
+      setUploadError(validation.error);
+      return;
+    }
+    
+    const result = await mockAPIUploadAvatar("1", file);
+    if (result.success) {
+      setFormData(prev => ({ ...prev, avatar: result.url }));
+    }
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setFormData(prev => ({ ...prev, avatar: "" }));
   };
 
   return (
@@ -56,18 +226,190 @@ const Dashboard = () => {
         {/* User Header */}
         <div className="content-card">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-8 w-8 text-primary" />
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+              {formData.avatar ? (
+                <img src={formData.avatar} alt={formData.name} className="w-full h-full object-cover" />
+              ) : (
+                <User className="h-8 w-8 text-primary" />
+              )}
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{mockUser.name}</h1>
-              <p className="text-muted-foreground">{mockUser.email}</p>
+            <div className="flex-1">
+              <h1 className="text-xl font-bold text-foreground">{formData.name}</h1>
+              <p className="text-muted-foreground">{formData.email}</p>
               <span className="inline-block mt-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
                 Клиент
               </span>
             </div>
+            <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
+              <Pencil className="h-4 w-4 mr-1" />
+              Редактировать
+            </Button>
           </div>
         </div>
+
+        {/* Edit Profile Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Редактирование профиля</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Avatar Upload Zone */}
+              <div className="space-y-2">
+                <Label>Логотип / Аватар</Label>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                    isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {formData.avatar ? (
+                    <div className="relative inline-block">
+                      <img src={formData.avatar} alt="Avatar" className="w-24 h-24 rounded-full object-cover mx-auto" />
+                      <button
+                        type="button"
+                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveAvatar(); }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Перетащите изображение или нажмите для выбора
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        JPEG, PNG, WebP, GIF до 5MB
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleFileInputChange}
+                  />
+                </div>
+                {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+              </div>
+
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Имя</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Телефон</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+7 (999) 123-45-67"
+                />
+              </div>
+
+              {/* Address & Coordinates */}
+              <div className="space-y-2">
+                <Label htmlFor="address">Адрес</Label>
+                <Textarea
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Полный адрес"
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="lat" className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> Широта
+                  </Label>
+                  <Input
+                    id="lat"
+                    value={formData.lat}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lat: e.target.value }))}
+                    placeholder="55.123456"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lng" className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> Долгота
+                  </Label>
+                  <Input
+                    id="lng"
+                    value={formData.lng}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lng: e.target.value }))}
+                    placeholder="38.123456"
+                  />
+                </div>
+              </div>
+
+              {/* Social Networks */}
+              <div className="space-y-2">
+                <Label>Социальные сети</Label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground w-20">Telegram</span>
+                    <Input
+                      value={formData.telegram}
+                      onChange={(e) => setFormData(prev => ({ ...prev, telegram: e.target.value }))}
+                      placeholder="@username"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground w-20">VK</span>
+                    <Input
+                      value={formData.vk}
+                      onChange={(e) => setFormData(prev => ({ ...prev, vk: e.target.value }))}
+                      placeholder="https://vk.com/..."
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground w-20">Instagram</span>
+                    <Input
+                      value={formData.instagram}
+                      onChange={(e) => setFormData(prev => ({ ...prev, instagram: e.target.value }))}
+                      placeholder="@username"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Отмена
+              </Button>
+              <Button onClick={handleSaveProfile}>
+                Сохранить
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Business Cards (Визитки) */}
         <div>
