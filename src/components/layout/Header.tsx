@@ -35,7 +35,7 @@ export const Header = () => {
         </Button>
 
         {/* Right actions */}
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon">
             <Bell className="h-5 w-5 text-muted-foreground" />
           </Button>
