@@ -1,8 +1,21 @@
 import { Link } from "react-router-dom";
-import { Menu, User, Bell } from "lucide-react";
+import { Menu, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+// Заглушка: имитация залогиненного пользователя-производителя
+const mockCurrentUser = {
+  id: "1",
+  name: "Иван Фермер",
+  email: "ivan@farm.ru",
+  role: "client" as const,
+  isProducer: true,
+  avatar: "",
+};
 
 export const Header = () => {
+  const isLoggedIn = true; // Имитация авторизации
+
   return (
     <header className="sticky top-0 z-50 h-16 bg-card border-b border-border">
       <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between">
@@ -26,16 +39,27 @@ export const Header = () => {
           <Button variant="ghost" size="icon">
             <Bell className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <Link to="/dashboard">
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5 text-muted-foreground" />
-            </Button>
-          </Link>
-          <Link to="/auth">
-            <Button variant="default" size="sm">
-              Войти
-            </Button>
-          </Link>
+          
+          {isLoggedIn ? (
+            <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <Avatar className="h-8 w-8 border border-border">
+                <AvatarImage src={mockCurrentUser.avatar} alt={mockCurrentUser.name} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {mockCurrentUser.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium text-foreground hidden xl:inline">
+                {mockCurrentUser.name}
+              </span>
+            </Link>
+          ) : (
+            <Link to="/auth">
+              <Button variant="default" size="sm">
+                Войти
+              </Button>
+            </Link>
+          )}
+          
           <Link to="/admin">
             <Button variant="outline" size="sm">
               Админка
