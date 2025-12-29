@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Building2, Tag, Settings, FileText, Bell } from "lucide-react";
+import { User, Building2, Tag, Settings, FileText, Bell, UserCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 // Mock user data
@@ -11,6 +11,7 @@ const mockUser = {
 };
 
 const dashboardLinks = [
+  { label: "Профиль производителя", href: "/dashboard/profile", icon: UserCircle },
   { label: "Мои производители", href: "/dashboard/businesses", icon: Building2, count: 2 },
   { label: "Мои акции", href: "/dashboard/promotions", icon: Tag, count: 3 },
   { label: "Заявки", href: "/dashboard/requests", icon: FileText, count: 1 },
