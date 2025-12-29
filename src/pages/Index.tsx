@@ -157,29 +157,26 @@ const Index = () => {
             </Link>
           </div>
           
-          <div className="overflow-x-auto">
-            <div className="flex gap-3" style={{ minWidth: "max-content" }}>
-              {mockWeekEvents.map((event) => (
-                <Link
-                  key={event.id}
-                  to={`/events/${event.id}`}
-                  className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
-                  style={{ width: "280px", flexShrink: 0 }}
-                >
-                  <img
-                    src={event.logo}
-                    alt=""
-                    className="w-10 h-10 rounded-md object-cover shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground mb-1">{event.date}</p>
-                    <p className="text-sm text-foreground leading-tight line-clamp-2">
-                      {event.title}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {mockWeekEvents.map((event) => (
+              <Link
+                key={event.id}
+                to={`/events/${event.id}`}
+                className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
+              >
+                <img
+                  src={event.logo}
+                  alt=""
+                  className="w-10 h-10 rounded-md object-cover shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground mb-1">{event.date}</p>
+                  <p className="text-sm text-foreground leading-tight line-clamp-2">
+                    {event.title}
+                  </p>
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
 
