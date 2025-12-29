@@ -102,21 +102,32 @@ const Dashboard = () => {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {mockProducts.map((product) => (
-              <div
+              <button
                 key={product.id}
-                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3"
+                onClick={() => navigate(`/dashboard/product/${product.id}`)}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 text-left group"
               >
                 <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
                 <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
                 <p className="text-sm text-primary font-semibold">{product.price} ₽</p>
-              </div>
+              </button>
             ))}
+            {/* Create new product */}
+            <button
+              onClick={() => navigate("/dashboard/product/new")}
+              className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <Plus className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Создать</p>
+            </button>
           </div>
         </div>
 
