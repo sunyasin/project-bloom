@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Calendar, Newspaper, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+
 
 // Mock promotions data
 const mockPromotions = [
@@ -69,11 +69,18 @@ const mockPromotions = [
   },
 ];
 
-// Mock data
-const mockStats = [
-  { label: "Производителей", value: "156", icon: Building2, href: "/businesses" },
-  { label: "Событий", value: "12", icon: Calendar, href: "/events" },
-  { label: "Новостей", value: "89", icon: Newspaper, href: "/news" },
+// Mock events data
+const mockWeekEvents = [
+  { id: "1", title: "Ярмарка выходного дня в центре города с участием местных производителей", date: "28.12", logo: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=50&h=50&fit=crop" },
+  { id: "2", title: "Мастер-класс по сыроварению от Сырной лавки для всех желающих", date: "29.12", logo: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=50&h=50&fit=crop" },
+  { id: "3", title: "Дегустация новых сортов мёда на Пасеке Иванова", date: "30.12", logo: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=50&h=50&fit=crop" },
+  { id: "4", title: "Новогодняя распродажа на Ферме Петровых со скидками до 50%", date: "31.12", logo: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=50&h=50&fit=crop" },
+  { id: "5", title: "Открытие нового магазина Эко-овощей в районе старого города", date: "02.01", logo: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=50&h=50&fit=crop" },
+  { id: "6", title: "Кулинарный фестиваль с участием лучших производителей региона", date: "03.01", logo: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=50&h=50&fit=crop" },
+  { id: "7", title: "Экскурсия на птицеферму Солнечная для школьников и взрослых", date: "04.01", logo: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=50&h=50&fit=crop" },
+  { id: "8", title: "Зимний фермерский рынок под открытым небом с горячим чаем", date: "05.01", logo: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=50&h=50&fit=crop" },
+  { id: "9", title: "Презентация новой линейки хлеба в Хлебном доме с дегустацией", date: "06.01", logo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=50&h=50&fit=crop" },
+  { id: "10", title: "Встреча с производителями органических продуктов в конференц-зале", date: "07.01", logo: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=50&h=50&fit=crop" },
 ];
 
 const mockFeaturedBusinesses = [
@@ -141,32 +148,43 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-4">
-          {mockStats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Link
-                key={stat.label}
-                to={stat.href}
-                className="content-card hover:border-primary/30 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-primary" />
+        {/* Events of the Week */}
+        <section id="events">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title mb-0">События недели</h2>
+            <Link to="/events" className="text-sm text-primary hover:underline whitespace-nowrap">
+              Все →
+            </Link>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <div className="flex gap-3" style={{ minWidth: "max-content" }}>
+              {mockWeekEvents.map((event) => (
+                <Link
+                  key={event.id}
+                  to={`/events/${event.id}`}
+                  className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
+                  style={{ width: "280px", flexShrink: 0 }}
+                >
+                  <img
+                    src={event.logo}
+                    alt=""
+                    className="w-10 h-10 rounded-md object-cover shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">{event.date}</p>
+                    <p className="text-sm text-foreground leading-tight line-clamp-2">
+                      {event.title}
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        {/* Featured Businesses */}
-        <section>
+        {/* Featured Businesses / Products */}
+        <section id="products">
           <div className="flex items-center justify-between mb-4">
             <h2 className="section-title mb-0">Популярные производители</h2>
             <Link to="/businesses" className="text-sm text-primary hover:underline">
@@ -200,7 +218,7 @@ const Index = () => {
         </section>
 
         {/* Latest News Preview */}
-        <section>
+        <section id="news">
           <div className="flex items-center justify-between mb-4">
             <h2 className="section-title mb-0">Последние новости</h2>
             <Link to="/news" className="text-sm text-primary hover:underline">
