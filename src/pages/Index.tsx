@@ -90,6 +90,23 @@ const mockFeaturedBusinesses = [
   { id: "4", name: "Хлебный дом", category: "Хлебобулочные изделия", image: null },
 ];
 
+// Mock categories data
+const mockCategories = [
+  { id: "1", name: "Выпечка", image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop" },
+  { id: "2", name: "Колбасы", image: "https://images.unsplash.com/photo-1558030006-450675393462?w=200&h=200&fit=crop" },
+  { id: "3", name: "Консервы", image: "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200&h=200&fit=crop" },
+  { id: "4", name: "Крупы", image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&h=200&fit=crop" },
+  { id: "5", name: "Молочные продукты", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop" },
+  { id: "6", name: "Мёд", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop" },
+  { id: "7", name: "Мясо", image: "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200&h=200&fit=crop" },
+  { id: "8", name: "Овощи", image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&h=200&fit=crop" },
+  { id: "9", name: "Птица", image: "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200&h=200&fit=crop" },
+  { id: "10", name: "Рыба", image: "https://images.unsplash.com/photo-1544943910-4c1dc44aab44?w=200&h=200&fit=crop" },
+  { id: "11", name: "Сыры", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop" },
+  { id: "12", name: "Фрукты", image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=200&h=200&fit=crop" },
+  { id: "13", name: "Яйца", image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop" },
+].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
 const Index = () => {
   const [selectedPromotion, setSelectedPromotion] = useState<typeof mockPromotions[0] | null>(null);
 
@@ -209,6 +226,37 @@ const Index = () => {
                     </p>
                   </div>
                 </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Categories */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title mb-0">Категории</h2>
+            <Link to="/categories" className="text-sm text-primary hover:underline">
+              Все →
+            </Link>
+          </div>
+          
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
+            {mockCategories.map((category) => (
+              <Link
+                key={category.id}
+                to={`/category/${category.id}`}
+                className="flex flex-col items-center p-2 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors group"
+              >
+                <div className="w-full aspect-square rounded-md overflow-hidden mb-2">
+                  <img
+                    src={category.image}
+                    alt={category.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <p className="text-xs text-foreground text-center truncate w-full">
+                  {category.name}
+                </p>
               </Link>
             ))}
           </div>
