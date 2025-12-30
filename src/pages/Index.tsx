@@ -1,6 +1,7 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { Mail } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
@@ -13,7 +14,30 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+
+// ============= Mock API для подписки на новости =============
+
+// Данные текущего пользователя
+const mockAPICurrentUser = {
+  id: "1",
+  email: "ivan@example.com",
+};
+
+// Имитация подписки на новости (POST /api/newsletter/subscribe)
+const mockAPISubscribeNewsletter = async (email: string) => {
+  console.log(`[mockAPI] POST /api/newsletter/subscribe`, { email });
+  // Имитация задержки сети
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { success: true, message: "Подписка оформлена" };
+};
+
+// ============= End Mock API =============
 
 
 // Mock promotions data
@@ -136,6 +160,10 @@ const mockAPIProducerNews = [
 
 const Index = () => {
   const [selectedPromotion, setSelectedPromotion] = useState<typeof mockPromotions[0] | null>(null);
+  const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
+  const [subscribeEmail, setSubscribeEmail] = useState(mockAPICurrentUser.email);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const { toast } = useToast();
 
   return (
     <MainLayout>
@@ -305,6 +333,18 @@ const Index = () => {
             </div>
           </div>
         </section>
+
+        {/* Newsletter Subscribe Button */}
+        <div className="flex justify-center">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsSubscribeDialogOpen(true)}
+            className="gap-2"
+          >
+            <Mail className="h-4 w-4" />
+            Подписка на новости
+          </Button>
+        </div>
       </div>
 
       {/* Promotion Details Dialog */}
@@ -331,6 +371,59 @@ const Index = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Newsletter Subscribe Dialog */}
+      <Dialog open={isSubscribeDialogOpen} onOpenChange={setIsSubscribeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Подписка на новости</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Подпишитесь на рассылку и получайте новости долины и производителей на вашу почту.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="subscribe-email">Email</Label>
+              <Input
+                id="subscribe-email"
+                type="email"
+                value={subscribeEmail}
+                onChange={(e) => setSubscribeEmail(e.target.value)}
+                placeholder="your@email.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSubscribeDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button 
+              onClick={async () => {
+                setIsSubscribing(true);
+                try {
+                  await mockAPISubscribeNewsletter(subscribeEmail);
+                  toast({
+                    title: "Успешно!",
+                    description: "Вы подписаны на новости",
+                  });
+                  setIsSubscribeDialogOpen(false);
+                } catch (error) {
+                  toast({
+                    title: "Ошибка",
+                    description: "Не удалось оформить подписку",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsSubscribing(false);
+                }
+              }}
+              disabled={isSubscribing || !subscribeEmail}
+            >
+              {isSubscribing ? "Подписка..." : "Подписаться"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </MainLayout>
