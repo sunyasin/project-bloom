@@ -1,7 +1,8 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent, Trash2, Calendar } from "lucide-react";
+import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent, Trash2, Calendar, MessageCircle, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, DragEvent } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -189,6 +190,98 @@ const mockAPIDeleteNews = async (id: string) => {
 
 // ============= End Mock API для новостей =============
 
+// ============= Mock API для сообщений =============
+
+// Данные сообщений
+interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  subject: string;
+  preview: string;
+  fullText: string;
+  date: string;
+  isRead: boolean;
+}
+
+const mockMessages: Message[] = [
+  { 
+    id: "1", 
+    senderId: "u1", 
+    senderName: "Ферма Петровых", 
+    subject: "Ваш заказ готов",
+    preview: "Здравствуйте! Ваш заказ на молочные продукты готов к выдаче...",
+    fullText: "Здравствуйте! Ваш заказ на молочные продукты готов к выдаче. Можете забрать его в любое удобное время с 9:00 до 18:00. Адрес: д. Молоково, ул. Фермерская 5. С уважением, Ферма Петровых.",
+    date: "2024-12-28",
+    isRead: false
+  },
+  { 
+    id: "2", 
+    senderId: "u2", 
+    senderName: "Пасека Иванова", 
+    subject: "Новая акция на мёд",
+    preview: "Рады сообщить о новой акции! Скидка 25% на весь ассортимент...",
+    fullText: "Рады сообщить о новой акции! Скидка 25% на весь ассортимент мёда до конца января. Липовый, гречишный, цветочный мёд - всё со скидкой. Также в подарок при покупке от 2кг - баночка прополиса. Ждём вас!",
+    date: "2024-12-27",
+    isRead: false
+  },
+  { 
+    id: "3", 
+    senderId: "u3", 
+    senderName: "Администрация портала", 
+    subject: "Добро пожаловать!",
+    preview: "Благодарим за регистрацию на нашем портале...",
+    fullText: "Благодарим за регистрацию на нашем портале! Теперь вам доступны все функции: заказ продуктов напрямую у производителей, подписка на новости, участие в акциях и многое другое. Если у вас возникнут вопросы - пишите нам.",
+    date: "2024-12-25",
+    isRead: true
+  },
+  { 
+    id: "4", 
+    senderId: "u4", 
+    senderName: "Сырная лавка", 
+    subject: "Ответ на ваш вопрос",
+    preview: "Да, у нас есть сыр с трюфелем в наличии...",
+    fullText: "Да, у нас есть сыр с трюфелем в наличии. Стоимость 1800₽ за кг. Можем доставить в Коломну в ближайшую субботу. Напишите, если хотите оформить заказ.",
+    date: "2024-12-24",
+    isRead: true
+  },
+  { 
+    id: "5", 
+    senderId: "u5", 
+    senderName: "Эко-овощи", 
+    subject: "Сезонные овощи",
+    preview: "Поступила свежая партия зимних овощей...",
+    fullText: "Поступила свежая партия зимних овощей: морковь, свёкла, капуста, картофель. Всё выращено без химикатов. Цены ниже рыночных на 20%. Доставка по области бесплатно от 1000₽.",
+    date: "2024-12-23",
+    isRead: false
+  },
+];
+
+// Имитация получения списка сообщений (GET /api/messages)
+const mockAPIGetMessages = async () => {
+  console.log("[mockAPI] GET /api/messages");
+  return [...mockMessages];
+};
+
+// Имитация отправки ответа (POST /api/messages/:id/reply)
+const mockAPISendReply = async (messageId: string, text: string) => {
+  console.log(`[mockAPI] POST /api/messages/${messageId}/reply`, { text });
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { success: true };
+};
+
+// Имитация отметки сообщения как прочитанного (PUT /api/messages/:id/read)
+const mockAPIMarkAsRead = async (messageId: string) => {
+  console.log(`[mockAPI] PUT /api/messages/${messageId}/read`);
+  return { success: true };
+};
+
+// Подсчёт непрочитанных сообщений
+const getUnreadCount = () => mockMessages.filter(m => !m.isRead).length;
+
+// ============= End Mock API для сообщений =============
+
 const dashboardLinks = [
   { label: "Акции", href: "/dashboard/promotions", icon: Tag, count: 3 },
   { label: "Сообщения", href: "/dashboard/messages", icon: Bell, count: 5 },
@@ -241,6 +334,13 @@ const Dashboard = () => {
     date: "",
     isEvent: false,
   });
+  
+  // Messages state
+  const [isMessagesDialogOpen, setIsMessagesDialogOpen] = useState(false);
+  const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const { toast } = useToast();
   
   const [formData, setFormData] = useState<ProfileFormData>({
     name: mockProfileData.name,
@@ -445,6 +545,43 @@ const Dashboard = () => {
 
   const displayedNews = showAllNews ? mockNews : mockNews.slice(0, 5);
 
+  // ============= Messages handlers =============
+  
+  const handleToggleMessage = async (messageId: string) => {
+    if (expandedMessageId === messageId) {
+      setExpandedMessageId(null);
+    } else {
+      setExpandedMessageId(messageId);
+      // Отмечаем как прочитанное при раскрытии
+      await mockAPIMarkAsRead(messageId);
+    }
+  };
+
+  const handleSendReply = async (messageId: string) => {
+    const text = replyText[messageId];
+    if (!text?.trim()) return;
+    
+    setIsSendingReply(true);
+    try {
+      await mockAPISendReply(messageId, text);
+      toast({
+        title: "Ответ отправлен",
+        description: "Ваше сообщение успешно отправлено",
+      });
+      setReplyText(prev => ({ ...prev, [messageId]: "" }));
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отправить сообщение",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
+  const unreadCount = getUnreadCount();
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -465,10 +602,21 @@ const Dashboard = () => {
                 Клиент
               </span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
-              <Pencil className="h-4 w-4 mr-1" />
-              Редактировать
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsMessagesDialogOpen(true)}>
+                <MessageCircle className="h-4 w-4 mr-1" />
+                Сообщения
+                {unreadCount > 0 && (
+                  <span className="ml-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
+                <Pencil className="h-4 w-4 mr-1" />
+                Редактировать
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1060,6 +1208,105 @@ const Dashboard = () => {
         </div>
 
       </div>
+
+      {/* Messages Dialog */}
+      <Dialog open={isMessagesDialogOpen} onOpenChange={setIsMessagesDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5" />
+              Сообщения
+              {unreadCount > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({unreadCount} непрочитанных)
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            {mockMessages.map((message) => {
+              const isExpanded = expandedMessageId === message.id;
+              return (
+                <div
+                  key={message.id}
+                  className={`border rounded-lg transition-colors ${
+                    !message.isRead ? "bg-primary/5 border-primary/20" : "border-border"
+                  }`}
+                >
+                  {/* Message header - clickable */}
+                  <button
+                    onClick={() => handleToggleMessage(message.id)}
+                    className="w-full p-3 text-left flex items-start gap-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground truncate">
+                          {message.senderName}
+                        </span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {message.date}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground mt-0.5">
+                        {message.subject}
+                      </p>
+                      {!isExpanded && (
+                        <p className="text-sm text-muted-foreground truncate mt-1">
+                          {message.preview}
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    {!message.isRead && (
+                      <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
+                    )}
+                  </button>
+                  
+                  {/* Expanded content */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-0 border-t border-border">
+                      <p className="text-sm text-foreground py-3 whitespace-pre-wrap">
+                        {message.fullText}
+                      </p>
+                      
+                      {/* Reply section */}
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          placeholder="Написать ответ..."
+                          value={replyText[message.id] || ""}
+                          onChange={(e) => setReplyText(prev => ({ 
+                            ...prev, 
+                            [message.id]: e.target.value 
+                          }))}
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleSendReply(message.id)}
+                          disabled={isSendingReply || !replyText[message.id]?.trim()}
+                        >
+                          <Send className="h-4 w-4 mr-1" />
+                          Отправить
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
