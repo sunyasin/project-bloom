@@ -29,7 +29,8 @@ const mockProfileData = {
   name: "Иван Петров",
   email: "ivan@example.com",
   phone: "+7 (999) 123-45-67",
-  address: "Московская область, г. Коломна, ул. Фермерская, д. 15",
+  city: "Коломна",
+  address: "ул. Фермерская, д. 15",
   coordinates: { lat: "55.079201", lng: "38.778389" },
   avatar: "",
   telegram: "@ivan_petrov",
@@ -198,6 +199,7 @@ interface ProfileFormData {
   name: string;
   email: string;
   phone: string;
+  city: string;
   address: string;
   lat: string;
   lng: string;
@@ -244,6 +246,7 @@ const Dashboard = () => {
     name: mockProfileData.name,
     email: mockProfileData.email,
     phone: mockProfileData.phone,
+    city: mockProfileData.city,
     address: mockProfileData.address,
     lat: mockProfileData.coordinates.lat,
     lng: mockProfileData.coordinates.lng,
@@ -264,6 +267,7 @@ const Dashboard = () => {
       name: profile.name,
       email: profile.email,
       phone: profile.phone,
+      city: profile.city,
       address: profile.address,
       lat: profile.coordinates.lat,
       lng: profile.coordinates.lng,
@@ -281,6 +285,7 @@ const Dashboard = () => {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
+      city: formData.city,
       address: formData.address,
       coordinates: { lat: formData.lat, lng: formData.lng },
       avatar: formData.avatar,
@@ -551,14 +556,24 @@ const Dashboard = () => {
                 />
               </div>
 
-              {/* Address & Coordinates */}
+              {/* City & Address */}
+              <div className="space-y-2">
+                <Label htmlFor="city">Город / село</Label>
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="Коломна"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="address">Адрес</Label>
                 <Textarea
                   id="address"
                   value={formData.address}
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="Полный адрес"
+                  placeholder="ул. Фермерская, д. 15"
                   rows={2}
                 />
               </div>
