@@ -1,17 +1,30 @@
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart } from "lucide-react";
+import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
 // Mock user profile
 const mockAPIUserProfile = {
   phone: "+7 (999) 123-45-67",
+  email: "ivan@example.com",
 };
+
+// ============= Mock API для подписки на новости производителя =============
+
+// Имитация подписки на новости производителя (POST /api/producers/:id/subscribe)
+const mockAPISubscribeProducer = async (producerId: string, email: string) => {
+  console.log(`[mockAPI] POST /api/producers/${producerId}/subscribe`, { email });
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { success: true, message: "Подписка на новости производителя оформлена" };
+};
+
+// ============= End Mock API =============
 
 // Mock order API
 const mockAPISendOrder = async (order: { products: any[]; phone: string; businessId: string }) => {
@@ -104,6 +117,11 @@ const BusinessPage = () => {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderPhone, setOrderPhone] = useState(mockAPIUserProfile.phone);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Subscribe to producer news state
+  const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
+  const [subscribeEmail, setSubscribeEmail] = useState(mockAPIUserProfile.email);
+  const [isSubscribing, setIsSubscribing] = useState(false);
 
   // Find the main/default card or first one
   const defaultCard = businessCards.find(c => c.isMain) || businessCards[0];
@@ -142,6 +160,26 @@ const BusinessPage = () => {
     }
   };
 
+  const handleSubscribe = async () => {
+    setIsSubscribing(true);
+    try {
+      await mockAPISubscribeProducer(id || "1", subscribeEmail);
+      toast({
+        title: "Успешно!",
+        description: `Вы подписаны на новости ${business.name}`,
+      });
+      setIsSubscribeDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось оформить подписку",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
   if (!business) {
     return (
       <MainLayout>
@@ -170,7 +208,13 @@ const BusinessPage = () => {
                 {business.location}
               </div>
             </div>
-            <Button className="shrink-0">Связаться</Button>
+            <div className="flex gap-2 shrink-0">
+              <Button variant="outline" onClick={() => setIsSubscribeDialogOpen(true)}>
+                <Bell className="h-4 w-4 mr-1" />
+                Подписка
+              </Button>
+              <Button>Связаться</Button>
+            </div>
           </div>
         </div>
 
@@ -385,6 +429,41 @@ const BusinessPage = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Subscribe to Producer News Dialog */}
+      <Dialog open={isSubscribeDialogOpen} onOpenChange={setIsSubscribeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Подписка на новости</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Подпишитесь на новости производителя «{business.name}» и получайте уведомления о новых товарах и акциях.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="producer-subscribe-email">Email</Label>
+              <Input
+                id="producer-subscribe-email"
+                type="email"
+                value={subscribeEmail}
+                onChange={(e) => setSubscribeEmail(e.target.value)}
+                placeholder="your@email.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSubscribeDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button 
+              onClick={handleSubscribe}
+              disabled={isSubscribing || !subscribeEmail}
+            >
+              {isSubscribing ? "Подписка..." : "Подписаться"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </MainLayout>
