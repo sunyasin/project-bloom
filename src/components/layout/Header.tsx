@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
-import { Menu, Bell } from "lucide-react";
+import { Bell, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Заглушка: имитация залогиненного пользователя-производителя
 const mockCurrentUser = {
@@ -13,38 +20,63 @@ const mockCurrentUser = {
   avatar: "",
 };
 
+// Пункты главного меню
+const mainMenuItems = [
+  { label: "Категории", href: "/categories" },
+  { label: "Производители", href: "/businesses" },
+  { label: "Акции", href: "/promotions" },
+  { label: "События", href: "/events" },
+  { label: "Новости", href: "/news" },
+  { label: "Бартерон", href: "/barter" },
+];
+
 export const Header = () => {
   const isLoggedIn = true; // Имитация авторизации
 
   return (
     <header className="sticky top-0 z-50 h-16 bg-card border-b border-border">
       <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between">
-        {/* Logo and Navigation */}
+        {/* Logo with Dropdown Menu */}
         <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">ДП</span>
-            </div>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none">
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold text-sm">ДП</span>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 bg-background border border-border shadow-lg z-50">
+              <DropdownMenuItem asChild>
+                <Link to="/" className="w-full cursor-pointer">
+                  Главная
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {mainMenuItems.map((item) => (
+                <DropdownMenuItem key={item.href} asChild>
+                  <Link to={item.href} className="w-full cursor-pointer">
+                    {item.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           
-          {/* Main Navigation */}
-          <nav className="hidden sm:flex items-center gap-1">
-            <a href="#products" className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Товары/услуги
-            </a>
-            <a href="#events" className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
-              События
-            </a>
-            <a href="#news" className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Новости
-            </a>
+          {/* Main Navigation - duplicated in header */}
+          <nav className="hidden md:flex items-center gap-1">
+            {mainMenuItems.map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
-
-        {/* Mobile menu button */}
-        <Button variant="ghost" size="icon" className="sm:hidden">
-          <Menu className="h-5 w-5" />
-        </Button>
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
