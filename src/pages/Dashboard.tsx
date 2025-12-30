@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin } from "lucide-react";
+import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, DragEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -97,6 +97,50 @@ const mockProducts = [
   { id: "6", name: "Сметана", price: 180, image: "https://images.unsplash.com/photo-1628689469838-524a4a973b8e?w=200&h=200&fit=crop" },
 ];
 
+// ============= Mock API для акций =============
+
+// Данные акций
+const mockPromotions = [
+  { id: "1", title: "Скидка на молоко 20%", description: "При покупке от 5 литров", discount: "20%", validUntil: "2025-01-15", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop" },
+  { id: "2", title: "2+1 на сыр", description: "Третья упаковка в подарок", discount: "33%", validUntil: "2025-01-31", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop" },
+  { id: "3", title: "Мёд со скидкой", description: "Специальное предложение на липовый мёд", discount: "15%", validUntil: "2025-02-28", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop" },
+];
+
+interface Promotion {
+  id: string;
+  title: string;
+  description: string;
+  discount: string;
+  validUntil: string;
+  image: string;
+}
+
+// Имитация получения списка акций (GET /api/promotions)
+const mockAPIGetPromotions = async () => {
+  console.log("[mockAPI] GET /api/promotions");
+  return [...mockPromotions];
+};
+
+// Имитация получения одной акции (GET /api/promotions/:id)
+const mockAPIGetPromotion = async (id: string): Promise<Promotion | null> => {
+  console.log(`[mockAPI] GET /api/promotions/${id}`);
+  return mockPromotions.find(p => p.id === id) || null;
+};
+
+// Имитация сохранения акции (POST/PUT /api/promotions/:id)
+const mockAPISavePromotion = async (data: Promotion) => {
+  console.log(`[mockAPI] ${data.id === "new" ? "POST" : "PUT"} /api/promotions/${data.id}`, data);
+  return { success: true, data: { ...data, id: data.id === "new" ? String(Date.now()) : data.id } };
+};
+
+// Имитация загрузки изображения акции (POST /api/promotions/:id/image)
+const mockAPIUploadPromotionImage = async (id: string, file: File) => {
+  console.log(`[mockAPI] POST /api/promotions/${id}/image`, { fileName: file.name, size: file.size });
+  return { success: true, url: URL.createObjectURL(file) };
+};
+
+// ============= End Mock API для акций =============
+
 const dashboardLinks = [
   { label: "Акции", href: "/dashboard/promotions", icon: Tag, count: 3 },
   { label: "Сообщения", href: "/dashboard/messages", icon: Bell, count: 5 },
@@ -123,6 +167,20 @@ const Dashboard = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Promotion editing state
+  const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
+  const [promotionDragging, setPromotionDragging] = useState(false);
+  const [promotionUploadError, setPromotionUploadError] = useState<string | null>(null);
+  const promotionFileInputRef = useRef<HTMLInputElement>(null);
+  const [promotionFormData, setPromotionFormData] = useState<Promotion>({
+    id: "new",
+    title: "",
+    description: "",
+    discount: "",
+    validUntil: "",
+    image: "",
+  });
   
   const [formData, setFormData] = useState<ProfileFormData>({
     name: mockProfileData.name,
@@ -218,6 +276,77 @@ const Dashboard = () => {
 
   const handleRemoveAvatar = () => {
     setFormData(prev => ({ ...prev, avatar: "" }));
+  };
+
+  // ============= Promotion handlers =============
+  
+  const handleOpenPromotionDialog = async (promotionId?: string) => {
+    if (promotionId) {
+      const promotion = await mockAPIGetPromotion(promotionId);
+      if (promotion) {
+        setPromotionFormData(promotion);
+      }
+    } else {
+      setPromotionFormData({
+        id: "new",
+        title: "",
+        description: "",
+        discount: "",
+        validUntil: "",
+        image: "",
+      });
+    }
+    setPromotionUploadError(null);
+    setIsPromotionDialogOpen(true);
+  };
+
+  const handleSavePromotion = async () => {
+    await mockAPISavePromotion(promotionFormData);
+    setIsPromotionDialogOpen(false);
+  };
+
+  const handlePromotionFileUpload = async (file: File) => {
+    setPromotionUploadError(null);
+    const validation = mockAPIValidateImage(file);
+    if (!validation.valid) {
+      setPromotionUploadError(validation.error);
+      return;
+    }
+    
+    const result = await mockAPIUploadPromotionImage(promotionFormData.id, file);
+    if (result.success) {
+      setPromotionFormData(prev => ({ ...prev, image: result.url }));
+    }
+  };
+
+  const handlePromotionDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setPromotionDragging(true);
+  };
+
+  const handlePromotionDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setPromotionDragging(false);
+  };
+
+  const handlePromotionDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setPromotionDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handlePromotionFileUpload(files[0]);
+    }
+  };
+
+  const handlePromotionFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handlePromotionFileUpload(files[0]);
+    }
+  };
+
+  const handleRemovePromotionImage = () => {
+    setPromotionFormData(prev => ({ ...prev, image: "" }));
   };
 
   return (
@@ -501,6 +630,156 @@ const Dashboard = () => {
             </button>
           </div>
         </div>
+
+        {/* Promotions (Акции) */}
+        <div>
+          <h2 className="section-title flex items-center gap-2">
+            <Percent className="h-5 w-5" />
+            Акции
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {mockPromotions.map((promotion) => (
+              <button
+                key={promotion.id}
+                onClick={() => handleOpenPromotionDialog(promotion.id)}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 text-left group"
+              >
+                <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                  <img
+                    src={promotion.image}
+                    alt={promotion.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <p className="text-sm font-medium text-foreground truncate">{promotion.title}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{promotion.discount}</span>
+                  <span className="text-xs text-muted-foreground">до {promotion.validUntil}</span>
+                </div>
+              </button>
+            ))}
+            {/* Create new promotion */}
+            <button
+              onClick={() => handleOpenPromotionDialog()}
+              className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <Plus className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Создать</p>
+            </button>
+          </div>
+        </div>
+
+        {/* Promotion Edit Dialog */}
+        <Dialog open={isPromotionDialogOpen} onOpenChange={setIsPromotionDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{promotionFormData.id === "new" ? "Создание акции" : "Редактирование акции"}</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Image Upload Zone */}
+              <div className="space-y-2">
+                <Label>Изображение акции</Label>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                    promotionDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
+                  onDragOver={handlePromotionDragOver}
+                  onDragLeave={handlePromotionDragLeave}
+                  onDrop={handlePromotionDrop}
+                  onClick={() => promotionFileInputRef.current?.click()}
+                >
+                  {promotionFormData.image ? (
+                    <div className="relative inline-block">
+                      <img src={promotionFormData.image} alt="Promotion" className="w-full max-h-40 object-cover rounded-lg mx-auto" />
+                      <button
+                        type="button"
+                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                        onClick={(e) => { e.stopPropagation(); handleRemovePromotionImage(); }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Перетащите изображение или нажмите для выбора
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        JPEG, PNG, WebP, GIF до 5MB
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    ref={promotionFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handlePromotionFileInputChange}
+                  />
+                </div>
+                {promotionUploadError && <p className="text-sm text-destructive">{promotionUploadError}</p>}
+              </div>
+
+              {/* Title */}
+              <div className="space-y-2">
+                <Label htmlFor="promo-title">Название акции</Label>
+                <Input
+                  id="promo-title"
+                  value={promotionFormData.title}
+                  onChange={(e) => setPromotionFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Скидка 20% на молочные продукты"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="promo-description">Описание</Label>
+                <Textarea
+                  id="promo-description"
+                  value={promotionFormData.description}
+                  onChange={(e) => setPromotionFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Условия акции..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Discount & Valid Until */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="promo-discount">Скидка</Label>
+                  <Input
+                    id="promo-discount"
+                    value={promotionFormData.discount}
+                    onChange={(e) => setPromotionFormData(prev => ({ ...prev, discount: e.target.value }))}
+                    placeholder="20%"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="promo-valid-until">Действует до</Label>
+                  <Input
+                    id="promo-valid-until"
+                    type="date"
+                    value={promotionFormData.validUntil}
+                    onChange={(e) => setPromotionFormData(prev => ({ ...prev, validUntil: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPromotionDialogOpen(false)}>
+                Отмена
+              </Button>
+              <Button onClick={handleSavePromotion}>
+                Сохранить
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Quick Links */}
         <div>
