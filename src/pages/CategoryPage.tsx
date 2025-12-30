@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart } from "lucide-react";
+import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter } from "lucide-react";
 import { useState, useRef } from "react";
 import {
   Dialog,
@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Mock user profile
 const mockAPIUserProfile = {
@@ -51,15 +58,23 @@ const mockAPIProducts: Record<string, { id: string; name: string; image: string;
   ],
 };
 
-// Mock category data with phone
-const mockAPICategoryData: Record<string, { name: string; businesses: { id: string; name: string; location: string; phone: string }[] }> = {
+// Mock category data with phone and city
+const mockAPICategoryData: Record<string, { name: string; businesses: { id: string; name: string; location: string; city: string; phone: string }[] }> = {
   "1": {
     name: "Молочные продукты",
     businesses: [
-      { id: "2", name: "Ферма Петровых", location: "Московская область", phone: "+7 (495) 123-45-67" },
-      { id: "5", name: "Молочный край", location: "Тульская область", phone: "+7 (487) 765-43-21" },
+      { id: "2", name: "Ферма Петровых", location: "Московская область", city: "Коломна", phone: "+7 (495) 123-45-67" },
+      { id: "5", name: "Молочный край", location: "Тульская область", city: "Тула", phone: "+7 (487) 765-43-21" },
+      { id: "6", name: "Сырный дом", location: "Московская область", city: "Коломна", phone: "+7 (495) 111-22-33" },
+      { id: "7", name: "Деревенское подворье", location: "Рязанская область", city: "Рязань", phone: "+7 (491) 222-33-44" },
     ],
   },
+};
+
+// Mock API для получения списка городов (GET /api/cities)
+const mockAPIGetCities = async () => {
+  console.log("[mockAPI] GET /api/cities");
+  return ["Все города", "Коломна", "Тула", "Рязань"];
 };
 
 interface Product {
@@ -205,6 +220,8 @@ const CategoryPage = () => {
   const [orderDialogOpen, setOrderDialogOpen] = useState<string | null>(null);
   const [orderPhone, setOrderPhone] = useState(mockAPIUserProfile.phone);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cityFilter, setCityFilter] = useState("Все города");
+  const cities = ["Все города", "Коломна", "Тула", "Рязань"]; // В реальном приложении - из mockAPIGetCities
 
   const handleProductClick = (product: Product, businessName: string, businessId: string, businessPhone: string) => {
     setSelectedProduct({ product, businessName, businessId, businessPhone });
@@ -245,19 +262,41 @@ const CategoryPage = () => {
     }
   };
 
+  const filteredBusinesses = cityFilter === "Все города" 
+    ? category.businesses 
+    : category.businesses.filter(b => b.city === cityFilter);
+
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{category.name}</h1>
-          <p className="text-muted-foreground mt-1">
-            Производители в категории «{category.name}»
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{category.name}</h1>
+            <p className="text-muted-foreground mt-1">
+              Производители в категории «{category.name}»
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={cityFilter} onValueChange={setCityFilter}>
+              <SelectTrigger className="w-48 bg-background">
+                <SelectValue placeholder="Выберите город" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border shadow-lg z-50">
+                {cities.map((city) => (
+                  <SelectItem key={city} value={city}>
+                    {city}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {category.businesses.length > 0 ? (
+        {filteredBusinesses.length > 0 ? (
           <div className="space-y-4">
-            {category.businesses.map((business) => {
+            {filteredBusinesses.map((business) => {
               const products = mockAPIProducts[business.id] || [];
               const selectedForBusiness = getSelectedForBusiness(business.id);
               
