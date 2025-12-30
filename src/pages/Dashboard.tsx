@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent } from "lucide-react";
+import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent, Trash2, Calendar } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, DragEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -141,6 +141,53 @@ const mockAPIUploadPromotionImage = async (id: string, file: File) => {
 
 // ============= End Mock API для акций =============
 
+// ============= Mock API для новостей =============
+
+// Данные новостей
+const mockNews = [
+  { id: "1", title: "Открытие нового филиала", content: "Рады сообщить об открытии нового филиала в Москве", date: "2024-12-28", isEvent: false },
+  { id: "2", title: "Праздничная ярмарка", content: "Приглашаем на праздничную ярмарку 15 января", date: "2024-12-25", isEvent: true },
+  { id: "3", title: "Расширение ассортимента", content: "Добавили новые молочные продукты", date: "2024-12-20", isEvent: false },
+  { id: "4", title: "Мастер-класс по сыроварению", content: "Проводим мастер-класс для всех желающих", date: "2024-12-18", isEvent: true },
+  { id: "5", title: "Скидки на Новый год", content: "Специальные предложения к праздникам", date: "2024-12-15", isEvent: false },
+  { id: "6", title: "Обновление цен", content: "Информация об обновлении прайс-листа", date: "2024-12-10", isEvent: false },
+  { id: "7", title: "Дегустация продукции", content: "Приглашаем на дегустацию в нашем магазине", date: "2024-12-05", isEvent: true },
+];
+
+interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  isEvent: boolean;
+}
+
+// Имитация получения списка новостей (GET /api/news)
+const mockAPIGetNews = async () => {
+  console.log("[mockAPI] GET /api/news");
+  return [...mockNews];
+};
+
+// Имитация получения одной новости (GET /api/news/:id)
+const mockAPIGetNewsItem = async (id: string): Promise<NewsItem | null> => {
+  console.log(`[mockAPI] GET /api/news/${id}`);
+  return mockNews.find(n => n.id === id) || null;
+};
+
+// Имитация сохранения новости (POST/PUT /api/news/:id)
+const mockAPISaveNews = async (data: NewsItem) => {
+  console.log(`[mockAPI] ${data.id === "new" ? "POST" : "PUT"} /api/news/${data.id}`, data);
+  return { success: true, data: { ...data, id: data.id === "new" ? String(Date.now()) : data.id } };
+};
+
+// Имитация удаления новости (DELETE /api/news/:id)
+const mockAPIDeleteNews = async (id: string) => {
+  console.log(`[mockAPI] DELETE /api/news/${id}`);
+  return { success: true };
+};
+
+// ============= End Mock API для новостей =============
+
 const dashboardLinks = [
   { label: "Акции", href: "/dashboard/promotions", icon: Tag, count: 3 },
   { label: "Сообщения", href: "/dashboard/messages", icon: Bell, count: 5 },
@@ -180,6 +227,17 @@ const Dashboard = () => {
     discount: "",
     validUntil: "",
     image: "",
+  });
+  
+  // News editing state
+  const [isNewsDialogOpen, setIsNewsDialogOpen] = useState(false);
+  const [showAllNews, setShowAllNews] = useState(false);
+  const [newsFormData, setNewsFormData] = useState<NewsItem>({
+    id: "new",
+    title: "",
+    content: "",
+    date: "",
+    isEvent: false,
   });
   
   const [formData, setFormData] = useState<ProfileFormData>({
@@ -348,6 +406,39 @@ const Dashboard = () => {
   const handleRemovePromotionImage = () => {
     setPromotionFormData(prev => ({ ...prev, image: "" }));
   };
+
+  // ============= News handlers =============
+  
+  const handleOpenNewsDialog = async (newsId?: string) => {
+    if (newsId) {
+      const news = await mockAPIGetNewsItem(newsId);
+      if (news) {
+        setNewsFormData(news);
+      }
+    } else {
+      setNewsFormData({
+        id: "new",
+        title: "",
+        content: "",
+        date: new Date().toISOString().split("T")[0],
+        isEvent: false,
+      });
+    }
+    setIsNewsDialogOpen(true);
+  };
+
+  const handleSaveNews = async () => {
+    await mockAPISaveNews(newsFormData);
+    setIsNewsDialogOpen(false);
+  };
+
+  const handleDeleteNews = async (id: string) => {
+    await mockAPIDeleteNews(id);
+    // В реальном приложении здесь был бы рефетч данных
+    console.log(`[UI] News ${id} deleted, would refetch list`);
+  };
+
+  const displayedNews = showAllNews ? mockNews : mockNews.slice(0, 5);
 
   return (
     <MainLayout>
@@ -775,6 +866,147 @@ const Dashboard = () => {
                 Отмена
               </Button>
               <Button onClick={handleSavePromotion}>
+                Сохранить
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* News Block */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title flex items-center gap-2 mb-0">
+              <Newspaper className="h-5 w-5" />
+              Новости
+            </h2>
+            <Button size="sm" onClick={() => handleOpenNewsDialog()}>
+              <Plus className="h-4 w-4 mr-1" />
+              Добавить
+            </Button>
+          </div>
+          
+          <div className="content-card">
+            <div className="space-y-2">
+              {displayedNews.map((news) => (
+                <div
+                  key={news.id}
+                  className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group"
+                >
+                  {news.isEvent && (
+                    <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
+                  )}
+                  <span className="text-sm text-muted-foreground flex-shrink-0">
+                    {news.date}
+                  </span>
+                  <span className="text-sm font-medium text-foreground flex-1 truncate">
+                    {news.title}
+                  </span>
+                  {news.isEvent && (
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded flex-shrink-0">
+                      Событие
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleOpenNewsDialog(news.id)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteNews(news.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {!showAllNews && mockNews.length > 5 && (
+              <button
+                onClick={() => setShowAllNews(true)}
+                className="mt-3 text-sm text-primary hover:underline"
+              >
+                Все →
+              </button>
+            )}
+            {showAllNews && (
+              <button
+                onClick={() => setShowAllNews(false)}
+                className="mt-3 text-sm text-primary hover:underline"
+              >
+                Свернуть
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* News Edit Dialog */}
+        <Dialog open={isNewsDialogOpen} onOpenChange={setIsNewsDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{newsFormData.id === "new" ? "Создание новости" : "Редактирование новости"}</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Title */}
+              <div className="space-y-2">
+                <Label htmlFor="news-title">Заголовок</Label>
+                <Input
+                  id="news-title"
+                  value={newsFormData.title}
+                  onChange={(e) => setNewsFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Заголовок новости"
+                />
+              </div>
+
+              {/* Content */}
+              <div className="space-y-2">
+                <Label htmlFor="news-content">Содержание</Label>
+                <Textarea
+                  id="news-content"
+                  value={newsFormData.content}
+                  onChange={(e) => setNewsFormData(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Текст новости..."
+                  rows={4}
+                />
+              </div>
+
+              {/* Date */}
+              <div className="space-y-2">
+                <Label htmlFor="news-date">Дата</Label>
+                <Input
+                  id="news-date"
+                  type="date"
+                  value={newsFormData.date}
+                  onChange={(e) => setNewsFormData(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+
+              {/* Is Event Flag */}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="news-is-event"
+                  checked={newsFormData.isEvent}
+                  onCheckedChange={(checked) => setNewsFormData(prev => ({ ...prev, isEvent: checked === true }))}
+                />
+                <Label htmlFor="news-is-event" className="cursor-pointer">
+                  Это событие
+                </Label>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsNewsDialogOpen(false)}>
+                Отмена
+              </Button>
+              <Button onClick={handleSaveNews}>
                 Сохранить
               </Button>
             </DialogFooter>
