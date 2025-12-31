@@ -10,14 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-interface Business {
-  id: string;
-  name: string;
-  category: string;
-  location: string;
-  city: string;
-}
+import type { Business } from "@/types/db";
 
 const Businesses = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
@@ -29,7 +22,7 @@ const Businesses = () => {
     const fetchBusinesses = async () => {
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, name, category, location, city");
+        .select("id, name, category, location, city, created_at");
       
       if (error) {
         console.error("Error fetching businesses:", error);
