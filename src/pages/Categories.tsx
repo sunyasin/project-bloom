@@ -1,7 +1,8 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Link } from "react-router-dom";
-import { Milk, Apple, Wheat, Droplets, Egg, Cookie, Salad, Package, Filter } from "lucide-react";
-import { useState } from "react";
+import { Milk, Apple, Wheat, Droplets, Egg, Cookie, Salad, Package, Filter, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -10,31 +11,56 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Mock API для получения списка городов (GET /api/cities)
-const mockAPIGetCities = async () => {
-  console.log("[mockAPI] GET /api/cities");
-  return ["Все города", "Коломна", "Тула", "Рязань", "Москва", "Калуга"];
+// Маппинг имён иконок на компоненты
+const iconMap: Record<string, React.ElementType> = {
+  Milk,
+  Apple,
+  Wheat,
+  Droplets,
+  Egg,
+  Cookie,
+  Salad,
+  Package,
 };
 
-// Mock categories data with cities
-const mockCategories = [
-  { id: "1", name: "Молочные продукты", icon: Milk, count: 24, cities: ["Коломна", "Тула", "Рязань"] },
-  { id: "2", name: "Фрукты и ягоды", icon: Apple, count: 18, cities: ["Москва", "Калуга"] },
-  { id: "3", name: "Зерновые и крупы", icon: Wheat, count: 12, cities: ["Тула", "Рязань"] },
-  { id: "4", name: "Мёд и продукты пчеловодства", icon: Droplets, count: 15, cities: ["Коломна", "Рязань"] },
-  { id: "5", name: "Яйца и птица", icon: Egg, count: 9, cities: ["Москва", "Коломна"] },
-  { id: "6", name: "Хлебобулочные изделия", icon: Cookie, count: 21, cities: ["Тула", "Калуга"] },
-  { id: "7", name: "Овощи и зелень", icon: Salad, count: 32, cities: ["Коломна", "Москва", "Рязань"] },
-  { id: "8", name: "Другие товары", icon: Package, count: 25, cities: ["Тула", "Калуга", "Рязань"] },
-];
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  count: number;
+  cities: string[] | null;
+}
 
 const Categories = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
-  const cities = ["Все города", "Коломна", "Тула", "Рязань", "Москва", "Калуга"]; // В реальном приложении - из mockAPIGetCities
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const cities = ["Все города", "Коломна", "Тула", "Рязань", "Москва", "Калуга"];
+
+  // GET /api/categories - загрузка категорий из БД
+  useEffect(() => {
+    const fetchCategories = async () => {
+      console.log("[Supabase] GET categories where is_hidden=false, order by position");
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, icon, count, cities")
+        .eq("is_hidden", false)
+        .order("position");
+
+      if (error) {
+        console.error("[Supabase] Error fetching categories:", error);
+      } else {
+        setCategories(data || []);
+      }
+      setLoading(false);
+    };
+
+    fetchCategories();
+  }, []);
 
   const filteredCategories = cityFilter === "Все города"
-    ? mockCategories
-    : mockCategories.filter(cat => cat.cities.includes(cityFilter));
+    ? categories
+    : categories.filter(cat => cat.cities?.includes(cityFilter));
 
   return (
     <MainLayout>
@@ -64,10 +90,14 @@ const Categories = () => {
           </div>
         </div>
 
-        {filteredCategories.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : filteredCategories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
             {filteredCategories.map((category) => {
-              const Icon = category.icon;
+              const Icon = iconMap[category.icon] || Package;
               return (
                 <Link
                   key={category.id}
