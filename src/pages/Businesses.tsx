@@ -1,7 +1,8 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Building2, MapPin, Filter } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -10,30 +11,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Mock API для получения списка городов (GET /api/cities)
-const mockAPIGetCities = async () => {
-  console.log("[mockAPI] GET /api/cities");
-  return ["Все города", "Коломна", "Тула", "Рязань", "Калуга", "Воронеж"];
-};
-
-// Mock businesses data with city
-const mockBusinesses = [
-  { id: "1", name: "Пасека Иванова", category: "Мёд и продукты пчеловодства", location: "Рязанская область", city: "Рязань" },
-  { id: "2", name: "Ферма Петровых", category: "Молочные продукты", location: "Московская область", city: "Коломна" },
-  { id: "3", name: "Эко-овощи", category: "Овощи и зелень", location: "Калужская область", city: "Калуга" },
-  { id: "4", name: "Хлебный дом", category: "Хлебобулочные изделия", location: "Тульская область", city: "Тула" },
-  { id: "5", name: "Молочный край", category: "Молочные продукты", location: "Тульская область", city: "Тула" },
-  { id: "6", name: "Сады Придонья", category: "Фрукты и ягоды", location: "Воронежская область", city: "Воронеж" },
-  { id: "7", name: "Сырный дом", category: "Молочные продукты", location: "Московская область", city: "Коломна" },
-];
+interface Business {
+  id: string;
+  name: string;
+  category: string;
+  location: string;
+  city: string;
+}
 
 const Businesses = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
-  const cities = ["Все города", "Коломна", "Тула", "Рязань", "Калуга", "Воронеж"]; // В реальном приложении - из mockAPIGetCities
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [cities, setCities] = useState<string[]>(["Все города"]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBusinesses = async () => {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("id, name, category, location, city");
+      
+      if (error) {
+        console.error("Error fetching businesses:", error);
+        return;
+      }
+      
+      if (data) {
+        setBusinesses(data);
+        // Extract unique cities
+        const uniqueCities = [...new Set(data.map(b => b.city))];
+        setCities(["Все города", ...uniqueCities.sort()]);
+      }
+      setLoading(false);
+    };
+
+    fetchBusinesses();
+  }, []);
 
   const filteredBusinesses = cityFilter === "Все города"
-    ? mockBusinesses
-    : mockBusinesses.filter(b => b.city === cityFilter);
+    ? businesses
+    : businesses.filter(b => b.city === cityFilter);
 
   return (
     <MainLayout>
