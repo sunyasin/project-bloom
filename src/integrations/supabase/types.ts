@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      businesses: {
+        Row: {
+          category: string
+          city: string
+          created_at: string
+          id: string
+          location: string
+          name: string
+        }
+        Insert: {
+          category: string
+          city: string
+          created_at?: string
+          id?: string
+          location: string
+          name: string
+        }
+        Update: {
+          category?: string
+          city?: string
+          created_at?: string
+          id?: string
+          location?: string
+          name?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           cities: string[] | null
