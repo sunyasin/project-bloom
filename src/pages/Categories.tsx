@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { Category } from "@/types/db";
 
 // Маппинг имён иконок на компоненты
 const iconMap: Record<string, React.ElementType> = {
@@ -23,14 +24,6 @@ const iconMap: Record<string, React.ElementType> = {
   Package,
 };
 
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-  count: number;
-  cities: string[] | null;
-}
-
 const Categories = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,7 +36,7 @@ const Categories = () => {
       console.log("[Supabase] GET categories where is_hidden=false, order by position");
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, icon, count, cities")
+        .select("id, name, icon, count, cities, position, is_hidden, created_at")
         .eq("is_hidden", false)
         .order("position");
 
