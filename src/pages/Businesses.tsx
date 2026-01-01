@@ -10,11 +10,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Business } from "@/types/db";
+// Локальный тип для отображения (не требует все поля из Business)
+interface BusinessDisplay {
+  id: string;
+  name: string;
+  category: string;
+  location: string;
+  city: string;
+}
 
 const Businesses = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [businesses, setBusinesses] = useState<BusinessDisplay[]>([]);
   const [cities, setCities] = useState<string[]>(["Все города"]);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +29,8 @@ const Businesses = () => {
     const fetchBusinesses = async () => {
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, name, category, location, city, created_at");
+        .select("id, name, category, location, city")
+        .eq("status", "published");
       
       if (error) {
         console.error("Error fetching businesses:", error);

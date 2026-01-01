@@ -43,14 +43,23 @@ export interface Category {
   created_at: string;
 }
 
-/** Бизнес / производитель */
+/** Статусы визитки */
+export type BusinessStatus = 'draft' | 'moderation' | 'published' | 'deleted';
+
+/** Бизнес / визитка */
 export interface Business {
   id: string;
+  owner_id: string | null;
+  category_id: string | null;
   name: string;
   category: string;
   location: string;
   city: string;
+  content_json: Record<string, unknown>;
+  status: BusinessStatus;
+  donation_30d: number;
   created_at: string;
+  updated_at: string;
 }
 
 /** Товар */

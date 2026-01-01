@@ -1,8 +1,9 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent, Trash2, Calendar, MessageCircle, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent, Trash2, Calendar, MessageCircle, Send, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, DragEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useBusinesses } from "@/hooks/use-businesses";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -82,12 +83,8 @@ const mockUser = {
   businessCount: 2,
 };
 
-// Mock business cards (визитки)
-const mockBusinessCards = [
-  { id: "1", name: "Фермерское хозяйство", image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop" },
-  { id: "2", name: "Молочная ферма", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop" },
-  { id: "3", name: "Пасека Медовая", image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=200&h=200&fit=crop" },
-];
+// Placeholder image for business cards without images
+const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
 
 // Mock products (товары)
 const mockProducts = [
@@ -304,11 +301,14 @@ interface ProfileFormData {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [mainCardId, setMainCardId] = useState<string | null>("1");
+  const [mainCardId, setMainCardId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Business cards from Supabase
+  const { businesses, loading: businessesLoading, createBusiness, hideBusiness, deleteBusiness } = useBusinesses();
   
   // Promotion editing state
   const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
@@ -797,55 +797,107 @@ const Dashboard = () => {
         {/* Business Cards (Визитки) */}
         <div>
           <h2 className="section-title">Мои визитки</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            <TooltipProvider>
-              {mockBusinessCards.map((card) => (
-                <div key={card.id} className="flex flex-col">
-                  <button
-                    onClick={() => navigate(`/dashboard/business-card/${card.id}`)}
-                    className={`content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left ${
-                      mainCardId === card.id ? "ring-2 ring-primary border-primary" : ""
-                    }`}
-                  >
-                    <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
-                      <img
-                        src={card.image}
-                        alt={card.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+          {businessesLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <TooltipProvider>
+                {businesses.map((card) => {
+                  const imageUrl = (card.content_json as { image_url?: string })?.image_url || DEFAULT_BUSINESS_IMAGE;
+                  return (
+                    <div key={card.id} className="flex flex-col">
+                      <button
+                        onClick={() => navigate(`/dashboard/business-card/${card.id}`)}
+                        className={`content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left relative ${
+                          mainCardId === card.id ? "ring-2 ring-primary border-primary" : ""
+                        }`}
+                      >
+                        {/* Status badge */}
+                        <div className={`absolute top-1 right-1 px-1.5 py-0.5 text-xs rounded ${
+                          card.status === 'published' ? 'bg-green-500/20 text-green-700' :
+                          card.status === 'moderation' ? 'bg-yellow-500/20 text-yellow-700' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {card.status === 'published' ? 'опубл.' : card.status === 'moderation' ? 'модер.' : 'черновик'}
+                        </div>
+                        <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                          <img
+                            src={imageUrl}
+                            alt={card.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <p className="text-sm font-medium text-foreground text-center truncate">
+                          {card.name}
+                        </p>
+                      </button>
+                      <div className="flex items-center justify-between mt-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <Checkbox
+                                checked={mainCardId === card.id}
+                                onCheckedChange={(checked) => handleMainCardChange(card.id, checked === true)}
+                              />
+                              <span className="text-xs text-muted-foreground">главная</span>
+                            </label>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Отображать эту визитку в моей карточке</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <div className="flex gap-1">
+                          {card.status === 'published' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => { e.stopPropagation(); hideBusiness(card.id); }}
+                                >
+                                  <EyeOff className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Скрыть</TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); deleteBusiness(card.id); }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Удалить</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm font-medium text-foreground text-center truncate">
-                      {card.name}
-                    </p>
-                  </button>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <label className="flex items-center gap-2 mt-2 cursor-pointer justify-center">
-                        <Checkbox
-                          checked={mainCardId === card.id}
-                          onCheckedChange={(checked) => handleMainCardChange(card.id, checked === true)}
-                        />
-                        <span className="text-xs text-muted-foreground">главная</span>
-                      </label>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Отображать эту визитку в моей карточке</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  );
+                })}
+              </TooltipProvider>
+              {/* Create new business card */}
+              <button
+                onClick={async () => {
+                  const newBusiness = await createBusiness({ name: "Новая визитка" });
+                  if (newBusiness) {
+                    navigate(`/dashboard/business-card/${newBusiness.id}`);
+                  }
+                }}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <Plus className="h-6 w-6 text-primary" />
                 </div>
-              ))}
-            </TooltipProvider>
-            {/* Create new business card */}
-            <button
-              onClick={() => navigate("/dashboard/business-card/new")}
-              className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
-            >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Plus className="h-6 w-6 text-primary" />
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">Создать</p>
-            </button>
-          </div>
+                <p className="text-sm font-medium text-muted-foreground">Создать</p>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Products (Товары) */}
