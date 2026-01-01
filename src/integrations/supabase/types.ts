@@ -17,29 +17,55 @@ export type Database = {
       businesses: {
         Row: {
           category: string
+          category_id: string | null
           city: string
+          content_json: Json | null
           created_at: string
+          donation_30d: number | null
           id: string
           location: string
           name: string
+          owner_id: string | null
+          status: Database["public"]["Enums"]["business_status"] | null
+          updated_at: string | null
         }
         Insert: {
           category: string
+          category_id?: string | null
           city: string
+          content_json?: Json | null
           created_at?: string
+          donation_30d?: number | null
           id?: string
           location: string
           name: string
+          owner_id?: string | null
+          status?: Database["public"]["Enums"]["business_status"] | null
+          updated_at?: string | null
         }
         Update: {
           category?: string
+          category_id?: string | null
           city?: string
+          content_json?: Json | null
           created_at?: string
+          donation_30d?: number | null
           id?: string
           location?: string
           name?: string
+          owner_id?: string | null
+          status?: Database["public"]["Enums"]["business_status"] | null
+          updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "businesses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       categories: {
         Row: {
@@ -82,7 +108,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      business_status: "draft" | "moderation" | "published" | "deleted"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -209,6 +235,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      business_status: ["draft", "moderation", "published", "deleted"],
+    },
   },
 } as const
