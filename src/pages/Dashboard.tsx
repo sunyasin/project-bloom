@@ -1,7 +1,9 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent, Trash2, Calendar, MessageCircle, Send, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { useState, useRef, DragEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useRef, DragEvent, useEffect } from "react";
+import { ProfileEditDialog } from "@/components/ProfileEditDialog";
+import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { useToast } from "@/hooks/use-toast";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useProducts } from "@/hooks/use-products";
@@ -293,11 +295,28 @@ interface ProfileFormData {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, loading: userLoading } = useCurrentUserWithRole();
+  const isNewUser = searchParams.get("new") === "true";
+  
   const [mainCardId, setMainCardId] = useState<string | null>(null);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Open profile dialog for new users
+  useEffect(() => {
+    if (isNewUser && !userLoading) {
+      setIsProfileDialogOpen(true);
+    }
+  }, [isNewUser, userLoading]);
+  
+  const handleProfileSaveSuccess = () => {
+    // Remove ?new=true from URL
+    setSearchParams({}, { replace: true });
+  };
   
   // Business cards from Supabase
   const { businesses, loading: businessesLoading, createBusiness, hideBusiness, deleteBusiness } = useBusinesses();
@@ -1374,6 +1393,14 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Profile Edit Dialog for new users */}
+      <ProfileEditDialog
+        open={isProfileDialogOpen}
+        onOpenChange={setIsProfileDialogOpen}
+        isNewUser={isNewUser}
+        onSaveSuccess={handleProfileSaveSuccess}
+      />
     </MainLayout>
   );
 };
