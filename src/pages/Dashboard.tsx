@@ -324,6 +324,7 @@ const Dashboard = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Open profile dialog for new users
@@ -517,10 +518,42 @@ const Dashboard = () => {
   const handleSaveProfile = async () => {
     if (!user) return;
     
+    // Validate required fields for client role
+    const isClient = user.role === "client";
+    const newErrors: Partial<Record<keyof ProfileFormData, string>> = {};
+    
     // Parse name into first_name and last_name
     const nameParts = formData.name.trim().split(" ");
     const first_name = nameParts[0] || "";
     const last_name = nameParts.slice(1).join(" ") || "";
+    
+    if (isClient) {
+      if (!first_name) {
+        newErrors.name = "Имя обязательно";
+      }
+      if (!last_name) {
+        newErrors.name = "Укажите имя и фамилию";
+      }
+      if (!formData.phone.trim()) {
+        newErrors.phone = "Телефон обязателен";
+      }
+      if (!formData.city) {
+        newErrors.city = "Город/Село обязателен";
+      }
+      if (!formData.address.trim()) {
+        newErrors.address = "Адрес обязателен";
+      }
+      if (!formData.avatar.trim()) {
+        newErrors.avatar = "Логотип обязателен";
+      }
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setFormErrors(newErrors);
+      return;
+    }
+    
+    setFormErrors({});
     
     const updateData = {
       first_name,
@@ -801,10 +834,10 @@ const Dashboard = () => {
             <div className="space-y-4">
               {/* Avatar Upload Zone */}
               <div className="space-y-2">
-                <Label>Логотип / Аватар</Label>
+                <Label>Логотип / Аватар <span className="text-destructive">*</span></Label>
                 <div
                   className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-                    isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                    isDragging ? "border-primary bg-primary/5" : formErrors.avatar ? "border-destructive" : "border-border hover:border-primary/50"
                   }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -838,21 +871,29 @@ const Dashboard = () => {
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     className="hidden"
-                    onChange={handleFileInputChange}
+                    onChange={(e) => {
+                      handleFileInputChange(e);
+                      if (formErrors.avatar) setFormErrors(prev => ({ ...prev, avatar: undefined }));
+                    }}
                   />
                 </div>
                 {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+                {formErrors.avatar && <p className="text-xs text-destructive">{formErrors.avatar}</p>}
               </div>
 
               {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Имя</Label>
+                  <Label htmlFor="name">Имя и Фамилия <span className="text-destructive">*</span></Label>
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, name: e.target.value }));
+                      if (formErrors.name) setFormErrors(prev => ({ ...prev, name: undefined }));
+                    }}
                   />
+                  {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -866,21 +907,28 @@ const Dashboard = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Телефон</Label>
+                <Label htmlFor="phone">Телефон <span className="text-destructive">*</span></Label>
                 <Input
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, phone: e.target.value }));
+                    if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: undefined }));
+                  }}
                   placeholder="+7 (999) 123-45-67"
                 />
+                {formErrors.phone && <p className="text-xs text-destructive">{formErrors.phone}</p>}
               </div>
 
               {/* City & Address */}
               <div className="space-y-2">
-                <Label htmlFor="city">Город / село</Label>
+                <Label htmlFor="city">Город / село <span className="text-destructive">*</span></Label>
                 <Select
                   value={formData.city}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}
+                  onValueChange={(value) => {
+                    setFormData(prev => ({ ...prev, city: value }));
+                    if (formErrors.city) setFormErrors(prev => ({ ...prev, city: undefined }));
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите населённый пункт" />
@@ -893,17 +941,22 @@ const Dashboard = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.city && <p className="text-xs text-destructive">{formErrors.city}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Адрес</Label>
+                <Label htmlFor="address">Адрес <span className="text-destructive">*</span></Label>
                 <Textarea
                   id="address"
                   value={formData.address}
-                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, address: e.target.value }));
+                    if (formErrors.address) setFormErrors(prev => ({ ...prev, address: undefined }));
+                  }}
                   placeholder="ул. Фермерская, д. 15"
                   rows={2}
                 />
+                {formErrors.address && <p className="text-xs text-destructive">{formErrors.address}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
