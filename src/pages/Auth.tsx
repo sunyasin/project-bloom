@@ -1,38 +1,167 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Mail, Lock, User, ArrowLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
 
 type AuthMode = "login" | "register" | "forgot";
 
+// Validation schemas
+const emailSchema = z.string().trim().email({ message: "Некорректный email" }).max(255);
+const passwordSchema = z.string().min(6, { message: "Минимум 6 символов" }).max(128);
+
 const Auth = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isProducer, setIsProducer] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Login attempt:", { email, password });
+  // Redirect if already logged in
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          navigate("/");
+        }
+      }
+    );
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        navigate("/");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const validateForm = (): boolean => {
+    const newErrors: { email?: string; password?: string } = {};
+
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      newErrors.email = emailResult.error.errors[0]?.message;
+    }
+
+    if (mode !== "forgot") {
+      const passwordResult = passwordSchema.safeParse(password);
+      if (!passwordResult.success) {
+        newErrors.password = passwordResult.error.errors[0]?.message;
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Register attempt:", { email, password, isProducer });
+    if (!validateForm()) return;
+
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      toast({
+        title: "Ошибка входа",
+        description: error.message === "Invalid login credentials" 
+          ? "Неверный email или пароль" 
+          : error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Успешный вход",
+        description: "Добро пожаловать!",
+      });
+    }
+    setLoading(false);
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Forgot password:", { email });
+    if (!validateForm()) return;
+
+    setLoading(true);
+    const redirectUrl = `${window.location.origin}/`;
+
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: {
+          is_producer: isProducer,
+        },
+      },
+    });
+
+    if (error) {
+      let message = error.message;
+      if (error.message.includes("already registered")) {
+        message = "Пользователь с таким email уже зарегистрирован";
+      }
+      toast({
+        title: "Ошибка регистрации",
+        description: message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Регистрация успешна",
+        description: "Вы успешно зарегистрированы!",
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      setErrors({ email: emailResult.error.errors[0]?.message });
+      return;
+    }
+    setErrors({});
+
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+
+    if (error) {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Письмо отправлено",
+        description: "Проверьте почту для восстановления пароля",
+      });
+    }
+    setLoading(false);
   };
 
   const resetForm = () => {
     setEmail("");
     setPassword("");
     setIsProducer(false);
+    setErrors({});
   };
 
   return (
@@ -93,8 +222,12 @@ const Auth = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
                     required
+                    disabled={loading}
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-xs text-destructive">{errors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -109,8 +242,12 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
                     required
+                    disabled={loading}
                   />
                 </div>
+                {errors.password && (
+                  <p className="text-xs text-destructive">{errors.password}</p>
+                )}
               </div>
 
               <div className="flex justify-end">
@@ -119,6 +256,7 @@ const Auth = () => {
                   onClick={() => {
                     setMode("forgot");
                     setPassword("");
+                    setErrors({});
                   }}
                   className="text-sm text-primary hover:underline"
                 >
@@ -126,8 +264,8 @@ const Auth = () => {
                 </button>
               </div>
 
-              <Button type="submit" className="w-full">
-                Войти
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Вход..." : "Войти"}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
@@ -161,8 +299,12 @@ const Auth = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
                     required
+                    disabled={loading}
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-xs text-destructive">{errors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -178,8 +320,12 @@ const Auth = () => {
                     className="pl-10"
                     required
                     minLength={6}
+                    disabled={loading}
                   />
                 </div>
+                {errors.password && (
+                  <p className="text-xs text-destructive">{errors.password}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Минимум 6 символов
                 </p>
@@ -190,6 +336,7 @@ const Auth = () => {
                   id="producer"
                   checked={isProducer}
                   onCheckedChange={(checked) => setIsProducer(checked === true)}
+                  disabled={loading}
                 />
                 <Label
                   htmlFor="producer"
@@ -199,8 +346,8 @@ const Auth = () => {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full">
-                Зарегистрироваться
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Регистрация..." : "Зарегистрироваться"}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
@@ -234,12 +381,16 @@ const Auth = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
                     required
+                    disabled={loading}
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-xs text-destructive">{errors.email}</p>
+                )}
               </div>
 
-              <Button type="submit" className="w-full">
-                Отправить ссылку
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Отправка..." : "Отправить ссылку"}
               </Button>
             </form>
           )}
