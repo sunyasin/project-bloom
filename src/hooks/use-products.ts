@@ -36,6 +36,20 @@ export interface ProductUpdate {
   is_available?: boolean;
 }
 
+// Image validation helper
+const validateImage = (file: File): { valid: boolean; error: string | null } => {
+  const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  
+  if (!validTypes.includes(file.type)) {
+    return { valid: false, error: "Допустимые форматы: JPEG, PNG, WebP, GIF" };
+  }
+  if (file.size > maxSize) {
+    return { valid: false, error: "Максимальный размер файла: 5MB" };
+  }
+  return { valid: true, error: null };
+};
+
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,6 +202,83 @@ export function useProducts() {
     }
   }, [toast]);
 
+  // Upload product image to Supabase Storage
+  const uploadProductImage = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      // Validate image
+      const validation = validateImage(file);
+      if (!validation.valid) {
+        toast({
+          title: "Ошибка",
+          description: validation.error || "Недопустимый файл",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      // Generate unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить изображение",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [toast]);
+
+  // Delete product image from storage
+  const deleteProductImage = useCallback(async (imageUrl: string): Promise<boolean> => {
+    try {
+      // Extract file path from URL
+      const url = new URL(imageUrl);
+      const pathParts = url.pathname.split("/storage/v1/object/public/product-images/");
+      if (pathParts.length < 2) return true; // Not a storage URL
+
+      const filePath = pathParts[1];
+      
+      const { error } = await supabase.storage
+        .from("product-images")
+        .remove([filePath]);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
@@ -200,5 +291,7 @@ export function useProducts() {
     createProduct,
     updateProduct,
     deleteProduct,
+    uploadProductImage,
+    deleteProductImage,
   };
 }
