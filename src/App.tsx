@@ -16,6 +16,7 @@ import Auth from "./pages/Auth";
 import BusinessPage from "./pages/BusinessPage";
 import Dashboard from "./pages/Dashboard";
 import ProducerProfile from "./pages/ProducerProfile";
+import Profile from "./pages/Profile";
 import BusinessCardEditor from "./pages/BusinessCardEditor";
 import ProductEditor from "./pages/ProductEditor";
 import Admin from "./pages/Admin";
@@ -51,6 +52,9 @@ const App = () => (
           <Route path="/dashboard/business-card/:id" element={<BusinessCardEditor />} />
           <Route path="/dashboard/product/:id" element={<ProductEditor />} />
           <Route path="/dashboard/*" element={<Dashboard />} />
+          
+          {/* User profile */}
+          <Route path="/profile" element={<Profile />} />
           
           {/* Admin panel */}
           <Route path="/admin" element={<Admin />} />
