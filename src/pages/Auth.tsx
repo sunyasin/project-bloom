@@ -44,7 +44,7 @@ const Auth = () => {
               .then(({ data }) => {
                 // If profile has no first_name, it's a new user
                 if (!data?.first_name) {
-                  navigate("/profile?new=true");
+                  navigate("/dashboard?new=true");
                 } else {
                   navigate("/");
                 }
