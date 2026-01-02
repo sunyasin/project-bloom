@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, DragEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useBusinesses } from "@/hooks/use-businesses";
+import { useProducts } from "@/hooks/use-products";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -85,16 +86,7 @@ const mockUser = {
 
 // Placeholder image for business cards without images
 const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
-
-// Mock products (товары)
-const mockProducts = [
-  { id: "1", name: "Молоко свежее", price: 120, image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop" },
-  { id: "2", name: "Сыр домашний", price: 450, image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop" },
-  { id: "3", name: "Мёд липовый", price: 800, image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop" },
-  { id: "4", name: "Яйца куриные", price: 150, image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop" },
-  { id: "5", name: "Творог", price: 280, image: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=200&h=200&fit=crop" },
-  { id: "6", name: "Сметана", price: 180, image: "https://images.unsplash.com/photo-1628689469838-524a4a973b8e?w=200&h=200&fit=crop" },
-];
+const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=200&h=200&fit=crop";
 
 // ============= Mock API для акций =============
 
@@ -309,6 +301,9 @@ const Dashboard = () => {
   
   // Business cards from Supabase
   const { businesses, loading: businessesLoading, createBusiness, hideBusiness, deleteBusiness } = useBusinesses();
+  
+  // Products from Supabase
+  const { products, loading: productsLoading, createProduct, deleteProduct } = useProducts();
   
   // Promotion editing state
   const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
@@ -906,35 +901,55 @@ const Dashboard = () => {
             <Package className="h-5 w-5" />
             Товары
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {mockProducts.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => navigate(`/dashboard/product/${product.id}`)}
-                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 text-left group"
-              >
-                <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+          {productsLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {products.map((product) => (
+                <div key={product.id} className="flex flex-col">
+                  <button
+                    onClick={() => navigate(`/dashboard/product/${product.id}`)}
+                    className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 text-left group"
+                  >
+                    <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                      <img
+                        src={product.image_url || DEFAULT_PRODUCT_IMAGE}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+                    <p className="text-sm text-primary font-semibold">{product.price || 0} ₽</p>
+                  </button>
+                  <div className="flex justify-end mt-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => deleteProduct(product.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                <p className="text-sm text-primary font-semibold">{product.price} ₽</p>
+              ))}
+              {/* Create new product */}
+              <button
+                onClick={async () => {
+                  const newProduct = await createProduct({ name: "Новый товар" });
+                  if (newProduct) {
+                    navigate(`/dashboard/product/${newProduct.id}`);
+                  }
+                }}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <Plus className="h-6 w-6 text-primary" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">Создать</p>
               </button>
-            ))}
-            {/* Create new product */}
-            <button
-              onClick={() => navigate("/dashboard/product/new")}
-              className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
-            >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Plus className="h-6 w-6 text-primary" />
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">Создать</p>
-            </button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Promotions (Акции) */}

@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useProducts } from "@/hooks/use-products";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -36,10 +37,7 @@ import {
   ImagePlus
 } from "lucide-react";
 
-// === Mock API functions (заглушки для CRUD операций с товарами) ===
-
-interface ProductData {
-  id?: string;
+interface ProductFormData {
   name: string;
   description: string;
   price: number;
@@ -48,122 +46,8 @@ interface ProductData {
   content: string;
 }
 
-// База данных товаров (статические данные)
-const mockAPIProductsDB: Record<string, ProductData> = {
-  "1": {
-    id: "1",
-    name: "Молоко свежее",
-    description: "Натуральное коровье молоко с нашей фермы",
-    price: 120,
-    unit: "л",
-    image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=800&h=400&fit=crop",
-    content: `<h2>Свежее молоко</h2>
-<p>Наше молоко — это 100% натуральный продукт от здоровых коров, которые пасутся на экологически чистых лугах.</p>
-<h3>Характеристики:</h3>
-<ul>
-<li>Жирность: 3.5-4%</li>
-<li>Срок хранения: 3 дня</li>
-<li>Без консервантов</li>
-</ul>
-<p><strong>Идеально подходит</strong> для детского питания и приготовления домашних блюд.</p>`,
-  },
-  "2": {
-    id: "2",
-    name: "Сыр домашний",
-    description: "Ароматный сыр ручной работы",
-    price: 450,
-    unit: "кг",
-    image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=800&h=400&fit=crop",
-    content: `<h2>Домашний сыр</h2>
-<p>Сыр изготовлен по традиционным рецептам из свежего молока нашей фермы.</p>
-<ul>
-<li>Выдержка: 2 месяца</li>
-<li>Вкус: нежный, сливочный</li>
-</ul>`,
-  },
-  "3": {
-    id: "3",
-    name: "Мёд липовый",
-    description: "Ароматный липовый мёд с пасеки",
-    price: 800,
-    unit: "кг",
-    image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&h=400&fit=crop",
-    content: `<h2>Липовый мёд</h2>
-<p>Натуральный липовый мёд с нашей пасеки.</p>
-<ul>
-<li>Сбор: июнь-июль</li>
-<li>Аромат: цветочный, липовый</li>
-<li>Полезные свойства: укрепляет иммунитет</li>
-</ul>`,
-  },
-  "4": {
-    id: "4",
-    name: "Яйца куриные",
-    description: "Свежие яйца от домашних кур",
-    price: 150,
-    unit: "10 шт",
-    image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=800&h=400&fit=crop",
-    content: `<h2>Домашние яйца</h2>
-<p>Яйца от кур свободного выгула.</p>`,
-  },
-  "5": {
-    id: "5",
-    name: "Творог",
-    description: "Нежный домашний творог",
-    price: 280,
-    unit: "кг",
-    image: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=800&h=400&fit=crop",
-    content: `<h2>Домашний творог</h2>
-<p>Свежий творог из натурального молока.</p>`,
-  },
-  "6": {
-    id: "6",
-    name: "Сметана",
-    description: "Густая домашняя сметана",
-    price: 180,
-    unit: "л",
-    image: "https://images.unsplash.com/photo-1628689469838-524a4a973b8e?w=800&h=400&fit=crop",
-    content: `<h2>Домашняя сметана</h2>
-<p>Густая сметана жирностью 25%.</p>`,
-  },
-};
-
-// Получение данных товара по ID
-const mockAPIGetProduct = async (id: string): Promise<ProductData | null> => {
-  console.log("[mockAPI] Getting product:", id);
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
-  if (id === "new") {
-    return null;
-  }
-  
-  return mockAPIProductsDB[id] || null;
-};
-
-// Сохранение товара
-const mockAPISaveProduct = async (data: ProductData) => {
-  console.log("[mockAPI] Saving product:", data);
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  return { success: true, id: data.id || "new-product-" + Date.now() };
-};
-
-// Загрузка изображения в хранилище
-const mockAPIUploadProductImage = async (file: File): Promise<{ url: string }> => {
-  console.log("[mockAPI] Uploading product image:", file.name, file.size);
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  return { url: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=800&h=400&fit=crop" };
-};
-
-// Удаление изображения из хранилища
-const mockAPIDeleteProductImage = async (imageUrl: string): Promise<{ success: boolean }> => {
-  console.log("[mockAPI] Deleting product image:", imageUrl);
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  return { success: true };
-};
-
-// Валидация файла изображения
-const mockAPIValidateProductImage = (file: File): { valid: boolean; error?: string } => {
-  console.log("[mockAPI] Validating product image:", file.name, file.type, file.size);
+// Валидация файла изображения (для будущего Storage)
+const validateProductImage = (file: File): { valid: boolean; error?: string } => {
   const maxSize = 5 * 1024 * 1024;
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   
@@ -210,9 +94,10 @@ const ProductEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { getProduct, createProduct, updateProduct } = useProducts();
   const isNew = id === "new";
 
-  const [productData, setProductData] = useState<ProductData>({
+  const [productData, setProductData] = useState<ProductFormData>({
     name: "",
     description: "",
     price: 0,
@@ -225,6 +110,7 @@ const ProductEditor = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [productId, setProductId] = useState<string | null>(isNew ? null : id || null);
 
   const editor = useEditor({
     extensions: [
@@ -266,11 +152,19 @@ const ProductEditor = () => {
       if (id && id !== "new") {
         setIsDataLoading(true);
         try {
-          const data = await mockAPIGetProduct(id);
+          const data = await getProduct(id);
           if (data) {
-            setProductData(data);
-            if (editor && data.content) {
-              editor.commands.setContent(data.content);
+            setProductData({
+              name: data.name,
+              description: data.description || "",
+              price: data.price || 0,
+              unit: data.unit || "шт",
+              image: data.image_url || "",
+              content: "", // content stored in description for now
+            });
+            setProductId(data.id);
+            if (editor && data.description) {
+              editor.commands.setContent(data.description);
             }
           } else {
             toast({
@@ -289,11 +183,13 @@ const ProductEditor = () => {
         } finally {
           setIsDataLoading(false);
         }
+      } else {
+        setIsDataLoading(false);
       }
     };
 
     loadProductData();
-  }, [id, editor, navigate, toast]);
+  }, [id, editor, navigate, toast, getProduct]);
 
   useEffect(() => {
     if (editor && productData.content && !isNew && !isDataLoading) {
@@ -301,7 +197,7 @@ const ProductEditor = () => {
     }
   }, [editor, productData.content, isNew, isDataLoading]);
 
-  const updateField = <K extends keyof ProductData>(field: K, value: ProductData[K]) => {
+  const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
     setProductData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -317,13 +213,22 @@ const ProductEditor = () => {
 
     setIsLoading(true);
     try {
-      const result = await mockAPISaveProduct({ ...productData, id });
-      toast({
-        title: "Сохранено",
-        description: isNew ? "Товар создан" : "Товар обновлён",
-      });
-      if (isNew && result.id) {
-        navigate(`/dashboard/product/${result.id}`, { replace: true });
+      const saveData = {
+        name: productData.name,
+        description: productData.description,
+        price: productData.price,
+        unit: productData.unit,
+        image_url: productData.image,
+      };
+
+      if (isNew || !productId) {
+        const newProduct = await createProduct(saveData);
+        if (newProduct) {
+          setProductId(newProduct.id);
+          navigate(`/dashboard/product/${newProduct.id}`, { replace: true });
+        }
+      } else {
+        await updateProduct(productId, saveData);
       }
     } catch (error) {
       toast({
@@ -337,7 +242,7 @@ const ProductEditor = () => {
   };
 
   const uploadImage = async (file: File) => {
-    const validation = mockAPIValidateProductImage(file);
+    const validation = validateProductImage(file);
     if (!validation.valid) {
       toast({
         title: "Ошибка",
@@ -347,19 +252,14 @@ const ProductEditor = () => {
       return;
     }
 
+    // For now, just create a local URL (Storage not implemented)
     setIsUploading(true);
     try {
-      const result = await mockAPIUploadProductImage(file);
-      updateField("image", result.url);
+      const localUrl = URL.createObjectURL(file);
+      updateField("image", localUrl);
       toast({
         title: "Загружено",
-        description: "Изображение успешно загружено",
-      });
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить изображение",
-        variant: "destructive",
+        description: "Изображение добавлено (локально)",
       });
     } finally {
       setIsUploading(false);
@@ -375,20 +275,11 @@ const ProductEditor = () => {
 
   const handleDeleteImage = async () => {
     if (productData.image) {
-      try {
-        await mockAPIDeleteProductImage(productData.image);
-        updateField("image", "");
-        toast({
-          title: "Удалено",
-          description: "Изображение удалено",
-        });
-      } catch (error) {
-        toast({
-          title: "Ошибка",
-          description: "Не удалось удалить изображение",
-          variant: "destructive",
-        });
-      }
+      updateField("image", "");
+      toast({
+        title: "Удалено",
+        description: "Изображение удалено",
+      });
     }
   };
 
