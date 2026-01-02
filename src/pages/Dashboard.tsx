@@ -508,20 +508,56 @@ const Dashboard = () => {
   };
 
   const handleSaveProfile = async () => {
-    const profileData = {
-      id: "1",
-      name: formData.name,
+    if (!user) return;
+    
+    // Parse name into first_name and last_name
+    const nameParts = formData.name.trim().split(" ");
+    const first_name = nameParts[0] || "";
+    const last_name = nameParts.slice(1).join(" ") || "";
+    
+    const updateData = {
+      first_name,
+      last_name,
+      email: formData.email.trim() || null,
+      phone: formData.phone.trim() || null,
+      city: formData.city || null,
+      address: formData.address.trim() || null,
+      gps_lat: formData.lat ? parseFloat(formData.lat) : null,
+      gps_lng: formData.lng ? parseFloat(formData.lng) : null,
+      logo_url: formData.avatar.trim() || null,
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("user_id", user.id);
+
+    if (error) {
+      toast({
+        title: "Ошибка сохранения",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update local profileData
+    setProfileData({
+      first_name,
+      last_name,
       email: formData.email,
       phone: formData.phone,
       city: formData.city,
       address: formData.address,
-      coordinates: { lat: formData.lat, lng: formData.lng },
-      avatar: formData.avatar,
-      telegram: formData.telegram,
-      vk: formData.vk,
-      instagram: formData.instagram,
-    };
-    await mockAPISaveProfile("1", profileData);
+      gps_lat: formData.lat,
+      gps_lng: formData.lng,
+      logo_url: formData.avatar,
+    });
+
+    toast({
+      title: "Профиль сохранён",
+      description: "Данные успешно обновлены",
+    });
     setIsEditDialogOpen(false);
   };
 
