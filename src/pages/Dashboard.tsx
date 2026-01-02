@@ -10,6 +10,13 @@ import { useProducts } from "@/hooks/use-products";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -871,12 +878,21 @@ const Dashboard = () => {
               {/* City & Address */}
               <div className="space-y-2">
                 <Label htmlFor="city">Город / село</Label>
-                <Input
-                  id="city"
+                <Select
                   value={formData.city}
-                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                  placeholder="Коломна"
-                />
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите населённый пункт" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Соколиное", "Аромат", "Куйбышево", "Танковое", "Голубинка", "Нижняя Голубинка", "Поляна", "Солнечноселье", "Счастливое", "Новоульяновка"].map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
