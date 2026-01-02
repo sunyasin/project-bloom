@@ -33,7 +33,24 @@ const Auth = () => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (session?.user) {
+        if (event === "SIGNED_IN" && session?.user) {
+          // Check if this is a new signup by checking if profile is empty
+          setTimeout(() => {
+            supabase
+              .from("profiles")
+              .select("first_name")
+              .eq("user_id", session.user.id)
+              .single()
+              .then(({ data }) => {
+                // If profile has no first_name, it's a new user
+                if (!data?.first_name) {
+                  navigate("/profile?new=true");
+                } else {
+                  navigate("/");
+                }
+              });
+          }, 0);
+        } else if (session?.user) {
           navigate("/");
         }
       }
