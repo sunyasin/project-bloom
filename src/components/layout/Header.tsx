@@ -1,5 +1,6 @@
-import { Link } from "react-router-dom";
-import { Bell, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Bell, ChevronDown, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -9,16 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-// Заглушка: имитация залогиненного пользователя-производителя
-const mockCurrentUser = {
-  id: "1",
-  name: "Иван Фермер",
-  email: "ivan@farm.ru",
-  role: "client" as const,
-  isProducer: true,
-  avatar: "",
-};
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import type { User } from "@supabase/supabase-js";
 
 // Пункты главного меню
 const mainMenuItems = [
@@ -31,7 +25,51 @@ const mainMenuItems = [
 ];
 
 export const Header = () => {
-  const isLoggedIn = true; // Имитация авторизации
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    // Check existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось выйти из аккаунта",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Выход выполнен",
+        description: "Вы вышли из аккаунта",
+      });
+      navigate("/");
+    }
+  };
+
+  // Get user initials from email
+  const getUserInitials = () => {
+    if (!user?.email) return "U";
+    return user.email.charAt(0).toUpperCase();
+  };
 
   return (
     <header className="sticky top-0 z-50 h-16 bg-card border-b border-border">
@@ -80,35 +118,54 @@ export const Header = () => {
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Bell className="h-5 w-5 text-muted-foreground" />
-          </Button>
+          {!loading && user && (
+            <Button variant="ghost" size="icon">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+            </Button>
+          )}
           
-          {isLoggedIn ? (
-            <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <Avatar className="h-8 w-8 border border-border">
-                <AvatarImage src={mockCurrentUser.avatar} alt={mockCurrentUser.name} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  {mockCurrentUser.name.split(' ').map(n => n[0]).join('')}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium text-foreground hidden xl:inline">
-                {mockCurrentUser.name}
-              </span>
-            </Link>
+          {loading ? (
+            <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+          ) : user ? (
+            <>
+              <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Avatar className="h-8 w-8 border border-border">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {getUserInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium text-foreground hidden xl:inline">
+                  {user.email}
+                </span>
+              </Link>
+              
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1">
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Выйти</span>
+              </Button>
+            </>
           ) : (
-            <Link to="/auth">
-              <Button variant="default" size="sm">
-                Войти
+            <>
+              <Link to="/auth">
+                <Button variant="ghost" size="sm">
+                  Вход
+                </Button>
+              </Link>
+              <Link to="/auth?mode=register">
+                <Button variant="default" size="sm">
+                  Регистрация
+                </Button>
+              </Link>
+            </>
+          )}
+          
+          {user && (
+            <Link to="/admin">
+              <Button variant="outline" size="sm">
+                Админка
               </Button>
             </Link>
           )}
-          
-          <Link to="/admin">
-            <Button variant="outline" size="sm">
-              Админка
-            </Button>
-          </Link>
         </div>
       </div>
     </header>
