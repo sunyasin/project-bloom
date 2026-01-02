@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Mail, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,12 @@ const passwordSchema = z.string().min(6, { message: "Минимум 6 симво
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const [mode, setMode] = useState<AuthMode>("login");
+  
+  // Get initial mode from URL query param
+  const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isProducer, setIsProducer] = useState(false);
