@@ -86,8 +86,8 @@ export const ProfileEditDialog = ({
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
-
   const isProducer = user?.role === "moderator" || user?.role === "news_editor" || user?.role === "super_admin";
+  const isClient = user?.role === "client";
 
   // Load profile data when dialog opens
   useEffect(() => {
@@ -157,9 +157,23 @@ export const ProfileEditDialog = ({
       newErrors.last_name = "Фамилия обязательна";
     }
 
+    // City and address required for client role
+    if (isClient) {
+      if (!formData.city.trim()) {
+        newErrors.city = "Город/Село обязателен";
+      }
+      if (!formData.address.trim()) {
+        newErrors.address = "Адрес обязателен";
+      }
+    }
+
+    // For producers: logo, address, city and coordinates are required
     if (isProducer) {
       if (!formData.logo_url.trim()) {
         newErrors.logo_url = "Логотип обязателен для производителя";
+      }
+      if (!formData.city.trim()) {
+        newErrors.city = "Город/Село обязателен";
       }
       if (!formData.address.trim()) {
         newErrors.address = "Адрес обязателен для производителя";
@@ -330,7 +344,9 @@ export const ProfileEditDialog = ({
 
             {/* City select */}
             <div className="space-y-2">
-              <Label htmlFor="city">Город/Село</Label>
+              <Label htmlFor="city">
+                Город/Село {(isClient || isProducer) && <span className="text-destructive">*</span>}
+              </Label>
               <Select
                 value={formData.city}
                 onValueChange={(value) => updateField("city", value)}
@@ -346,13 +362,16 @@ export const ProfileEditDialog = ({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.city && (
+                <p className="text-xs text-destructive">{errors.city}</p>
+              )}
             </div>
 
             {/* Address */}
             <div className="space-y-2">
               <Label htmlFor="address" className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                Адрес {isProducer && <span className="text-destructive">*</span>}
+                Адрес {(isClient || isProducer) && <span className="text-destructive">*</span>}
               </Label>
               <Input
                 id="address"
