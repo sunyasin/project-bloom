@@ -7,6 +7,7 @@ import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { useToast } from "@/hooks/use-toast";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useProducts } from "@/hooks/use-products";
+import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -279,6 +280,18 @@ const dashboardLinks = [
   { label: "Новости", href: "/dashboard/news", icon: Newspaper },
 ];
 
+interface ProfileData {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  city: string;
+  address: string;
+  gps_lat: string;
+  gps_lng: string;
+  logo_url: string;
+}
+
 interface ProfileFormData {
   name: string;
   email: string;
@@ -313,9 +326,43 @@ const Dashboard = () => {
     }
   }, [isNewUser, userLoading]);
   
-  const handleProfileSaveSuccess = () => {
+  const handleProfileSaveSuccess = async () => {
     // Remove ?new=true from URL
     setSearchParams({}, { replace: true });
+    
+    // Reload profile data
+    if (!user) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (data) {
+      const loaded: ProfileData = {
+        first_name: data.first_name || "",
+        last_name: data.last_name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        city: data.city || "",
+        address: data.address || "",
+        gps_lat: data.gps_lat?.toString() || "",
+        gps_lng: data.gps_lng?.toString() || "",
+        logo_url: data.logo_url || "",
+      };
+      setProfileData(loaded);
+      setFormData(prev => ({
+        ...prev,
+        name: `${loaded.first_name} ${loaded.last_name}`.trim() || "Новый пользователь",
+        email: loaded.email,
+        phone: loaded.phone,
+        city: loaded.city,
+        address: loaded.address,
+        lat: loaded.gps_lat,
+        lng: loaded.gps_lng,
+        avatar: loaded.logo_url,
+      }));
+    }
   };
   
   // Business cards from Supabase
@@ -356,19 +403,72 @@ const Dashboard = () => {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const { toast } = useToast();
   
+  // Profile data from Supabase
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  
   const [formData, setFormData] = useState<ProfileFormData>({
-    name: mockProfileData.name,
-    email: mockProfileData.email,
-    phone: mockProfileData.phone,
-    city: mockProfileData.city,
-    address: mockProfileData.address,
-    lat: mockProfileData.coordinates.lat,
-    lng: mockProfileData.coordinates.lng,
-    avatar: mockProfileData.avatar,
-    telegram: mockProfileData.telegram,
-    vk: mockProfileData.vk,
-    instagram: mockProfileData.instagram,
+    name: "",
+    email: "",
+    phone: "",
+    city: "",
+    address: "",
+    lat: "",
+    lng: "",
+    avatar: "",
+    telegram: "",
+    vk: "",
+    instagram: "",
   });
+  
+  // Load profile from Supabase
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error loading profile:", error);
+        return;
+      }
+
+      if (data) {
+        const loaded: ProfileData = {
+          first_name: data.first_name || "",
+          last_name: data.last_name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          city: data.city || "",
+          address: data.address || "",
+          gps_lat: data.gps_lat?.toString() || "",
+          gps_lng: data.gps_lng?.toString() || "",
+          logo_url: data.logo_url || "",
+        };
+        setProfileData(loaded);
+        setFormData({
+          name: `${loaded.first_name} ${loaded.last_name}`.trim() || "Новый пользователь",
+          email: loaded.email,
+          phone: loaded.phone,
+          city: loaded.city,
+          address: loaded.address,
+          lat: loaded.gps_lat,
+          lng: loaded.gps_lng,
+          avatar: loaded.logo_url,
+          telegram: "",
+          vk: "",
+          instagram: "",
+        });
+      }
+    };
+
+    if (user) {
+      loadProfile();
+    }
+  }, [user]);
 
   const handleMainCardChange = (cardId: string, checked: boolean) => {
     setMainCardId(checked ? cardId : null);
