@@ -10,14 +10,13 @@ import {
   Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RoleGuard } from "@/components/auth/RoleGuard";
+import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 
 type AdminRole = "moderator" | "news_editor" | "super_admin";
 
-// Mock admin user
-const mockAdminUser = {
-  name: "Админ",
-  role: "super_admin" as AdminRole,
-};
+// Map app roles to admin menu roles
+const ADMIN_ROLES: AdminRole[] = ["moderator", "news_editor", "super_admin"];
 
 interface AdminMenuItem {
   label: string;
@@ -36,9 +35,12 @@ const adminMenu: AdminMenuItem[] = [
   { label: "Настройки", icon: Settings, roles: ["super_admin"] },
 ];
 
-const Admin = () => {
+const AdminContent = () => {
   const [activeSection, setActiveSection] = useState("Дашборд");
-  const userRole = mockAdminUser.role;
+  const { user } = useCurrentUserWithRole();
+  
+  // Get user role, default to moderator for menu filtering
+  const userRole = (user?.role as AdminRole) || "moderator";
 
   const availableMenu = adminMenu.filter((item) => item.roles.includes(userRole));
 
@@ -102,6 +104,14 @@ const Admin = () => {
         </div>
       </main>
     </div>
+  );
+};
+
+const Admin = () => {
+  return (
+    <RoleGuard allowedRoles={ADMIN_ROLES}>
+      <AdminContent />
+    </RoleGuard>
   );
 };
 
