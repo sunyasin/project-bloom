@@ -475,21 +475,35 @@ const Dashboard = () => {
   };
 
   const handleOpenEditDialog = async () => {
-    // Загружаем данные профиля при открытии диалога
-    const profile = await mockAPIGetProfile("1");
-    setFormData({
-      name: profile.name,
-      email: profile.email,
-      phone: profile.phone,
-      city: profile.city,
-      address: profile.address,
-      lat: profile.coordinates.lat,
-      lng: profile.coordinates.lng,
-      avatar: profile.avatar,
-      telegram: profile.telegram,
-      vk: profile.vk,
-      instagram: profile.instagram,
-    });
+    // Загружаем данные профиля из Supabase при открытии диалога
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error loading profile:", error);
+      return;
+    }
+    
+    if (data) {
+      setFormData({
+        name: `${data.first_name || ""} ${data.last_name || ""}`.trim() || "Новый пользователь",
+        email: data.email || "",
+        phone: data.phone || "",
+        city: data.city || "",
+        address: data.address || "",
+        lat: data.gps_lat?.toString() || "",
+        lng: data.gps_lng?.toString() || "",
+        avatar: data.logo_url || "",
+        telegram: "",
+        vk: "",
+        instagram: "",
+      });
+    }
     setIsEditDialogOpen(true);
   };
 
