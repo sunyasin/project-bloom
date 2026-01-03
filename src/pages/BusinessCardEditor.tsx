@@ -14,6 +14,7 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import ImageExtension from "@tiptap/extension-image";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Bold, 
   Italic, 
@@ -37,147 +38,15 @@ import {
   X,
   ImagePlus,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// === Mock Categories Data ===
-const mockCategories = [
-  { id: "1", name: "Молочные продукты" },
-  { id: "2", name: "Мясо и птица" },
-  { id: "3", name: "Овощи и фрукты" },
-  { id: "4", name: "Мёд и продукты пчеловодства" },
-  { id: "5", name: "Хлеб и выпечка" },
-  { id: "6", name: "Яйца" },
-  { id: "7", name: "Рыба и морепродукты" },
-  { id: "8", name: "Крупы и злаки" },
-  { id: "9", name: "Напитки" },
-  { id: "10", name: "Консервация" },
-];
-
-// Mock API для получения категорий
-const mockAPIGetCategories = async () => {
-  console.log("[mockAPI] Getting categories");
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  return mockCategories;
-};
-
-// === Mock API functions (заглушки для CRUD операций) ===
-
-// База данных визиток (статические данные)
-const mockAPIBusinessCardsDB: Record<string, BusinessCardData> = {
-  "1": {
-    id: "1",
-    title: "Фермерское хозяйство",
-    description: "Экологически чистые продукты с нашей фермы. Работаем с 2010 года.",
-    image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&h=400&fit=crop",
-    categoryId: "3",
-    content: `<h2>О нашем хозяйстве</h2>
-<p>Мы — семейная ферма, расположенная в экологически чистом районе Подмосковья. Наша миссия — обеспечить вас свежими, натуральными продуктами без химических добавок.</p>
-<h3>Наша продукция</h3>
-<ul>
-<li>Молочные продукты: молоко, сметана, творог, сыр</li>
-<li>Мясо и птица: говядина, свинина, курица</li>
-<li>Овощи и фрукты: сезонные, выращенные без пестицидов</li>
-</ul>
-<p><strong>Доставка</strong> осуществляется по всей Москве и области.</p>`,
-  },
-  "2": {
-    id: "2",
-    title: "Молочная ферма",
-    description: "Свежие молочные продукты каждый день",
-    image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800&h=400&fit=crop",
-    categoryId: "1",
-    content: `<h2>Молочная ферма «Буренка»</h2>
-<p>Мы производим натуральные молочные продукты высочайшего качества.</p>
-<ul>
-<li>Молоко цельное</li>
-<li>Сметана домашняя</li>
-<li>Творог</li>
-<li>Сыр фермерский</li>
-</ul>
-<blockquote>Свежесть и качество — наш приоритет!</blockquote>`,
-  },
-  "3": {
-    id: "3",
-    title: "Пасека Медовая",
-    description: "Натуральный мёд с собственной пасеки",
-    image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&h=400&fit=crop",
-    categoryId: "4",
-    content: `<h2>Пасека «Медовая»</h2>
-<p>Мы занимаемся пчеловодством более 20 лет. Наш мёд — это 100% натуральный продукт.</p>
-<h3>Виды мёда:</h3>
-<ul>
-<li>Липовый мёд</li>
-<li>Цветочный мёд</li>
-<li>Гречишный мёд</li>
-<li>Акациевый мёд</li>
-</ul>
-<p>Доставка по всей России!</p>`,
-  },
-};
-
-// Получение данных визитки по ID
-const mockAPIGetBusinessCard = async (id: string): Promise<BusinessCardData | null> => {
-  console.log("[mockAPI] Getting business card:", id);
-  // Имитация задержки сети
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
-  if (id === "new") {
-    return null;
-  }
-  
-  return mockAPIBusinessCardsDB[id] || null;
-};
-
-// Сохранение визитки
-const mockAPISaveBusinessCard = async (data: BusinessCardData) => {
-  console.log("[mockAPI] Saving business card:", data);
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  return { success: true, id: data.id || "new-card-" + Date.now() };
-};
-
-// Загрузка изображения в хранилище
-const mockAPIUploadImage = async (file: File): Promise<{ url: string }> => {
-  console.log("[mockAPI] Uploading image to storage:", file.name, file.size);
-  // Имитация загрузки файла в облачное хранилище
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  // Возвращаем URL загруженного изображения
-  return { url: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=800&h=400&fit=crop" };
-};
-
-// Удаление изображения из хранилища
-const mockAPIDeleteImage = async (imageUrl: string): Promise<{ success: boolean }> => {
-  console.log("[mockAPI] Deleting image from storage:", imageUrl);
-  // Имитация удаления файла из хранилища
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  return { success: true };
-};
-
-// Валидация файла изображения
-const mockAPIValidateImage = (file: File): { valid: boolean; error?: string } => {
-  console.log("[mockAPI] Validating image:", file.name, file.type, file.size);
-  const maxSize = 5 * 1024 * 1024; // 5MB
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  
-  if (!allowedTypes.includes(file.type)) {
-    return { valid: false, error: "Неподдерживаемый формат. Используйте JPG, PNG, WebP или GIF" };
-  }
-  if (file.size > maxSize) {
-    return { valid: false, error: "Файл слишком большой. Максимум 5MB" };
-  }
-  return { valid: true };
-};
-
-// Данные для предпросмотра (статические)
-const mockAPIPreviewData = {
-  title: "Фермерское хозяйство «Заря»",
-  description: "Экологически чистые продукты с нашей фермы",
-  image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&h=400&fit=crop",
-  phone: "+7 (999) 123-45-67",
-  email: "farm@example.com",
-  address: "Московская область, д. Заречье",
-};
+interface Category {
+  id: string;
+  name: string;
+}
 
 interface BusinessCardData {
   id?: string;
@@ -186,6 +55,8 @@ interface BusinessCardData {
   image: string;
   content: string;
   categoryId: string;
+  city: string;
+  location: string;
 }
 
 // Toolbar Button Component
@@ -212,6 +83,20 @@ const ToolbarButton = ({
   </Button>
 );
 
+// Валидация файла изображения
+const validateImage = (file: File): { valid: boolean; error?: string } => {
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: "Неподдерживаемый формат. Используйте JPG, PNG, WebP или GIF" };
+  }
+  if (file.size > maxSize) {
+    return { valid: false, error: "Файл слишком большой. Максимум 5MB" };
+  }
+  return { valid: true };
+};
+
 const BusinessCardEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -224,6 +109,8 @@ const BusinessCardEditor = () => {
     image: "",
     content: "",
     categoryId: "",
+    city: "",
+    location: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(!isNew);
@@ -231,13 +118,20 @@ const BusinessCardEditor = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [categories, setCategories] = useState<typeof mockCategories>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  // Загрузка категорий
+  // Загрузка категорий из БД
   useEffect(() => {
     const loadCategories = async () => {
-      const data = await mockAPIGetCategories();
-      setCategories(data);
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name')
+        .eq('is_hidden', false)
+        .order('position');
+      
+      if (!error && data) {
+        setCategories(data);
+      }
     };
     loadCategories();
   }, []);
@@ -279,15 +173,37 @@ const BusinessCardEditor = () => {
   // Загрузка данных визитки при редактировании
   useEffect(() => {
     const loadCardData = async () => {
-      if (id && id !== "new") {
+      if (isNew) {
+        setIsDataLoading(false);
+        return;
+      }
+      
+      if (id) {
         setIsDataLoading(true);
         try {
-          const data = await mockAPIGetBusinessCard(id);
+          const { data, error } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+          
+          if (error) throw error;
+          
           if (data) {
-            setCardData(data);
-            // Устанавливаем контент в редактор после загрузки
-            if (editor && data.content) {
-              editor.commands.setContent(data.content);
+            const contentJson = data.content_json as Record<string, unknown> || {};
+            const loaded: BusinessCardData = {
+              id: data.id,
+              title: data.name,
+              description: (contentJson.description as string) || "",
+              image: (contentJson.image as string) || "",
+              content: (contentJson.content as string) || "",
+              categoryId: data.category_id || "",
+              city: data.city || "",
+              location: data.location || "",
+            };
+            setCardData(loaded);
+            if (editor && loaded.content) {
+              editor.commands.setContent(loaded.content);
             }
           } else {
             toast({
@@ -298,11 +214,13 @@ const BusinessCardEditor = () => {
             navigate("/dashboard");
           }
         } catch (error) {
+          console.error("Error loading business card:", error);
           toast({
             title: "Ошибка",
             description: "Не удалось загрузить данные визитки",
             variant: "destructive",
           });
+          navigate("/dashboard");
         } finally {
           setIsDataLoading(false);
         }
@@ -310,7 +228,7 @@ const BusinessCardEditor = () => {
     };
 
     loadCardData();
-  }, [id, editor, navigate, toast]);
+  }, [id, isNew, editor, navigate, toast]);
 
   // Обновляем редактор когда данные загружены
   useEffect(() => {
@@ -324,17 +242,84 @@ const BusinessCardEditor = () => {
   };
 
   const handleSave = async () => {
+    if (!cardData.title.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Укажите название визитки",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const result = await mockAPISaveBusinessCard({ ...cardData, id });
-      toast({
-        title: "Сохранено",
-        description: isNew ? "Визитка создана" : "Визитка обновлена",
-      });
-      if (isNew && result.id) {
-        navigate(`/dashboard/business-card/${result.id}`, { replace: true });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      // Получаем название категории
+      const selectedCategory = categories.find(c => c.id === cardData.categoryId);
+      
+      const contentJson = {
+        description: cardData.description,
+        image: cardData.image,
+        content: cardData.content,
+      };
+
+      if (isNew) {
+        // Создаём новую визитку
+        const { data: newBusiness, error } = await supabase
+          .from('businesses')
+          .insert([{
+            owner_id: user.id,
+            name: cardData.title,
+            category: selectedCategory?.name || "",
+            category_id: cardData.categoryId || null,
+            city: cardData.city || "",
+            location: cardData.location || "",
+            content_json: contentJson,
+            status: 'draft',
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        toast({
+          title: "Сохранено",
+          description: "Визитка создана",
+        });
+        navigate(`/dashboard/business-card/${newBusiness.id}`, { replace: true });
+      } else {
+        // Обновляем существующую
+        const { error } = await supabase
+          .from('businesses')
+          .update({
+            name: cardData.title,
+            category: selectedCategory?.name || "",
+            category_id: cardData.categoryId || null,
+            city: cardData.city || "",
+            location: cardData.location || "",
+            content_json: contentJson,
+          })
+          .eq('id', id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Сохранено",
+          description: "Визитка обновлена",
+        });
       }
     } catch (error) {
+      console.error("Error saving business card:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось сохранить визитку",
@@ -346,7 +331,7 @@ const BusinessCardEditor = () => {
   };
 
   const uploadImage = async (file: File) => {
-    const validation = mockAPIValidateImage(file);
+    const validation = validateImage(file);
     if (!validation.valid) {
       toast({
         title: "Ошибка",
@@ -358,13 +343,29 @@ const BusinessCardEditor = () => {
 
     setIsUploading(true);
     try {
-      const result = await mockAPIUploadImage(file);
-      updateField("image", result.url);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Не авторизован");
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      updateField("image", publicUrl);
       toast({
         title: "Загружено",
         description: "Изображение успешно загружено",
       });
     } catch (error) {
+      console.error("Error uploading image:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось загрузить изображение",
@@ -383,22 +384,11 @@ const BusinessCardEditor = () => {
   };
 
   const handleDeleteImage = async () => {
-    if (cardData.image) {
-      try {
-        await mockAPIDeleteImage(cardData.image);
-        updateField("image", "");
-        toast({
-          title: "Удалено",
-          description: "Изображение удалено",
-        });
-      } catch (error) {
-        toast({
-          title: "Ошибка",
-          description: "Не удалось удалить изображение",
-          variant: "destructive",
-        });
-      }
-    }
+    updateField("image", "");
+    toast({
+      title: "Удалено",
+      description: "Изображение удалено",
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -455,7 +445,7 @@ const BusinessCardEditor = () => {
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Загрузка...</p>
           </div>
         </div>
@@ -486,7 +476,11 @@ const BusinessCardEditor = () => {
               Предпросмотр
             </Button>
             <Button onClick={handleSave} disabled={isLoading}>
-              <Save className="h-4 w-4 mr-2" />
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
               {isLoading ? "Сохранение..." : "Сохранить"}
             </Button>
           </div>
@@ -501,8 +495,37 @@ const BusinessCardEditor = () => {
             <Input
               value={cardData.title}
               onChange={(e) => updateField("title", e.target.value)}
-              placeholder="Название визитки"
+              placeholder="Название вашей визитки"
             />
+          </div>
+
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Краткое описание</label>
+            <Textarea
+              value={cardData.description}
+              onChange={(e) => updateField("description", e.target.value)}
+              placeholder="Краткое описание (будет отображаться в списке)"
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Город</label>
+              <Input
+                value={cardData.city}
+                onChange={(e) => updateField("city", e.target.value)}
+                placeholder="Город"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Адрес</label>
+              <Input
+                value={cardData.location}
+                onChange={(e) => updateField("location", e.target.value)}
+                placeholder="Адрес"
+              />
+            </div>
           </div>
 
           <div>
@@ -516,16 +539,16 @@ const BusinessCardEditor = () => {
                   className="w-full justify-between"
                 >
                   {cardData.categoryId
-                    ? categories.find((cat) => cat.id === cardData.categoryId)?.name
+                    ? categories.find(c => c.id === cardData.categoryId)?.name
                     : "Выберите категорию..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent className="w-full p-0">
                 <Command>
                   <CommandInput placeholder="Поиск категории..." />
                   <CommandList>
-                    <CommandEmpty>Категория не найдена.</CommandEmpty>
+                    <CommandEmpty>Категория не найдена</CommandEmpty>
                     <CommandGroup>
                       {categories.map((category) => (
                         <CommandItem
@@ -551,121 +574,79 @@ const BusinessCardEditor = () => {
               </PopoverContent>
             </Popover>
           </div>
+        </div>
 
-          <div>
-            <label className="text-sm text-muted-foreground mb-1 block">Краткое описание</label>
-            <Textarea
-              value={cardData.description}
-              onChange={(e) => updateField("description", e.target.value)}
-              placeholder="Краткое описание деятельности"
-              rows={2}
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Обложка</label>
-            
-            {/* Drop Zone */}
+        {/* Изображение обложки */}
+        <div className="content-card space-y-4">
+          <h2 className="font-semibold text-foreground">Изображение обложки</h2>
+          
+          {cardData.image ? (
+            <div className="relative">
+              <img
+                src={cardData.image}
+                alt="Обложка"
+                className="w-full h-48 object-cover rounded-lg"
+              />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-2 right-2"
+                onClick={handleDeleteImage}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
             <div
+              className={cn(
+                "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
+                isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25",
+                isUploading && "opacity-50 pointer-events-none"
+              )}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`
-                relative border-2 border-dashed rounded-lg transition-all duration-200
-                ${isDragging 
-                  ? "border-primary bg-primary/5" 
-                  : "border-border hover:border-primary/50"
-                }
-                ${cardData.image ? "p-2" : "p-8"}
-              `}
             >
-              {cardData.image ? (
-                <div className="relative group">
-                  <img 
-                    src={cardData.image} 
-                    alt="Обложка" 
-                    className="w-full max-h-48 object-cover rounded-lg"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageUpload}
-                      />
-                      <Button type="button" variant="secondary" size="sm" asChild>
-                        <span>
-                          <Upload className="h-4 w-4 mr-1" />
-                          Заменить
-                        </span>
-                      </Button>
-                    </label>
-                    <Button 
-                      type="button" 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={handleDeleteImage}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Удалить
-                    </Button>
-                  </div>
+              {isUploading ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Загрузка...</p>
                 </div>
               ) : (
-                <div className="text-center">
-                  {isUploading ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                      <p className="text-sm text-muted-foreground">Загрузка...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <ImagePlus className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Перетащите изображение сюда или
-                      </p>
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImageUpload}
-                        />
-                        <Button type="button" variant="outline" size="sm" asChild>
-                          <span>
-                            <Upload className="h-4 w-4 mr-1" />
-                            Выберите файл
-                          </span>
-                        </Button>
-                      </label>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        JPG, PNG, WebP, GIF до 5MB
-                      </p>
-                    </>
-                  )}
-                </div>
+                <>
+                  <ImagePlus className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Перетащите изображение сюда или
+                  </p>
+                  <label>
+                    <Button variant="outline" size="sm" asChild>
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Выберите файл
+                      </span>
+                    </Button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    JPG, PNG, WebP или GIF до 5MB
+                  </p>
+                </>
               )}
             </div>
-
-            {/* URL Input */}
-            <div className="flex gap-2 mt-3">
-              <Input
-                value={cardData.image}
-                onChange={(e) => updateField("image", e.target.value)}
-                placeholder="Или вставьте URL изображения"
-                className="flex-1"
-              />
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* TipTap WYSIWYG Editor */}
+        {/* Редактор контента */}
         <div className="content-card space-y-4">
-          <h2 className="font-semibold text-foreground">Содержимое визитки</h2>
+          <h2 className="font-semibold text-foreground">Содержимое</h2>
           
           {/* Toolbar */}
-          <div className="flex flex-wrap gap-1 p-2 bg-muted rounded-lg border border-border">
+          <div className="flex flex-wrap gap-1 p-2 bg-muted/50 rounded-lg border">
             <ToolbarButton
               onClick={() => editor.chain().focus().undo().run()}
               disabled={!editor.can().undo()}
@@ -678,9 +659,9 @@ const BusinessCardEditor = () => {
             >
               <Redo className="h-4 w-4" />
             </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
+            
+            <div className="w-px h-8 bg-border mx-1" />
+            
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
               isActive={editor.isActive("heading", { level: 1 })}
@@ -693,9 +674,9 @@ const BusinessCardEditor = () => {
             >
               <Heading2 className="h-4 w-4" />
             </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
+            
+            <div className="w-px h-8 bg-border mx-1" />
+            
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBold().run()}
               isActive={editor.isActive("bold")}
@@ -714,9 +695,9 @@ const BusinessCardEditor = () => {
             >
               <UnderlineIcon className="h-4 w-4" />
             </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
+            
+            <div className="w-px h-8 bg-border mx-1" />
+            
             <ToolbarButton
               onClick={() => editor.chain().focus().setTextAlign("left").run()}
               isActive={editor.isActive({ textAlign: "left" })}
@@ -735,9 +716,9 @@ const BusinessCardEditor = () => {
             >
               <AlignRight className="h-4 w-4" />
             </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
+            
+            <div className="w-px h-8 bg-border mx-1" />
+            
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               isActive={editor.isActive("bulletList")}
@@ -756,9 +737,9 @@ const BusinessCardEditor = () => {
             >
               <Quote className="h-4 w-4" />
             </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
+            
+            <div className="w-px h-8 bg-border mx-1" />
+            
             <ToolbarButton onClick={setLink} isActive={editor.isActive("link")}>
               <LinkIcon className="h-4 w-4" />
             </ToolbarButton>
@@ -766,9 +747,9 @@ const BusinessCardEditor = () => {
               <Image className="h-4 w-4" />
             </ToolbarButton>
           </div>
-
-          {/* Editor Content */}
-          <div className="border border-border rounded-lg bg-background min-h-[300px]">
+          
+          {/* Editor */}
+          <div className="border rounded-lg bg-background">
             <EditorContent editor={editor} />
           </div>
         </div>
@@ -776,46 +757,33 @@ const BusinessCardEditor = () => {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Предпросмотр визитки</DialogTitle>
           </DialogHeader>
-          
           <div className="space-y-4">
-            {/* Preview using mockAPI data */}
-            {mockAPIPreviewData.image && (
-              <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                <img
-                  src={cardData.image || mockAPIPreviewData.image}
-                  alt="Обложка"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+            {cardData.image && (
+              <img
+                src={cardData.image}
+                alt={cardData.title}
+                className="w-full h-48 object-cover rounded-lg"
+              />
             )}
-            
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
-                {cardData.title || mockAPIPreviewData.title}
-              </h2>
-              <p className="text-muted-foreground mt-1">
-                {cardData.description || mockAPIPreviewData.description}
+            <h2 className="text-2xl font-bold">{cardData.title || "Без названия"}</h2>
+            {cardData.description && (
+              <p className="text-muted-foreground">{cardData.description}</p>
+            )}
+            {(cardData.city || cardData.location) && (
+              <p className="text-sm text-muted-foreground">
+                📍 {[cardData.city, cardData.location].filter(Boolean).join(", ")}
               </p>
-            </div>
-
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-              <span>📞 {mockAPIPreviewData.phone}</span>
-              <span>✉️ {mockAPIPreviewData.email}</span>
-              <span>📍 {mockAPIPreviewData.address}</span>
-            </div>
-
-            <div className="border-t border-border pt-4">
+            )}
+            {cardData.content && (
               <div
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ 
-                  __html: editor?.getHTML() || "<p>Контент визитки будет отображаться здесь...</p>" 
-                }}
+                dangerouslySetInnerHTML={{ __html: cardData.content }}
               />
-            </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
