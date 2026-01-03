@@ -215,28 +215,61 @@ const CategoryPage = () => {
         setCategory(categoryData);
       }
 
-      // Загружаем визитки категории
-      const { data: businessesData, error: businessesError } = await supabase
+      // 1. Загружаем визитки с category_id = id
+      const { data: businessesByCat, error: err1 } = await supabase
         .from("businesses")
         .select("*")
         .eq("category_id", id)
         .eq("status", "published");
       
-      if (businessesError) {
-        console.error("[Supabase] Error fetching businesses:", businessesError);
-        setLoading(false);
-        return;
+      if (err1) {
+        console.error("[Supabase] Error fetching businesses by category:", err1);
       }
+
+      // 2. Загружаем товары с category_id = id
+      const { data: productsInCat, error: err2 } = await supabase
+        .from("products")
+        .select("*")
+        .eq("category_id", id)
+        .eq("is_available", true);
+      
+      if (err2) {
+        console.error("[Supabase] Error fetching products by category:", err2);
+      }
+
+      // 3. Собираем producer_id из товаров и загружаем их визитки
+      const producerIds = [...new Set((productsInCat || []).map(p => p.producer_id))];
+      
+      let businessesByProduct: typeof businessesByCat = [];
+      if (producerIds.length > 0) {
+        const { data, error: err3 } = await supabase
+          .from("businesses")
+          .select("*")
+          .in("owner_id", producerIds)
+          .eq("status", "published");
+        
+        if (err3) {
+          console.error("[Supabase] Error fetching businesses by product:", err3);
+        } else {
+          businessesByProduct = data || [];
+        }
+      }
+
+      // 4. Объединяем визитки без дубликатов
+      const allBusinessesMap = new Map<string, typeof businessesByCat[0]>();
+      (businessesByCat || []).forEach(b => allBusinessesMap.set(b.id, b));
+      (businessesByProduct || []).forEach(b => allBusinessesMap.set(b.id, b));
+      const allBusinesses = Array.from(allBusinessesMap.values());
 
       // Собираем уникальные города
       const uniqueCities = new Set<string>(["Все города"]);
-      businessesData?.forEach(b => {
+      allBusinesses.forEach(b => {
         if (b.city) uniqueCities.add(b.city);
       });
       setCities(Array.from(uniqueCities));
 
-      // Загружаем товары для всех визиток
-      const ownerIds = businessesData?.map(b => b.owner_id).filter(Boolean) as string[];
+      // 5. Загружаем ВСЕ товары владельцев (не только в этой категории)
+      const ownerIds = allBusinesses.map(b => b.owner_id).filter(Boolean) as string[];
       
       let productsMap: Record<string, ProductDisplay[]> = {};
       
@@ -266,7 +299,7 @@ const CategoryPage = () => {
       }
 
       // Формируем массив визиток с товарами
-      const businessesWithProducts: BusinessWithProducts[] = (businessesData || []).map(b => {
+      const businessesWithProducts: BusinessWithProducts[] = allBusinesses.map(b => {
         const contentJson = b.content_json as Record<string, unknown> || {};
         return {
           id: b.id,
