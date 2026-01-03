@@ -238,8 +238,8 @@ const CategoryPage = () => {
       }
 
       // 3. Собираем producer_id из товаров и загружаем их визитки
-      const producerIds = [...new Set((productsInCat || []).map(p => p.producer_id))];
-      
+      const producerIds = [...new Set((productsInCat || []).map((p) => p.producer_id))];
+
       let businessesByProduct: typeof businessesByCat = [];
       if (producerIds.length > 0) {
         const { data, error: err3 } = await supabase
@@ -247,7 +247,7 @@ const CategoryPage = () => {
           .select("*")
           .in("owner_id", producerIds)
           .eq("status", "published");
-        
+
         if (err3) {
           console.error("[Supabase] Error fetching businesses by product:", err3);
         } else {
@@ -255,11 +255,31 @@ const CategoryPage = () => {
         }
       }
 
-      // 4. Объединяем визитки без дубликатов
-      const allBusinessesMap = new Map<string, typeof businessesByCat[0]>();
-      (businessesByCat || []).forEach(b => allBusinessesMap.set(b.id, b));
-      (businessesByProduct || []).forEach(b => allBusinessesMap.set(b.id, b));
-      const allBusinesses = Array.from(allBusinessesMap.values());
+      // 4. Объединяем в список производителей без дублей по owner_id.
+      // Если у производителя несколько визиток, приоритет:
+      //   1) визитка именно этой категории
+      //   2) иначе — самая свежая по updated_at/created_at
+      const pickBetter = (
+        a: (typeof businessesByCat)[0] | undefined,
+        b: (typeof businessesByCat)[0]
+      ) => {
+        if (!a) return b;
+        const aInCat = a.category_id === id;
+        const bInCat = b.category_id === id;
+        if (aInCat !== bInCat) return bInCat ? b : a;
+
+        const aTime = new Date((a.updated_at || a.created_at) as string).getTime();
+        const bTime = new Date((b.updated_at || b.created_at) as string).getTime();
+        return bTime > aTime ? b : a;
+      };
+
+      const byOwner = new Map<string, (typeof businessesByCat)[0]>();
+      [...(businessesByCat || []), ...(businessesByProduct || [])].forEach((b) => {
+        if (!b.owner_id) return;
+        byOwner.set(b.owner_id, pickBetter(byOwner.get(b.owner_id), b));
+      });
+
+      const allBusinesses = Array.from(byOwner.values());
 
       // Собираем уникальные города
       const uniqueCities = new Set<string>(["Все города"]);
