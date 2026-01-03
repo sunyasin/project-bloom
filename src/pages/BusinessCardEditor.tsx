@@ -120,21 +120,42 @@ const BusinessCardEditor = () => {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // Загрузка категорий из БД
+  // Загрузка категорий и профиля пользователя
   useEffect(() => {
-    const loadCategories = async () => {
-      const { data, error } = await supabase
+    const loadInitialData = async () => {
+      // Загрузка категорий
+      const { data: categoriesData } = await supabase
         .from('categories')
         .select('id, name')
         .eq('is_hidden', false)
         .order('position');
       
-      if (!error && data) {
-        setCategories(data);
+      if (categoriesData) {
+        setCategories(categoriesData);
+      }
+
+      // Для новой визитки подставляем город из профиля владельца
+      if (isNew) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('city, address')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          if (profile) {
+            setCardData(prev => ({
+              ...prev,
+              city: profile.city || "",
+              location: profile.address || "",
+            }));
+          }
+        }
       }
     };
-    loadCategories();
-  }, []);
+    loadInitialData();
+  }, [isNew]);
 
   const editor = useEditor({
     extensions: [
