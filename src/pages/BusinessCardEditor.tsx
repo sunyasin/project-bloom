@@ -202,13 +202,18 @@ const BusinessCardEditor = () => {
       if (id) {
         setIsDataLoading(true);
         try {
-          const { data, error } = await supabase
-            .from('businesses')
-            .select('*')
-            .eq('id', id)
-            .maybeSingle();
+          // Загружаем визитку и профиль параллельно
+          const { data: { user } } = await supabase.auth.getUser();
           
-          if (error) throw error;
+          const [businessResult, profileResult] = await Promise.all([
+            supabase.from('businesses').select('*').eq('id', id).maybeSingle(),
+            user ? supabase.from('profiles').select('city, address').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+          ]);
+          
+          if (businessResult.error) throw businessResult.error;
+          
+          const data = businessResult.data;
+          const profile = profileResult.data;
           
           if (data) {
             const contentJson = data.content_json as Record<string, unknown> || {};
@@ -219,8 +224,9 @@ const BusinessCardEditor = () => {
               image: (contentJson.image as string) || "",
               content: (contentJson.content as string) || "",
               categoryId: data.category_id || "",
-              city: data.city || "",
-              location: data.location || "",
+              // Подставляем город из профиля, если в визитке он пустой
+              city: data.city || profile?.city || "",
+              location: data.location || profile?.address || "",
             };
             setCardData(loaded);
             if (editor && loaded.content) {
