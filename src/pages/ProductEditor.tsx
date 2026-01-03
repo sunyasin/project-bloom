@@ -4,15 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useProducts } from "@/hooks/use-products";
+import { supabase } from "@/integrations/supabase/client";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import ImageExtension from "@tiptap/extension-image";
+import { cn } from "@/lib/utils";
 import { 
   Bold, 
   Italic, 
@@ -34,8 +38,15 @@ import {
   Quote,
   Upload,
   X,
-  ImagePlus
+  ImagePlus,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 interface ProductFormData {
   name: string;
@@ -44,6 +55,7 @@ interface ProductFormData {
   unit: string;
   image: string;
   content: string;
+  categoryId: string;
 }
 
 // Валидация файла изображения (для будущего Storage)
@@ -104,6 +116,7 @@ const ProductEditor = () => {
     unit: "шт",
     image: "",
     content: "",
+    categoryId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(!isNew);
@@ -111,6 +124,24 @@ const ProductEditor = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [productId, setProductId] = useState<string | null>(isNew ? null : id || null);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  // Загрузка категорий из БД
+  useEffect(() => {
+    const loadCategories = async () => {
+      const { data } = await supabase
+        .from('categories')
+        .select('id, name')
+        .eq('is_hidden', false)
+        .order('position');
+      
+      if (data) {
+        setCategories(data);
+      }
+    };
+    loadCategories();
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -160,7 +191,8 @@ const ProductEditor = () => {
               price: data.price || 0,
               unit: data.unit || "шт",
               image: data.image_url || "",
-              content: "", // content stored in description for now
+              content: "",
+              categoryId: data.category_id || "",
             });
             setProductId(data.id);
             if (editor && data.description) {
@@ -219,6 +251,7 @@ const ProductEditor = () => {
         price: productData.price,
         unit: productData.unit,
         image_url: productData.image,
+        category_id: productData.categoryId || null,
       };
 
       if (isNew || !productId) {
@@ -418,6 +451,53 @@ const ProductEditor = () => {
               placeholder="Краткое описание товара"
               rows={2}
             />
+          </div>
+
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Категория</label>
+            <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={categoryOpen}
+                  className="w-full justify-between"
+                >
+                  {productData.categoryId
+                    ? categories.find(c => c.id === productData.categoryId)?.name
+                    : "Выберите категорию..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Поиск категории..." />
+                  <CommandList>
+                    <CommandEmpty>Категория не найдена</CommandEmpty>
+                    <CommandGroup>
+                      {categories.map((category) => (
+                        <CommandItem
+                          key={category.id}
+                          value={category.name}
+                          onSelect={() => {
+                            updateField("categoryId", category.id);
+                            setCategoryOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              productData.categoryId === category.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {category.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div>
