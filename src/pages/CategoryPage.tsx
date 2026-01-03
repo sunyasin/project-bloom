@@ -1,7 +1,7 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter } from "lucide-react";
-import { useState, useRef } from "react";
+import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import type { Category, Business, Product as DBProduct } from "@/types/db";
 
 // Mock user profile
 const mockAPIUserProfile = {
@@ -32,71 +34,35 @@ const mockAPISendOrder = async (order: { products: SelectedProduct[]; phone: str
   return { success: true, orderId: `ORD-${Date.now()}` };
 };
 
-// Mock products data
-const mockAPIProducts: Record<string, { id: string; name: string; image: string; price: string }[]> = {
-  "2": [
-    { id: "p1", name: "Сыр Гауда", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=100&h=100&fit=crop", price: "850 ₽/кг" },
-    { id: "p2", name: "Молоко 3.2%", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=100&h=100&fit=crop", price: "95 ₽/л" },
-    { id: "p3", name: "Творог 9%", image: "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=100&h=100&fit=crop", price: "320 ₽/кг" },
-    { id: "p4", name: "Сметана", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=100&h=100&fit=crop", price: "180 ₽" },
-    { id: "p5", name: "Масло сливочное", image: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=100&h=100&fit=crop", price: "450 ₽" },
-    { id: "p6", name: "Кефир", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=100&h=100&fit=crop", price: "85 ₽/л" },
-    { id: "p7", name: "Ряженка", image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=100&h=100&fit=crop", price: "90 ₽" },
-    { id: "p8", name: "Йогурт натуральный", image: "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=100&h=100&fit=crop", price: "120 ₽" },
-    { id: "p9", name: "Сыр Моцарелла", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=100&h=100&fit=crop", price: "950 ₽/кг" },
-    { id: "p10", name: "Сливки 20%", image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=100&h=100&fit=crop", price: "210 ₽" },
-    { id: "p11", name: "Сыр Бри", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=100&h=100&fit=crop", price: "1200 ₽/кг" },
-    { id: "p12", name: "Простокваша", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=100&h=100&fit=crop", price: "75 ₽" },
-  ],
-  "5": [
-    { id: "p13", name: "Кефир 2.5%", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=100&h=100&fit=crop", price: "80 ₽/л" },
-    { id: "p14", name: "Сметана 20%", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=100&h=100&fit=crop", price: "195 ₽" },
-    { id: "p15", name: "Масло топлёное", image: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=100&h=100&fit=crop", price: "520 ₽" },
-    { id: "p16", name: "Творог 5%", image: "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=100&h=100&fit=crop", price: "290 ₽/кг" },
-    { id: "p17", name: "Молоко козье", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=100&h=100&fit=crop", price: "180 ₽/л" },
-    { id: "p18", name: "Сыр Адыгейский", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=100&h=100&fit=crop", price: "680 ₽/кг" },
-  ],
-};
-
-// Mock category data with phone and city
-const mockAPICategoryData: Record<string, { name: string; businesses: { id: string; name: string; location: string; city: string; phone: string }[] }> = {
-  "1": {
-    name: "Молочные продукты",
-    businesses: [
-      { id: "2", name: "Ферма Петровых", location: "Московская область", city: "Коломна", phone: "+7 (495) 123-45-67" },
-      { id: "5", name: "Молочный край", location: "Тульская область", city: "Тула", phone: "+7 (487) 765-43-21" },
-      { id: "6", name: "Сырный дом", location: "Московская область", city: "Коломна", phone: "+7 (495) 111-22-33" },
-      { id: "7", name: "Деревенское подворье", location: "Рязанская область", city: "Рязань", phone: "+7 (491) 222-33-44" },
-    ],
-  },
-};
-
-// Mock API для получения списка городов (GET /api/cities)
-const mockAPIGetCities = async () => {
-  console.log("[mockAPI] GET /api/cities");
-  return ["Все города", "Коломна", "Тула", "Рязань"];
-};
-
-interface Product {
+interface ProductDisplay {
   id: string;
   name: string;
   image: string;
   price: string;
 }
 
-interface SelectedProduct extends Product {
+interface SelectedProduct extends ProductDisplay {
   businessId: string;
   businessName: string;
 }
 
+interface BusinessWithProducts {
+  id: string;
+  name: string;
+  location: string;
+  city: string;
+  phone: string;
+  products: ProductDisplay[];
+}
+
 interface ProductGridProps {
-  products: Product[];
+  products: ProductDisplay[];
   businessName: string;
   businessId: string;
   businessPhone: string;
   selectedProducts: SelectedProduct[];
-  onProductClick: (product: Product, businessName: string, businessId: string, businessPhone: string) => void;
-  onProductSelect: (product: Product, businessId: string, businessName: string, selected: boolean) => void;
+  onProductClick: (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string) => void;
+  onProductSelect: (product: ProductDisplay, businessId: string, businessName: string, selected: boolean) => void;
 }
 
 const ProductGrid = ({ 
@@ -206,11 +172,16 @@ const ProductGrid = ({
 
 const CategoryPage = () => {
   const { id } = useParams<{ id: string }>();
-  const category = mockAPICategoryData[id || "1"] || { name: "Категория", businesses: [] };
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
+  const [category, setCategory] = useState<Category | null>(null);
+  const [businesses, setBusinesses] = useState<BusinessWithProducts[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cities, setCities] = useState<string[]>(["Все города"]);
+  
   const [selectedProduct, setSelectedProduct] = useState<{
-    product: Product;
+    product: ProductDisplay;
     businessName: string;
     businessId: string;
     businessPhone: string;
@@ -220,14 +191,105 @@ const CategoryPage = () => {
   const [orderDialogOpen, setOrderDialogOpen] = useState<string | null>(null);
   const [orderPhone, setOrderPhone] = useState(mockAPIUserProfile.phone);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cityFilter, setCityFilter] = useState("Все города");
-  const cities = ["Все города", "Коломна", "Тула", "Рязань"]; // В реальном приложении - из mockAPIGetCities
+  
+  const initialCity = searchParams.get("city") || "Все города";
+  const [cityFilter, setCityFilter] = useState(initialCity);
 
-  const handleProductClick = (product: Product, businessName: string, businessId: string, businessPhone: string) => {
+  // Загрузка данных из БД
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      
+      // Загружаем категорию
+      const { data: categoryData, error: categoryError } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      
+      if (categoryError) {
+        console.error("[Supabase] Error fetching category:", categoryError);
+      } else if (categoryData) {
+        setCategory(categoryData);
+      }
+
+      // Загружаем визитки категории
+      const { data: businessesData, error: businessesError } = await supabase
+        .from("businesses")
+        .select("*")
+        .eq("category_id", id)
+        .eq("status", "published");
+      
+      if (businessesError) {
+        console.error("[Supabase] Error fetching businesses:", businessesError);
+        setLoading(false);
+        return;
+      }
+
+      // Собираем уникальные города
+      const uniqueCities = new Set<string>(["Все города"]);
+      businessesData?.forEach(b => {
+        if (b.city) uniqueCities.add(b.city);
+      });
+      setCities(Array.from(uniqueCities));
+
+      // Загружаем товары для всех визиток
+      const ownerIds = businessesData?.map(b => b.owner_id).filter(Boolean) as string[];
+      
+      let productsMap: Record<string, ProductDisplay[]> = {};
+      
+      if (ownerIds.length > 0) {
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select("*")
+          .in("producer_id", ownerIds)
+          .eq("is_available", true);
+        
+        if (productsError) {
+          console.error("[Supabase] Error fetching products:", productsError);
+        } else if (productsData) {
+          // Группируем товары по producer_id
+          productsData.forEach(p => {
+            if (!productsMap[p.producer_id]) {
+              productsMap[p.producer_id] = [];
+            }
+            productsMap[p.producer_id].push({
+              id: p.id,
+              name: p.name,
+              image: p.image_url || "/placeholder.svg",
+              price: p.price ? `${p.price} ₽${p.unit ? `/${p.unit}` : ""}` : "Цена по запросу",
+            });
+          });
+        }
+      }
+
+      // Формируем массив визиток с товарами
+      const businessesWithProducts: BusinessWithProducts[] = (businessesData || []).map(b => {
+        const contentJson = b.content_json as Record<string, unknown> || {};
+        return {
+          id: b.id,
+          name: b.name,
+          location: b.location,
+          city: b.city,
+          phone: (contentJson.phone as string) || "",
+          products: b.owner_id ? (productsMap[b.owner_id] || []) : [],
+        };
+      });
+
+      setBusinesses(businessesWithProducts);
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [id]);
+
+  const handleProductClick = (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string) => {
     setSelectedProduct({ product, businessName, businessId, businessPhone });
   };
 
-  const handleProductSelect = (product: Product, businessId: string, businessName: string, selected: boolean) => {
+  const handleProductSelect = (product: ProductDisplay, businessId: string, businessName: string, selected: boolean) => {
     if (selected) {
       setSelectedProducts(prev => [...prev, { ...product, businessId, businessName }]);
     } else {
@@ -263,17 +325,29 @@ const CategoryPage = () => {
   };
 
   const filteredBusinesses = cityFilter === "Все города" 
-    ? category.businesses 
-    : category.businesses.filter(b => b.city === cityFilter);
+    ? businesses 
+    : businesses.filter(b => b.city === cityFilter);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const categoryName = category?.name || "Категория";
 
   return (
     <MainLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{category.name}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{categoryName}</h1>
             <p className="text-muted-foreground mt-1">
-              Производители в категории «{category.name}»
+              Производители в категории «{categoryName}»
             </p>
           </div>
           
@@ -297,7 +371,6 @@ const CategoryPage = () => {
         {filteredBusinesses.length > 0 ? (
           <div className="space-y-4">
             {filteredBusinesses.map((business) => {
-              const products = mockAPIProducts[business.id] || [];
               const selectedForBusiness = getSelectedForBusiness(business.id);
               
               return (
@@ -340,10 +413,10 @@ const CategoryPage = () => {
                     </div>
 
                     {/* Products grid - right side */}
-                    {products.length > 0 && (
+                    {business.products.length > 0 && (
                       <div className="flex-1 min-w-0 lg:border-l lg:border-border lg:pl-4">
                         <ProductGrid
-                          products={products}
+                          products={business.products}
                           businessName={business.name}
                           businessId={business.id}
                           businessPhone={business.phone}
