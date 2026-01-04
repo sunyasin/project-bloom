@@ -21,8 +21,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import type { Promotion } from "@/types/db";
+import type { Promotion, Category } from "@/types/db";
 import type { NewsItem } from "@/hooks/use-news";
+
+// Category image mapping
+const categoryImages: Record<string, string> = {
+  "Выпечка": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop",
+  "Колбасы": "https://images.unsplash.com/photo-1558030006-450675393462?w=200&h=200&fit=crop",
+  "Консервы": "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200&h=200&fit=crop",
+  "Крупы": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&h=200&fit=crop",
+  "Молочные продукты": "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop",
+  "Мёд": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop",
+  "Мясо": "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200&h=200&fit=crop",
+  "Овощи": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&h=200&fit=crop",
+  "Птица": "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200&h=200&fit=crop",
+  "Рыба": "https://images.unsplash.com/photo-1544943910-4c1dc44aab44?w=200&h=200&fit=crop",
+  "Сыры": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop",
+  "Фрукты": "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=200&h=200&fit=crop",
+  "Яйца": "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop",
+};
+
+const DEFAULT_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop";
 
 // ============= Mock API для подписки на новости =============
 
@@ -47,26 +66,12 @@ const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1607082348824-0a9
 // Default event image
 const DEFAULT_EVENT_IMAGE = "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=50&h=50&fit=crop";
 
-// Mock categories data (will be replaced with DB later)
-const mockCategories = [
-  { id: "1", name: "Выпечка", image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop" },
-  { id: "2", name: "Колбасы", image: "https://images.unsplash.com/photo-1558030006-450675393462?w=200&h=200&fit=crop" },
-  { id: "3", name: "Консервы", image: "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200&h=200&fit=crop" },
-  { id: "4", name: "Крупы", image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&h=200&fit=crop" },
-  { id: "5", name: "Молочные продукты", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop" },
-  { id: "6", name: "Мёд", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop" },
-  { id: "7", name: "Мясо", image: "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200&h=200&fit=crop" },
-  { id: "8", name: "Овощи", image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&h=200&fit=crop" },
-  { id: "9", name: "Птица", image: "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200&h=200&fit=crop" },
-  { id: "10", name: "Рыба", image: "https://images.unsplash.com/photo-1544943910-4c1dc44aab44?w=200&h=200&fit=crop" },
-  { id: "11", name: "Сыры", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop" },
-  { id: "12", name: "Фрукты", image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=200&h=200&fit=crop" },
-  { id: "13", name: "Яйца", image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop" },
-].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
 const Index = () => {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [events, setEvents] = useState<NewsItem[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -146,6 +151,59 @@ const Index = () => {
     };
 
     fetchNews();
+  }, []);
+
+  // Load categories that have products or businesses
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        // Get all visible categories
+        const { data: allCategories, error: catError } = await supabase
+          .from("categories")
+          .select("*")
+          .eq("is_hidden", false)
+          .order("name");
+
+        if (catError) throw catError;
+
+        // Get category IDs that have products
+        const { data: productCategories, error: prodError } = await supabase
+          .from("products")
+          .select("category_id")
+          .eq("is_available", true)
+          .not("category_id", "is", null);
+
+        if (prodError) throw prodError;
+
+        // Get category IDs that have published businesses
+        const { data: businessCategories, error: bizError } = await supabase
+          .from("businesses")
+          .select("category_id")
+          .eq("status", "published")
+          .not("category_id", "is", null);
+
+        if (bizError) throw bizError;
+
+        // Combine unique category IDs
+        const categoryIdsWithContent = new Set([
+          ...(productCategories || []).map(p => p.category_id),
+          ...(businessCategories || []).map(b => b.category_id),
+        ]);
+
+        // Filter categories that have content
+        const categoriesWithContent = (allCategories || [])
+          .filter(cat => categoryIdsWithContent.has(cat.id))
+          .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
+        setCategories(categoriesWithContent as Category[]);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   return (
@@ -261,26 +319,32 @@ const Index = () => {
             </Link>
           </div>
           
-          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
-            {mockCategories.map((category) => (
-              <Link
-                key={category.id}
-                to={`/category/${category.id}`}
-                className="flex flex-col items-center p-2 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors group"
-              >
-                <div className="w-full aspect-square rounded-md overflow-hidden mb-2">
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <p className="text-xs text-foreground text-center truncate w-full">
-                  {category.name}
-                </p>
-              </Link>
-            ))}
-          </div>
+          {categoriesLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : categories.length === 0 ? (
+            <p className="text-muted-foreground">Нет категорий с товарами</p>
+          ) : (
+            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  to={`/category/${category.id}`}
+                  className="flex flex-col items-center p-2 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors group"
+                >
+                  <div className="w-full aspect-square rounded-md overflow-hidden mb-2">
+                    <img
+                      src={categoryImages[category.name] || DEFAULT_CATEGORY_IMAGE}
+                      alt={category.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <p className="text-xs text-foreground text-center truncate w-full">
+                    {category.name}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* News Section */}
