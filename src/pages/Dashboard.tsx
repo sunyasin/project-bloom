@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useProducts } from "@/hooks/use-products";
 import { usePromotions, Promotion, PromotionFormData } from "@/hooks/use-promotions";
+import { useNews, NewsFormData } from "@/hooks/use-news";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -100,52 +101,6 @@ const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-
 const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=200&h=200&fit=crop";
 const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=200&h=200&fit=crop";
 
-// ============= Mock API для новостей =============
-
-// Данные новостей
-const mockNews = [
-  { id: "1", title: "Открытие нового филиала", content: "Рады сообщить об открытии нового филиала в Москве", date: "2024-12-28", isEvent: false },
-  { id: "2", title: "Праздничная ярмарка", content: "Приглашаем на праздничную ярмарку 15 января", date: "2024-12-25", isEvent: true },
-  { id: "3", title: "Расширение ассортимента", content: "Добавили новые молочные продукты", date: "2024-12-20", isEvent: false },
-  { id: "4", title: "Мастер-класс по сыроварению", content: "Проводим мастер-класс для всех желающих", date: "2024-12-18", isEvent: true },
-  { id: "5", title: "Скидки на Новый год", content: "Специальные предложения к праздникам", date: "2024-12-15", isEvent: false },
-  { id: "6", title: "Обновление цен", content: "Информация об обновлении прайс-листа", date: "2024-12-10", isEvent: false },
-  { id: "7", title: "Дегустация продукции", content: "Приглашаем на дегустацию в нашем магазине", date: "2024-12-05", isEvent: true },
-];
-
-interface NewsItem {
-  id: string;
-  title: string;
-  content: string;
-  date: string;
-  isEvent: boolean;
-}
-
-// Имитация получения списка новостей (GET /api/news)
-const mockAPIGetNews = async () => {
-  console.log("[mockAPI] GET /api/news");
-  return [...mockNews];
-};
-
-// Имитация получения одной новости (GET /api/news/:id)
-const mockAPIGetNewsItem = async (id: string): Promise<NewsItem | null> => {
-  console.log(`[mockAPI] GET /api/news/${id}`);
-  return mockNews.find(n => n.id === id) || null;
-};
-
-// Имитация сохранения новости (POST/PUT /api/news/:id)
-const mockAPISaveNews = async (data: NewsItem) => {
-  console.log(`[mockAPI] ${data.id === "new" ? "POST" : "PUT"} /api/news/${data.id}`, data);
-  return { success: true, data: { ...data, id: data.id === "new" ? String(Date.now()) : data.id } };
-};
-
-// Имитация удаления новости (DELETE /api/news/:id)
-const mockAPIDeleteNews = async (id: string) => {
-  console.log(`[mockAPI] DELETE /api/news/${id}`);
-  return { success: true };
-};
-
-// ============= End Mock API для новостей =============
 
 // ============= Mock API для сообщений =============
 
@@ -340,6 +295,9 @@ const Dashboard = () => {
   // Promotions from Supabase
   const { promotions, loading: promotionsLoading, createPromotion, updatePromotion, deletePromotion } = usePromotions(user?.id || null);
   
+  // News from Supabase
+  const { news, loading: newsLoading, createNews, updateNews, deleteNews } = useNews(user?.id || null);
+  
   // Promotion editing state
   const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
   const [promotionDragging, setPromotionDragging] = useState(false);
@@ -358,12 +316,12 @@ const Dashboard = () => {
   // News editing state
   const [isNewsDialogOpen, setIsNewsDialogOpen] = useState(false);
   const [showAllNews, setShowAllNews] = useState(false);
-  const [newsFormData, setNewsFormData] = useState<NewsItem>({
-    id: "new",
+  const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
+  const [newsFormData, setNewsFormData] = useState<NewsFormData>({
     title: "",
     content: "",
-    date: "",
-    isEvent: false,
+    is_event: false,
+    event_date: "",
   });
   
   // Messages state
@@ -712,36 +670,44 @@ const Dashboard = () => {
 
   // ============= News handlers =============
   
-  const handleOpenNewsDialog = async (newsId?: string) => {
+  const handleOpenNewsDialog = (newsId?: string) => {
     if (newsId) {
-      const news = await mockAPIGetNewsItem(newsId);
-      if (news) {
-        setNewsFormData(news);
+      const newsItem = news.find(n => n.id === newsId);
+      if (newsItem) {
+        setEditingNewsId(newsId);
+        setNewsFormData({
+          title: newsItem.title,
+          content: newsItem.content || "",
+          is_event: newsItem.is_event,
+          event_date: newsItem.event_date || "",
+        });
       }
     } else {
+      setEditingNewsId(null);
       setNewsFormData({
-        id: "new",
         title: "",
         content: "",
-        date: new Date().toISOString().split("T")[0],
-        isEvent: false,
+        is_event: false,
+        event_date: "",
       });
     }
     setIsNewsDialogOpen(true);
   };
 
   const handleSaveNews = async () => {
-    await mockAPISaveNews(newsFormData);
+    if (editingNewsId) {
+      await updateNews(editingNewsId, newsFormData);
+    } else {
+      await createNews(newsFormData);
+    }
     setIsNewsDialogOpen(false);
   };
 
-  const handleDeleteNews = async (id: string) => {
-    await mockAPIDeleteNews(id);
-    // В реальном приложении здесь был бы рефетч данных
-    console.log(`[UI] News ${id} deleted, would refetch list`);
+  const handleDeleteNewsItem = async (id: string) => {
+    await deleteNews(id);
   };
 
-  const displayedNews = showAllNews ? mockNews : mockNews.slice(0, 5);
+  const displayedNews = showAllNews ? news : news.slice(0, 5);
 
   // ============= Messages handlers =============
   
@@ -1364,73 +1330,81 @@ const Dashboard = () => {
             </Button>
           </div>
           
-          <div className="content-card">
-            <div className="space-y-2">
-              {displayedNews.map((news) => (
-                <div
-                  key={news.id}
-                  className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group"
-                >
-                  {news.isEvent && (
-                    <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
-                  )}
-                  <span className="text-sm text-muted-foreground flex-shrink-0">
-                    {news.date}
-                  </span>
-                  <span className="text-sm font-medium text-foreground flex-1 truncate">
-                    {news.title}
-                  </span>
-                  {news.isEvent && (
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded flex-shrink-0">
-                      Событие
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handleOpenNewsDialog(news.id)}
+          {newsLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : (
+            <div className="content-card">
+              {displayedNews.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Нет новостей</p>
+              ) : (
+                <div className="space-y-2">
+                  {displayedNews.map((newsItem) => (
+                    <div
+                      key={newsItem.id}
+                      className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group"
                     >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteNews(news.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                      {newsItem.is_event && (
+                        <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
+                      )}
+                      <span className="text-sm text-muted-foreground flex-shrink-0">
+                        {new Date(newsItem.created_at).toLocaleDateString('ru-RU')}
+                      </span>
+                      <span className="text-sm font-medium text-foreground flex-1 truncate">
+                        {newsItem.title}
+                      </span>
+                      {newsItem.is_event && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded flex-shrink-0">
+                          Событие
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleOpenNewsDialog(newsItem.id)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteNewsItem(newsItem.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              
+              {!showAllNews && news.length > 5 && (
+                <button
+                  onClick={() => setShowAllNews(true)}
+                  className="mt-3 text-sm text-primary hover:underline"
+                >
+                  Все →
+                </button>
+              )}
+              {showAllNews && news.length > 5 && (
+                <button
+                  onClick={() => setShowAllNews(false)}
+                  className="mt-3 text-sm text-primary hover:underline"
+                >
+                  Свернуть
+                </button>
+              )}
             </div>
-            
-            {!showAllNews && mockNews.length > 5 && (
-              <button
-                onClick={() => setShowAllNews(true)}
-                className="mt-3 text-sm text-primary hover:underline"
-              >
-                Все →
-              </button>
-            )}
-            {showAllNews && (
-              <button
-                onClick={() => setShowAllNews(false)}
-                className="mt-3 text-sm text-primary hover:underline"
-              >
-                Свернуть
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
         {/* News Edit Dialog */}
         <Dialog open={isNewsDialogOpen} onOpenChange={setIsNewsDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{newsFormData.id === "new" ? "Создание новости" : "Редактирование новости"}</DialogTitle>
+              <DialogTitle>{editingNewsId ? "Редактирование новости" : "Создание новости"}</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -1457,14 +1431,14 @@ const Dashboard = () => {
                 />
               </div>
 
-              {/* Date */}
+              {/* Event Date */}
               <div className="space-y-2">
-                <Label htmlFor="news-date">Дата</Label>
+                <Label htmlFor="news-date">Дата события</Label>
                 <Input
                   id="news-date"
                   type="date"
-                  value={newsFormData.date}
-                  onChange={(e) => setNewsFormData(prev => ({ ...prev, date: e.target.value }))}
+                  value={newsFormData.event_date}
+                  onChange={(e) => setNewsFormData(prev => ({ ...prev, event_date: e.target.value }))}
                 />
               </div>
 
@@ -1472,8 +1446,8 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="news-is-event"
-                  checked={newsFormData.isEvent}
-                  onCheckedChange={(checked) => setNewsFormData(prev => ({ ...prev, isEvent: checked === true }))}
+                  checked={newsFormData.is_event}
+                  onCheckedChange={(checked) => setNewsFormData(prev => ({ ...prev, is_event: checked === true }))}
                 />
                 <Label htmlFor="news-is-event" className="cursor-pointer">
                   Это событие

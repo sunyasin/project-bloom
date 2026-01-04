@@ -100,6 +100,45 @@ export type Database = {
         }
         Relationships: []
       }
+      news: {
+        Row: {
+          content: string | null
+          created_at: string
+          event_date: string | null
+          id: string
+          image_url: string | null
+          is_event: boolean
+          is_published: boolean
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          event_date?: string | null
+          id?: string
+          image_url?: string | null
+          is_event?: boolean
+          is_published?: boolean
+          owner_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          event_date?: string | null
+          id?: string
+          image_url?: string | null
+          is_event?: boolean
+          is_published?: boolean
+          owner_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category_id: string | null
