@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Promotion } from "@/types/db";
+import type { NewsItem } from "@/hooks/use-news";
 
 // ============= Mock API для подписки на новости =============
 
@@ -43,22 +44,10 @@ const mockAPISubscribeNewsletter = async (email: string) => {
 
 const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400&h=300&fit=crop";
 
-// Mock events data
-const mockWeekEvents = [
-  { id: "1", title: "Ярмарка выходного дня в центре города с участием местных производителей", date: "28.12", logo: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=50&h=50&fit=crop" },
-  { id: "2", title: "Мастер-класс по сыроварению от Сырной лавки для всех желающих", date: "29.12", logo: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=50&h=50&fit=crop" },
-  { id: "3", title: "Дегустация новых сортов мёда на Пасеке Иванова", date: "30.12", logo: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=50&h=50&fit=crop" },
-  { id: "4", title: "Новогодняя распродажа на Ферме Петровых со скидками до 50%", date: "31.12", logo: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=50&h=50&fit=crop" },
-  { id: "5", title: "Открытие нового магазина Эко-овощей в районе старого города", date: "02.01", logo: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=50&h=50&fit=crop" },
-  { id: "6", title: "Кулинарный фестиваль с участием лучших производителей региона", date: "03.01", logo: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=50&h=50&fit=crop" },
-  { id: "7", title: "Экскурсия на птицеферму Солнечная для школьников и взрослых", date: "04.01", logo: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=50&h=50&fit=crop" },
-  { id: "8", title: "Зимний фермерский рынок под открытым небом с горячим чаем", date: "05.01", logo: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=50&h=50&fit=crop" },
-  { id: "9", title: "Презентация новой линейки хлеба в Хлебном доме с дегустацией", date: "06.01", logo: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=50&h=50&fit=crop" },
-  { id: "10", title: "Встреча с производителями органических продуктов в конференц-зале", date: "07.01", logo: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=50&h=50&fit=crop" },
-];
+// Default event image
+const DEFAULT_EVENT_IMAGE = "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=50&h=50&fit=crop";
 
-
-// Mock categories data
+// Mock categories data (will be replaced with DB later)
 const mockCategories = [
   { id: "1", name: "Выпечка", image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop" },
   { id: "2", name: "Колбасы", image: "https://images.unsplash.com/photo-1558030006-450675393462?w=200&h=200&fit=crop" },
@@ -75,43 +64,13 @@ const mockCategories = [
   { id: "13", name: "Яйца", image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop" },
 ].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
-// Mock news data - Valley news
-const mockAPIValleyNews = [
-  { id: "1", title: "Открытие нового фермерского рынка в центре долины запланировано на весну следующего года" },
-  { id: "2", title: "Долина получила грант на развитие экологического земледелия от регионального фонда" },
-  { id: "3", title: "Новые правила сертификации органической продукции вступают в силу с января" },
-  { id: "4", title: "Фестиваль урожая собрал рекордное количество участников и посетителей" },
-  { id: "5", title: "Программа поддержки молодых фермеров расширяется на новые районы области" },
-  { id: "6", title: "В долине построят современный логистический центр для фермерской продукции" },
-  { id: "7", title: "Кооперация производителей позволила снизить затраты на доставку на 30%" },
-  { id: "8", title: "Экологический аудит подтвердил высокое качество почв в западной части долины" },
-  { id: "9", title: "Запущена программа обучения для начинающих производителей с бесплатными курсами" },
-  { id: "10", title: "Долина вошла в топ-5 регионов по производству органической продукции" },
-  { id: "11", title: "Новые технологии капельного орошения внедряются на фермах региона" },
-  { id: "12", title: "Ассоциация производителей провела ежегодное собрание и выбрала новое руководство" },
-];
-
-// Mock news data - Producer news
-const mockAPIProducerNews = [
-  { id: "1", title: "Пасека Иванова получила золотую медаль на международной выставке мёда в Москве" },
-  { id: "2", title: "Ферма Петровых расширяет производство и открывает новый цех переработки молока" },
-  { id: "3", title: "Эко-овощи запустили доставку свежих продуктов прямо с грядки к дому покупателя" },
-  { id: "4", title: "Хлебный дом представил линейку безглютеновых изделий для аллергиков" },
-  { id: "5", title: "Птицеферма Солнечная увеличила поголовье кур и расширила ассортимент продукции" },
-  { id: "6", title: "Сырная лавка освоила производство сыров с плесенью по французской технологии" },
-  { id: "7", title: "Рыбное хозяйство Озёрное начало выращивать форель премиум-класса для ресторанов" },
-  { id: "8", title: "Виноградник Южный собрал рекордный урожай и планирует выпуск вина нового сорта" },
-  { id: "9", title: "Мясной двор получил сертификат халяль и расширяет рынки сбыта продукции" },
-  { id: "10", title: "Травяная ферма Полевая начала экспорт сушёных трав в страны Европы" },
-  { id: "11", title: "Ягодный сад Лесной запустил производство натуральных джемов без сахара" },
-  { id: "12", title: "Кондитерская Сладкий дом открыла школу выпечки для всех желающих" },
-  { id: "13", title: "Молочная ферма Альпийская представила новую линейку йогуртов с ягодами" },
-  { id: "14", title: "Овощевод Зелёная долина построил теплицы для круглогодичного выращивания" },
-];
-
 const Index = () => {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [events, setEvents] = useState<NewsItem[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState(mockAPICurrentUser.email);
@@ -139,6 +98,54 @@ const Index = () => {
     };
 
     fetchPromotions();
+  }, []);
+
+  // Load events (news with is_event = true)
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("news")
+          .select("*")
+          .eq("is_published", true)
+          .eq("is_event", true)
+          .order("event_date", { ascending: true })
+          .limit(10);
+
+        if (error) throw error;
+        setEvents((data as NewsItem[]) || []);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  // Load news (non-event news)
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("news")
+          .select("*")
+          .eq("is_published", true)
+          .eq("is_event", false)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+        setNews((data as NewsItem[]) || []);
+      } catch (error) {
+        console.error("Error fetching news:", error);
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+
+    fetchNews();
   }, []);
 
   return (
@@ -211,27 +218,38 @@ const Index = () => {
             </Link>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mockWeekEvents.map((event) => (
-              <Link
-                key={event.id}
-                to={`/events/${event.id}`}
-                className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
-              >
-                <img
-                  src={event.logo}
-                  alt=""
-                  className="w-10 h-10 rounded-md object-cover shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground mb-1">{event.date}</p>
-                  <p className="text-sm text-foreground leading-tight line-clamp-2">
-                    {event.title}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {eventsLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : events.length === 0 ? (
+            <p className="text-muted-foreground">Нет предстоящих событий</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {events.map((event) => (
+                <Link
+                  key={event.id}
+                  to={`/news/${event.id}`}
+                  className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
+                >
+                  <img
+                    src={event.image_url || DEFAULT_EVENT_IMAGE}
+                    alt=""
+                    className="w-10 h-10 rounded-md object-cover shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {event.event_date 
+                        ? new Date(event.event_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+                        : new Date(event.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+                      }
+                    </p>
+                    <p className="text-sm text-foreground leading-tight line-clamp-2">
+                      {event.title}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Categories */}
@@ -265,55 +283,34 @@ const Index = () => {
           </div>
         </section>
 
-        {/* News Section - 2 columns */}
+        {/* News Section */}
         <section id="news">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Valley News Column */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="section-title mb-0 text-base">Новости долины</h2>
-                <Link to="/news?type=valley" className="text-sm text-primary hover:underline">
-                  Все →
-                </Link>
-              </div>
-              <div className="bg-card border border-border rounded-lg divide-y divide-border">
-                {mockAPIValleyNews.slice(0, 10).map((news) => (
-                  <Link
-                    key={news.id}
-                    to={`/news/${news.id}`}
-                    className="block px-3 py-2.5 hover:bg-muted/50 transition-colors"
-                  >
-                    <p className="text-sm text-foreground leading-snug line-clamp-2">
-                      {news.title}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Producer News Column */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="section-title mb-0 text-base">Новости производителей</h2>
-                <Link to="/news?type=producers" className="text-sm text-primary hover:underline">
-                  Все →
-                </Link>
-              </div>
-              <div className="bg-card border border-border rounded-lg divide-y divide-border">
-                {mockAPIProducerNews.slice(0, 10).map((news) => (
-                  <Link
-                    key={news.id}
-                    to={`/news/${news.id}`}
-                    className="block px-3 py-2.5 hover:bg-muted/50 transition-colors"
-                  >
-                    <p className="text-sm text-foreground leading-snug line-clamp-2">
-                      {news.title}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title mb-0">Новости</h2>
+            <Link to="/news" className="text-sm text-primary hover:underline">
+              Все →
+            </Link>
           </div>
+          
+          {newsLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : news.length === 0 ? (
+            <p className="text-muted-foreground">Нет новостей</p>
+          ) : (
+            <div className="bg-card border border-border rounded-lg divide-y divide-border">
+              {news.slice(0, 10).map((newsItem) => (
+                <Link
+                  key={newsItem.id}
+                  to={`/news/${newsItem.id}`}
+                  className="block px-3 py-2.5 hover:bg-muted/50 transition-colors"
+                >
+                  <p className="text-sm text-foreground leading-snug line-clamp-2">
+                    {newsItem.title}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Newsletter Subscribe Button */}
