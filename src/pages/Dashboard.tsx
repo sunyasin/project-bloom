@@ -7,6 +7,7 @@ import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { useToast } from "@/hooks/use-toast";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useProducts } from "@/hooks/use-products";
+import { usePromotions, Promotion, PromotionFormData } from "@/hooks/use-promotions";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -71,7 +72,7 @@ const mockAPIUploadAvatar = async (id: string, file: File) => {
 };
 
 // Валидация изображения
-const mockAPIValidateImage = (file: File) => {
+const validateImage = (file: File) => {
   const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   const maxSize = 5 * 1024 * 1024; // 5MB
   
@@ -97,50 +98,7 @@ const mockUser = {
 // Placeholder image for business cards without images
 const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
 const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=200&h=200&fit=crop";
-
-// ============= Mock API для акций =============
-
-// Данные акций
-const mockPromotions = [
-  { id: "1", title: "Скидка на молоко 20%", description: "При покупке от 5 литров", discount: "20%", validUntil: "2025-01-15", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop" },
-  { id: "2", title: "2+1 на сыр", description: "Третья упаковка в подарок", discount: "33%", validUntil: "2025-01-31", image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop" },
-  { id: "3", title: "Мёд со скидкой", description: "Специальное предложение на липовый мёд", discount: "15%", validUntil: "2025-02-28", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop" },
-];
-
-interface Promotion {
-  id: string;
-  title: string;
-  description: string;
-  discount: string;
-  validUntil: string;
-  image: string;
-}
-
-// Имитация получения списка акций (GET /api/promotions)
-const mockAPIGetPromotions = async () => {
-  console.log("[mockAPI] GET /api/promotions");
-  return [...mockPromotions];
-};
-
-// Имитация получения одной акции (GET /api/promotions/:id)
-const mockAPIGetPromotion = async (id: string): Promise<Promotion | null> => {
-  console.log(`[mockAPI] GET /api/promotions/${id}`);
-  return mockPromotions.find(p => p.id === id) || null;
-};
-
-// Имитация сохранения акции (POST/PUT /api/promotions/:id)
-const mockAPISavePromotion = async (data: Promotion) => {
-  console.log(`[mockAPI] ${data.id === "new" ? "POST" : "PUT"} /api/promotions/${data.id}`, data);
-  return { success: true, data: { ...data, id: data.id === "new" ? String(Date.now()) : data.id } };
-};
-
-// Имитация загрузки изображения акции (POST /api/promotions/:id/image)
-const mockAPIUploadPromotionImage = async (id: string, file: File) => {
-  console.log(`[mockAPI] POST /api/promotions/${id}/image`, { fileName: file.name, size: file.size });
-  return { success: true, url: URL.createObjectURL(file) };
-};
-
-// ============= End Mock API для акций =============
+const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=200&h=200&fit=crop";
 
 // ============= Mock API для новостей =============
 
@@ -379,18 +337,22 @@ const Dashboard = () => {
   // Products from Supabase
   const { products, loading: productsLoading, createProduct, deleteProduct } = useProducts();
   
+  // Promotions from Supabase
+  const { promotions, loading: promotionsLoading, createPromotion, updatePromotion, deletePromotion } = usePromotions(user?.id || null);
+  
   // Promotion editing state
   const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
   const [promotionDragging, setPromotionDragging] = useState(false);
   const [promotionUploadError, setPromotionUploadError] = useState<string | null>(null);
   const promotionFileInputRef = useRef<HTMLInputElement>(null);
-  const [promotionFormData, setPromotionFormData] = useState<Promotion>({
-    id: "new",
+  const [editingPromotionId, setEditingPromotionId] = useState<string | null>(null);
+  const [promotionFormData, setPromotionFormData] = useState<PromotionFormData>({
     title: "",
     description: "",
     discount: "",
-    validUntil: "",
-    image: "",
+    image_url: "",
+    valid_until: "",
+    business_id: "",
   });
   
   // News editing state
@@ -603,7 +565,7 @@ const Dashboard = () => {
 
   const handleFileUpload = async (file: File) => {
     setUploadError(null);
-    const validation = mockAPIValidateImage(file);
+    const validation = validateImage(file);
     if (!validation.valid) {
       setUploadError(validation.error);
       return;
@@ -647,20 +609,29 @@ const Dashboard = () => {
 
   // ============= Promotion handlers =============
   
-  const handleOpenPromotionDialog = async (promotionId?: string) => {
+  const handleOpenPromotionDialog = (promotionId?: string) => {
     if (promotionId) {
-      const promotion = await mockAPIGetPromotion(promotionId);
+      const promotion = promotions.find(p => p.id === promotionId);
       if (promotion) {
-        setPromotionFormData(promotion);
+        setEditingPromotionId(promotionId);
+        setPromotionFormData({
+          title: promotion.title,
+          description: promotion.description || "",
+          discount: promotion.discount,
+          image_url: promotion.image_url || "",
+          valid_until: promotion.valid_until ? promotion.valid_until.split("T")[0] : "",
+          business_id: promotion.business_id || "",
+        });
       }
     } else {
+      setEditingPromotionId(null);
       setPromotionFormData({
-        id: "new",
         title: "",
         description: "",
         discount: "",
-        validUntil: "",
-        image: "",
+        image_url: "",
+        valid_until: "",
+        business_id: "",
       });
     }
     setPromotionUploadError(null);
@@ -668,22 +639,45 @@ const Dashboard = () => {
   };
 
   const handleSavePromotion = async () => {
-    await mockAPISavePromotion(promotionFormData);
+    if (editingPromotionId) {
+      await updatePromotion(editingPromotionId, promotionFormData);
+    } else {
+      await createPromotion(promotionFormData);
+    }
     setIsPromotionDialogOpen(false);
+  };
+
+  const handleDeletePromotion = async (id: string) => {
+    await deletePromotion(id);
   };
 
   const handlePromotionFileUpload = async (file: File) => {
     setPromotionUploadError(null);
-    const validation = mockAPIValidateImage(file);
+    const validation = validateImage(file);
     if (!validation.valid) {
       setPromotionUploadError(validation.error);
       return;
     }
     
-    const result = await mockAPIUploadPromotionImage(promotionFormData.id, file);
-    if (result.success) {
-      setPromotionFormData(prev => ({ ...prev, image: result.url }));
+    // Upload to Supabase Storage
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `promotions/${fileName}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, file);
+    
+    if (uploadError) {
+      setPromotionUploadError("Ошибка загрузки изображения");
+      return;
     }
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+    
+    setPromotionFormData(prev => ({ ...prev, image_url: publicUrl }));
   };
 
   const handlePromotionDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -713,7 +707,7 @@ const Dashboard = () => {
   };
 
   const handleRemovePromotionImage = () => {
-    setPromotionFormData(prev => ({ ...prev, image: "" }));
+    setPromotionFormData(prev => ({ ...prev, image_url: "" }));
   };
 
   // ============= News handlers =============
@@ -1196,45 +1190,62 @@ const Dashboard = () => {
             <Percent className="h-5 w-5" />
             Акции
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {mockPromotions.map((promotion) => (
+          {promotionsLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {promotions.map((promotion) => (
+                <div key={promotion.id} className="flex flex-col">
+                  <button
+                    onClick={() => handleOpenPromotionDialog(promotion.id)}
+                    className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 text-left group"
+                  >
+                    <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                      <img
+                        src={promotion.image_url || DEFAULT_PROMO_IMAGE}
+                        alt={promotion.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    <p className="text-sm font-medium text-foreground truncate">{promotion.title}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{promotion.discount}</span>
+                      {promotion.valid_until && (
+                        <span className="text-xs text-muted-foreground">до {new Date(promotion.valid_until).toLocaleDateString('ru-RU')}</span>
+                      )}
+                    </div>
+                  </button>
+                  <div className="flex justify-end mt-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => handleDeletePromotion(promotion.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {/* Create new promotion */}
               <button
-                key={promotion.id}
-                onClick={() => handleOpenPromotionDialog(promotion.id)}
-                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 text-left group"
+                onClick={() => handleOpenPromotionDialog()}
+                className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
               >
-                <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
-                  <img
-                    src={promotion.image}
-                    alt={promotion.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <Plus className="h-6 w-6 text-primary" />
                 </div>
-                <p className="text-sm font-medium text-foreground truncate">{promotion.title}</p>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{promotion.discount}</span>
-                  <span className="text-xs text-muted-foreground">до {promotion.validUntil}</span>
-                </div>
+                <p className="text-sm font-medium text-muted-foreground">Создать</p>
               </button>
-            ))}
-            {/* Create new promotion */}
-            <button
-              onClick={() => handleOpenPromotionDialog()}
-              className="content-card hover:border-primary/30 transition-all hover:shadow-md p-3 flex flex-col items-center justify-center min-h-[160px] border-dashed border-2"
-            >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Plus className="h-6 w-6 text-primary" />
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">Создать</p>
-            </button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Promotion Edit Dialog */}
         <Dialog open={isPromotionDialogOpen} onOpenChange={setIsPromotionDialogOpen}>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{promotionFormData.id === "new" ? "Создание акции" : "Редактирование акции"}</DialogTitle>
+              <DialogTitle>{editingPromotionId ? "Редактирование акции" : "Создание акции"}</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -1250,9 +1261,9 @@ const Dashboard = () => {
                   onDrop={handlePromotionDrop}
                   onClick={() => promotionFileInputRef.current?.click()}
                 >
-                  {promotionFormData.image ? (
+                  {promotionFormData.image_url ? (
                     <div className="relative inline-block">
-                      <img src={promotionFormData.image} alt="Promotion" className="w-full max-h-40 object-cover rounded-lg mx-auto" />
+                      <img src={promotionFormData.image_url} alt="Promotion" className="w-full max-h-40 object-cover rounded-lg mx-auto" />
                       <button
                         type="button"
                         className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
@@ -1322,8 +1333,8 @@ const Dashboard = () => {
                   <Input
                     id="promo-valid-until"
                     type="date"
-                    value={promotionFormData.validUntil}
-                    onChange={(e) => setPromotionFormData(prev => ({ ...prev, validUntil: e.target.value }))}
+                    value={promotionFormData.valid_until}
+                    onChange={(e) => setPromotionFormData(prev => ({ ...prev, valid_until: e.target.value }))}
                   />
                 </div>
               </div>
