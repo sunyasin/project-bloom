@@ -77,6 +77,21 @@ export interface Product {
   updated_at: string;
 }
 
+/** Акция */
+export interface Promotion {
+  id: string;
+  owner_id: string;
+  business_id: string | null;
+  title: string;
+  description: string | null;
+  discount: string;
+  image_url: string | null;
+  valid_until: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Новость */
 export interface News {
   id: string;

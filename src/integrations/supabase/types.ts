@@ -190,6 +190,56 @@ export type Database = {
         }
         Relationships: []
       }
+      promotions: {
+        Row: {
+          business_id: string | null
+          created_at: string
+          description: string | null
+          discount: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          owner_id: string
+          title: string
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          created_at?: string
+          description?: string | null
+          discount: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          owner_id: string
+          title: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          business_id?: string | null
+          created_at?: string
+          description?: string | null
+          discount?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          owner_id?: string
+          title?: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
