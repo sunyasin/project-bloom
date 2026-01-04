@@ -1,6 +1,6 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Mail } from "lucide-react";
 import {
   Carousel,
@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import type { Promotion } from "@/types/db";
 
 // ============= Mock API для подписки на новости =============
 
@@ -39,58 +41,7 @@ const mockAPISubscribeNewsletter = async (email: string) => {
 
 // ============= End Mock API =============
 
-
-// Mock promotions data
-const mockPromotions = [
-  {
-    id: "1",
-    title: "Скидка 20% на мёд",
-    image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&h=300&fit=crop",
-    description: "Только до конца месяца! Скидка 20% на весь ассортимент мёда от Пасеки Иванова. Натуральный мёд прямо с пасеки.",
-    business: "Пасека Иванова",
-    validUntil: "31.01.2025",
-  },
-  {
-    id: "2",
-    title: "2+1 на молочные продукты",
-    image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400&h=300&fit=crop",
-    description: "Акция 2+1 на все молочные продукты! Купите 2 товара и получите третий в подарок. Свежее молоко, творог, сметана.",
-    business: "Ферма Петровых",
-    validUntil: "15.02.2025",
-  },
-  {
-    id: "3",
-    title: "Свежие овощи со скидкой",
-    image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop",
-    description: "Свежие сезонные овощи со скидкой до 30%. Только экологически чистая продукция без химикатов.",
-    business: "Эко-овощи",
-    validUntil: "28.02.2025",
-  },
-  {
-    id: "4",
-    title: "Хлеб по старинным рецептам",
-    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop",
-    description: "Попробуйте наш новый хлеб по старинным рецептам! Скидка 15% на первую покупку.",
-    business: "Хлебный дом",
-    validUntil: "10.02.2025",
-  },
-  {
-    id: "5",
-    title: "Домашние яйца",
-    image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&h=300&fit=crop",
-    description: "Домашние яйца от кур свободного выгула. Скидка 10% при покупке от 30 штук.",
-    business: "Птицеферма Солнечная",
-    validUntil: "20.02.2025",
-  },
-  {
-    id: "6",
-    title: "Сыры ручной работы",
-    image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=300&fit=crop",
-    description: "Авторские сыры ручной работы со скидкой 25%. Попробуйте уникальные вкусы от местных сыроваров.",
-    business: "Сырная лавка",
-    validUntil: "05.03.2025",
-  },
-];
+const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400&h=300&fit=crop";
 
 // Mock events data
 const mockWeekEvents = [
@@ -159,11 +110,36 @@ const mockAPIProducerNews = [
 ];
 
 const Index = () => {
-  const [selectedPromotion, setSelectedPromotion] = useState<typeof mockPromotions[0] | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState(mockAPICurrentUser.email);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const { toast } = useToast();
+
+  // Load promotions from database
+  useEffect(() => {
+    const fetchPromotions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("promotions")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+        setPromotions((data as Promotion[]) || []);
+      } catch (error) {
+        console.error("Error fetching promotions:", error);
+      } finally {
+        setPromotionsLoading(false);
+      }
+    };
+
+    fetchPromotions();
+  }, []);
 
   return (
     <MainLayout>
@@ -177,47 +153,53 @@ const Index = () => {
             </Link>
           </div>
           
-          <div className="relative">
-            <Carousel
-              opts={{
-                align: "start",
-                loop: false,
-              }}
-              className="w-full"
-            >
-              <CarouselContent className="-ml-3">
-                {mockPromotions.map((promo) => (
-                  <CarouselItem
-                    key={promo.id}
-                    className="pl-3 basis-1/2 sm:basis-1/3 md:basis-1/4"
-                  >
-                    <button
-                      onClick={() => setSelectedPromotion(promo)}
-                      className="w-full text-left content-card p-0 overflow-hidden hover:border-primary/30 transition-all hover:shadow-md group"
+          {promotionsLoading ? (
+            <p className="text-muted-foreground">Загрузка...</p>
+          ) : promotions.length === 0 ? (
+            <p className="text-muted-foreground">Нет активных акций</p>
+          ) : (
+            <div className="relative">
+              <Carousel
+                opts={{
+                  align: "start",
+                  loop: false,
+                }}
+                className="w-full"
+              >
+                <CarouselContent className="-ml-3">
+                  {promotions.map((promo) => (
+                    <CarouselItem
+                      key={promo.id}
+                      className="pl-3 basis-1/2 sm:basis-1/3 md:basis-1/4"
                     >
-                      <div className="aspect-[4/3] overflow-hidden">
-                        <img
-                          src={promo.image}
-                          alt={promo.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                      <div className="p-3">
-                        <p className="font-medium text-foreground text-sm truncate">
-                          {promo.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {promo.business}
-                        </p>
-                      </div>
-                    </button>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="left-0 -translate-x-1/2" />
-              <CarouselNext className="right-0 translate-x-1/2" />
-            </Carousel>
-          </div>
+                      <button
+                        onClick={() => setSelectedPromotion(promo)}
+                        className="w-full text-left content-card p-0 overflow-hidden hover:border-primary/30 transition-all hover:shadow-md group"
+                      >
+                        <div className="aspect-[4/3] overflow-hidden">
+                          <img
+                            src={promo.image_url || DEFAULT_PROMO_IMAGE}
+                            alt={promo.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="p-3">
+                          <p className="font-medium text-foreground text-sm truncate">
+                            {promo.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {promo.discount}
+                          </p>
+                        </div>
+                      </button>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="left-0 -translate-x-1/2" />
+                <CarouselNext className="right-0 translate-x-1/2" />
+              </Carousel>
+            </div>
+          )}
         </section>
 
         {/* Events of the Week */}
@@ -357,16 +339,18 @@ const Index = () => {
             <div className="space-y-4">
               <div className="aspect-video rounded-lg overflow-hidden">
                 <img
-                  src={selectedPromotion.image}
+                  src={selectedPromotion.image_url || DEFAULT_PROMO_IMAGE}
                   alt={selectedPromotion.title}
                   className="w-full h-full object-cover"
                 />
               </div>
               <div className="space-y-2">
-                <p className="text-foreground">{selectedPromotion.description}</p>
+                <p className="text-foreground">{selectedPromotion.description || ""}</p>
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{selectedPromotion.business}</span>
-                  <span>До {selectedPromotion.validUntil}</span>
+                  <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{selectedPromotion.discount}</span>
+                  {selectedPromotion.valid_until && (
+                    <span>До {new Date(selectedPromotion.valid_until).toLocaleDateString('ru-RU')}</span>
+                  )}
                 </div>
               </div>
             </div>
