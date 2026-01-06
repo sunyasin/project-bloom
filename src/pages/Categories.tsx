@@ -26,7 +26,7 @@ const Categories = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
   const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   const [loading, setLoading] = useState(true);
-  const cities = ["Все города", "Коломна", "Тула", "Рязань", "Москва", "Калуга"];
+  //const cities = ["Все города", "Коломна", "Тула", "Рязань", "Москва", "Калуга"];
 
   // GET /api/categories - загрузка категорий из БД
   useEffect(() => {
@@ -116,11 +116,12 @@ interface CategoryWithCount extends Category {
 
 const [categories, setCategories] = useState<CategoryWithCount[]>([]);  
   
-Динамический список городов
-Извлекать уникальные города из загруженных визиток вместо захардкоженного списка:
-const uniqueCities = [...new Set(businesses?.map(b => b.city).filter(Boolean))];
-const cities = ["Все города", ...uniqueCities.sort()];  
+ 
   */
+  //Динамический список городов
+  //Извлекать уникальные города из загруженных визиток вместо захардкоженного списка:
+  const uniqueCities = [...new Set(businesses?.map((b) => b.city).filter(Boolean))];
+  const cities = ["Все города", ...uniqueCities.sort()];
 
   const filteredCategories =
     cityFilter === "Все города" ? categories : categories.filter((cat) => cat.cities?.includes(cityFilter));
