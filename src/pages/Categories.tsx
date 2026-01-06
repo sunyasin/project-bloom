@@ -19,14 +19,12 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 interface CategoryWithCount extends Category {
-  count: number; // переопределяем как динамическое значение
+  count: number;
 }
-
-const [categories, setCategories] = useState<CategoryWithCount[]>([]);
 
 const Categories = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const cities = ["Все города", "Коломна", "Тула", "Рязань", "Москва", "Калуга"];
 
