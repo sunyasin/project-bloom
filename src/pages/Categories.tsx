@@ -25,8 +25,8 @@ interface CategoryWithCount extends Category {
 const Categories = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
   const [categories, setCategories] = useState<CategoryWithCount[]>([]);
+  const [cities, setCities] = useState<string[]>(["Все города"]);
   const [loading, setLoading] = useState(true);
-  cities = ["Все города"];
 
   // GET /api/categories - загрузка категорий из БД
   useEffect(() => {
@@ -87,10 +87,9 @@ const Categories = () => {
             count: producersByCategory.get(cat.id)?.size || 0,
           }));
 
-        //Динамический список городов
-        //Извлекать уникальные города из загруженных визиток вместо захардкоженного списка:
+        // Динамический список городов
         const uniqueCities = [...new Set(businesses?.map((b) => b.city).filter(Boolean))];
-        cities = ["Все города", ...uniqueCities.sort()];
+        setCities(["Все города", ...uniqueCities.sort()]);
 
         const filteredCategories =
           cityFilter === "Все города"
@@ -159,9 +158,9 @@ const [categories, setCategories] = useState<CategoryWithCount[]>([]);
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : filteredCategories.length > 0 ? (
+        ) : categories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-            {filteredCategories.map((category) => {
+            {categories.map((category) => {
               const Icon = iconMap[category.icon] || Package;
               return (
                 <Link
