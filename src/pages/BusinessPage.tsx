@@ -42,7 +42,7 @@ const mockAPISendOrder = async (order: { products: any[]; phone: string; busines
 // Mock subscribe API (оставляем по просьбе пользователя)
 const mockAPISubscribeProducer = async (producerId: string, email: string) => {
   console.log(`[mockAPI] POST /api/producers/${producerId}/subscribe`, { email });
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
   return { success: true, message: "Подписка на новости производителя оформлена" };
 };
 
@@ -62,7 +62,7 @@ const BusinessPage = () => {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderPhone, setOrderPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Subscribe to producer news state
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState("");
@@ -101,39 +101,24 @@ const BusinessPage = () => {
       // Параллельно загружаем все остальные данные
       const [cardsResult, productsResult, profileResult, promotionsResult] = await Promise.all([
         // 2. Все визитки этого владельца
-        supabase
-          .from("businesses")
-          .select("*")
-          .eq("owner_id", ownerId)
-          .eq("status", "published"),
-        
+        supabase.from("businesses").select("*").eq("owner_id", ownerId).eq("status", "published"),
+
         // 3. Товары этого владельца
-        supabase
-          .from("products")
-          .select("*")
-          .eq("producer_id", ownerId)
-          .eq("is_available", true),
-        
+        supabase.from("products").select("*").eq("producer_id", ownerId).eq("is_available", true),
+
         // 4. Профиль владельца для контактов
-        supabase
-          .from("profiles")
-          .select("phone, email, logo_url")
-          .eq("user_id", ownerId)
-          .maybeSingle(),
-        
+        supabase.from("profiles").select("phone, email, logo_url").eq("user_id", ownerId).maybeSingle(),
+
         // 5. Акции владельца
-        supabase
-          .from("promotions")
-          .select("*")
-          .eq("owner_id", ownerId)
-          .eq("is_active", true),
+        supabase.from("promotions").select("*").eq("owner_id", ownerId).eq("is_active", true),
       ]);
 
       // Преобразуем визитки в формат BusinessCard
       const cards: BusinessCard[] = (cardsResult.data || []).map((b: any) => ({
         id: b.id,
         name: b.name,
-        image: b.content_json?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+        image:
+          b.content_json?.image || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
         description: b.content_json?.description || "",
         isMain: b.id === id, // Текущая визитка - главная
       }));
@@ -144,7 +129,7 @@ const BusinessPage = () => {
       setPromotions((promotionsResult.data || []) as Promotion[]);
 
       // Установить выбранную карточку
-      const mainCard = cards.find(c => c.isMain) || cards[0];
+      const mainCard = cards.find((c) => c.isMain) || cards[0];
       setSelectedCard(mainCard || null);
 
       // Установить контактные данные пользователя для заказа/подписки
@@ -161,13 +146,13 @@ const BusinessPage = () => {
 
   const handleProductSelect = (product: SelectedProduct, selected: boolean) => {
     if (selected) {
-      setSelectedProducts(prev => [...prev, product]);
+      setSelectedProducts((prev) => [...prev, product]);
     } else {
-      setSelectedProducts(prev => prev.filter(p => p.id !== product.id));
+      setSelectedProducts((prev) => prev.filter((p) => p.id !== product.id));
     }
   };
 
-  const isSelected = (productId: string) => selectedProducts.some(p => p.id === productId);
+  const isSelected = (productId: string) => selectedProducts.some((p) => p.id === productId);
 
   const handleOrderSubmit = async () => {
     if (selectedProducts.length === 0) return;
@@ -234,7 +219,7 @@ const BusinessPage = () => {
   }
 
   // Извлекаем данные из content_json
-  const contentJson = business.content_json as Record<string, any> || {};
+  const contentJson = (business.content_json as Record<string, any>) || {};
   const description = contentJson.description || "";
 
   return (
@@ -272,7 +257,10 @@ const BusinessPage = () => {
         {description && (
           <div className="content-card">
             <h2 className="section-title">О производителе</h2>
-            <div className="text-muted-foreground prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: description }} />
+            <div
+              className="text-muted-foreground prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: description }}
+            />
           </div>
         )}
 
@@ -296,9 +284,7 @@ const BusinessPage = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>
-                  <p className="text-sm font-medium text-foreground text-center truncate">
-                    {card.name}
-                  </p>
+                  <p className="text-sm font-medium text-foreground text-center truncate">{card.name}</p>
                 </button>
               ))}
             </div>
@@ -308,16 +294,15 @@ const BusinessPage = () => {
               <div className="content-card mt-4">
                 <div className="flex gap-4">
                   <div className="w-32 h-32 rounded-lg overflow-hidden bg-muted shrink-0">
-                    <img
-                      src={selectedCard.image}
-                      alt={selectedCard.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={selectedCard.image} alt={selectedCard.name} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-foreground">{selectedCard.name}</h3>
                     {selectedCard.description && (
-                      <div className="text-sm text-muted-foreground mt-2 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: selectedCard.description }} />
+                      <div
+                        className="text-sm text-muted-foreground mt-2 prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: selectedCard.description }}
+                      />
                     )}
                   </div>
                 </div>
@@ -334,10 +319,7 @@ const BusinessPage = () => {
                 <Package className="h-5 w-5" />
                 Товары
               </h2>
-              <Button
-                disabled={selectedProducts.length === 0}
-                onClick={() => setOrderDialogOpen(true)}
-              >
+              <Button disabled={selectedProducts.length === 0} onClick={() => setOrderDialogOpen(true)}>
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Заказать
                 {selectedProducts.length > 0 && (
@@ -360,24 +342,36 @@ const BusinessPage = () => {
                     <div className="flex items-start gap-2 mb-2">
                       <Checkbox
                         checked={selected}
-                        onCheckedChange={(checked) => handleProductSelect({
-                          id: product.id,
-                          name: product.name,
-                          price: product.price || 0,
-                          image: product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop"
-                        }, checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handleProductSelect(
+                            {
+                              id: product.id,
+                              name: product.name,
+                              price: product.price || 0,
+                              image:
+                                product.image_url ||
+                                "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+                            },
+                            checked as boolean,
+                          )
+                        }
                       />
                       <span className="text-xs text-muted-foreground">Выбрать</span>
                     </div>
                     <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
                       <img
-                        src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop"}
+                        src={
+                          product.image_url ||
+                          "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop"
+                        }
                         alt={product.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                    <p className="text-sm text-primary font-semibold">{product.price || 0} ₽/{product.unit || "шт"}</p>
+                    <p className="text-sm text-primary font-semibold">
+                      {product.price || 0} ₽/{product.unit || "шт"}
+                    </p>
                   </div>
                 );
               })}
@@ -434,18 +428,14 @@ const BusinessPage = () => {
           <DialogHeader>
             <DialogTitle>Оформление заказа</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Выбранные товары:</h4>
               <div className="max-h-48 overflow-y-auto space-y-2">
                 {selectedProducts.map((product) => (
                   <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-10 h-10 rounded object-cover"
-                    />
+                    <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{product.name}</p>
                       <p className="text-xs text-primary">{product.price} ₽</p>
