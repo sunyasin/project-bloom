@@ -1,5 +1,25 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Tag, Bell, Newspaper, Package, Plus, Pencil, Upload, X, MapPin, Percent, Trash2, Calendar, MessageCircle, Send, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
+import {
+  User,
+  Tag,
+  Bell,
+  Newspaper,
+  Package,
+  Plus,
+  Pencil,
+  Upload,
+  X,
+  MapPin,
+  Percent,
+  Trash2,
+  Calendar,
+  MessageCircle,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
 import { ProfileEditDialog } from "@/components/ProfileEditDialog";
@@ -11,26 +31,9 @@ import { usePromotions, Promotion, PromotionFormData } from "@/hooks/use-promoti
 import { useNews, NewsFormData } from "@/hooks/use-news";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,7 +79,7 @@ const mockAPIUploadAvatar = async (id: string, file: File) => {
 const validateImage = (file: File) => {
   const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   const maxSize = 5 * 1024 * 1024; // 5MB
-  
+
   if (!validTypes.includes(file.type)) {
     return { valid: false, error: "Допустимые форматы: JPEG, PNG, WebP, GIF" };
   }
@@ -101,7 +104,6 @@ const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-
 const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=200&h=200&fit=crop";
 const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=200&h=200&fit=crop";
 
-
 // ============= Mock API для сообщений =============
 
 // Данные сообщений
@@ -118,55 +120,60 @@ interface Message {
 }
 
 const mockMessages: Message[] = [
-  { 
-    id: "1", 
-    senderId: "u1", 
-    senderName: "Ферма Петровых", 
+  {
+    id: "1",
+    senderId: "u1",
+    senderName: "Ферма Петровых",
     subject: "Ваш заказ готов",
     preview: "Здравствуйте! Ваш заказ на молочные продукты готов к выдаче...",
-    fullText: "Здравствуйте! Ваш заказ на молочные продукты готов к выдаче. Можете забрать его в любое удобное время с 9:00 до 18:00. Адрес: д. Молоково, ул. Фермерская 5. С уважением, Ферма Петровых.",
+    fullText:
+      "Здравствуйте! Ваш заказ на молочные продукты готов к выдаче. Можете забрать его в любое удобное время с 9:00 до 18:00. Адрес: д. Молоково, ул. Фермерская 5. С уважением, Ферма Петровых.",
     date: "2024-12-28",
-    isRead: false
+    isRead: false,
   },
-  { 
-    id: "2", 
-    senderId: "u2", 
-    senderName: "Пасека Иванова", 
+  {
+    id: "2",
+    senderId: "u2",
+    senderName: "Пасека Иванова",
     subject: "Новая акция на мёд",
     preview: "Рады сообщить о новой акции! Скидка 25% на весь ассортимент...",
-    fullText: "Рады сообщить о новой акции! Скидка 25% на весь ассортимент мёда до конца января. Липовый, гречишный, цветочный мёд - всё со скидкой. Также в подарок при покупке от 2кг - баночка прополиса. Ждём вас!",
+    fullText:
+      "Рады сообщить о новой акции! Скидка 25% на весь ассортимент мёда до конца января. Липовый, гречишный, цветочный мёд - всё со скидкой. Также в подарок при покупке от 2кг - баночка прополиса. Ждём вас!",
     date: "2024-12-27",
-    isRead: false
+    isRead: false,
   },
-  { 
-    id: "3", 
-    senderId: "u3", 
-    senderName: "Администрация портала", 
+  {
+    id: "3",
+    senderId: "u3",
+    senderName: "Администрация портала",
     subject: "Добро пожаловать!",
     preview: "Благодарим за регистрацию на нашем портале...",
-    fullText: "Благодарим за регистрацию на нашем портале! Теперь вам доступны все функции: заказ продуктов напрямую у производителей, подписка на новости, участие в акциях и многое другое. Если у вас возникнут вопросы - пишите нам.",
+    fullText:
+      "Благодарим за регистрацию на нашем портале! Теперь вам доступны все функции: заказ продуктов напрямую у производителей, подписка на новости, участие в акциях и многое другое. Если у вас возникнут вопросы - пишите нам.",
     date: "2024-12-25",
-    isRead: true
+    isRead: true,
   },
-  { 
-    id: "4", 
-    senderId: "u4", 
-    senderName: "Сырная лавка", 
+  {
+    id: "4",
+    senderId: "u4",
+    senderName: "Сырная лавка",
     subject: "Ответ на ваш вопрос",
     preview: "Да, у нас есть сыр с трюфелем в наличии...",
-    fullText: "Да, у нас есть сыр с трюфелем в наличии. Стоимость 1800₽ за кг. Можем доставить в Коломну в ближайшую субботу. Напишите, если хотите оформить заказ.",
+    fullText:
+      "Да, у нас есть сыр с трюфелем в наличии. Стоимость 1800₽ за кг. Можем доставить в Коломну в ближайшую субботу. Напишите, если хотите оформить заказ.",
     date: "2024-12-24",
-    isRead: true
+    isRead: true,
   },
-  { 
-    id: "5", 
-    senderId: "u5", 
-    senderName: "Эко-овощи", 
+  {
+    id: "5",
+    senderId: "u5",
+    senderName: "Эко-овощи",
     subject: "Сезонные овощи",
     preview: "Поступила свежая партия зимних овощей...",
-    fullText: "Поступила свежая партия зимних овощей: морковь, свёкла, капуста, картофель. Всё выращено без химикатов. Цены ниже рыночных на 20%. Доставка по области бесплатно от 1000₽.",
+    fullText:
+      "Поступила свежая партия зимних овощей: морковь, свёкла, капуста, картофель. Всё выращено без химикатов. Цены ниже рыночных на 20%. Доставка по области бесплатно от 1000₽.",
     date: "2024-12-23",
-    isRead: false
+    isRead: false,
   },
 ];
 
@@ -179,7 +186,7 @@ const mockAPIGetMessages = async () => {
 // Имитация отправки ответа (POST /api/messages/:id/reply)
 const mockAPISendReply = async (messageId: string, text: string) => {
   console.log(`[mockAPI] POST /api/messages/${messageId}/reply`, { text });
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
   return { success: true };
 };
 
@@ -190,7 +197,7 @@ const mockAPIMarkAsRead = async (messageId: string) => {
 };
 
 // Подсчёт непрочитанных сообщений
-const getUnreadCount = () => mockMessages.filter(m => !m.isRead).length;
+const getUnreadCount = () => mockMessages.filter((m) => !m.isRead).length;
 
 // ============= End Mock API для сообщений =============
 
@@ -231,7 +238,7 @@ const Dashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: userLoading } = useCurrentUserWithRole();
   const isNewUser = searchParams.get("new") === "true";
-  
+
   const [mainCardId, setMainCardId] = useState<string | null>(null);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -239,25 +246,21 @@ const Dashboard = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Open profile dialog for new users
   useEffect(() => {
     if (isNewUser && !userLoading) {
       setIsProfileDialogOpen(true);
     }
   }, [isNewUser, userLoading]);
-  
+
   const handleProfileSaveSuccess = async () => {
     // Remove ?new=true from URL
     setSearchParams({}, { replace: true });
-    
+
     // Reload profile data
     if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
+    const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
 
     if (data) {
       const loaded: ProfileData = {
@@ -272,7 +275,7 @@ const Dashboard = () => {
         logo_url: data.logo_url || "",
       };
       setProfileData(loaded);
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         name: `${loaded.first_name} ${loaded.last_name}`.trim() || "Новый пользователь",
         email: loaded.email,
@@ -285,19 +288,25 @@ const Dashboard = () => {
       }));
     }
   };
-  
+
   // Business cards from Supabase
   const { businesses, loading: businessesLoading, createBusiness, hideBusiness, deleteBusiness } = useBusinesses();
-  
+
   // Products from Supabase
   const { products, loading: productsLoading, createProduct, deleteProduct } = useProducts();
-  
+
   // Promotions from Supabase
-  const { promotions, loading: promotionsLoading, createPromotion, updatePromotion, deletePromotion } = usePromotions(user?.id || null);
-  
+  const {
+    promotions,
+    loading: promotionsLoading,
+    createPromotion,
+    updatePromotion,
+    deletePromotion,
+  } = usePromotions(user?.id || null);
+
   // News from Supabase
   const { news, loading: newsLoading, createNews, updateNews, deleteNews } = useNews(user?.id || null);
-  
+
   // Promotion editing state
   const [isPromotionDialogOpen, setIsPromotionDialogOpen] = useState(false);
   const [promotionDragging, setPromotionDragging] = useState(false);
@@ -312,7 +321,7 @@ const Dashboard = () => {
     valid_until: "",
     business_id: "",
   });
-  
+
   // News editing state
   const [isNewsDialogOpen, setIsNewsDialogOpen] = useState(false);
   const [showAllNews, setShowAllNews] = useState(false);
@@ -323,17 +332,17 @@ const Dashboard = () => {
     is_event: false,
     event_date: "",
   });
-  
+
   // Messages state
   const [isMessagesDialogOpen, setIsMessagesDialogOpen] = useState(false);
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [isSendingReply, setIsSendingReply] = useState(false);
   const { toast } = useToast();
-  
+
   // Profile data from Supabase
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  
+
   const [formData, setFormData] = useState<ProfileFormData>({
     name: "",
     email: "",
@@ -347,17 +356,13 @@ const Dashboard = () => {
     vk: "",
     instagram: "",
   });
-  
+
   // Load profile from Supabase
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
-      
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
+
+      const { data, error } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
 
       if (error && error.code !== "PGRST116") {
         console.error("Error loading profile:", error);
@@ -405,18 +410,14 @@ const Dashboard = () => {
   const handleOpenEditDialog = async () => {
     // Загружаем данные профиля из Supabase при открытии диалога
     if (!user) return;
-    
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    
+
+    const { data, error } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+
     if (error) {
       console.error("Error loading profile:", error);
       return;
     }
-    
+
     if (data) {
       setFormData({
         name: `${data.first_name || ""} ${data.last_name || ""}`.trim() || "Новый пользователь",
@@ -437,16 +438,16 @@ const Dashboard = () => {
 
   const handleSaveProfile = async () => {
     if (!user) return;
-    
+
     // Validate required fields for client role
     const isClient = user.role === "client";
     const newErrors: Partial<Record<keyof ProfileFormData, string>> = {};
-    
+
     // Parse name into first_name and last_name
     const nameParts = formData.name.trim().split(" ");
     const first_name = nameParts[0] || "";
     const last_name = nameParts.slice(1).join(" ") || "";
-    
+
     if (isClient) {
       if (!first_name) {
         newErrors.name = "Имя обязательно";
@@ -467,14 +468,14 @@ const Dashboard = () => {
         newErrors.avatar = "Логотип обязателен";
       }
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setFormErrors(newErrors);
       return;
     }
-    
+
     setFormErrors({});
-    
+
     const updateData = {
       first_name,
       last_name,
@@ -487,10 +488,7 @@ const Dashboard = () => {
       logo_url: formData.avatar.trim() || null,
     };
 
-    const { error } = await supabase
-      .from("profiles")
-      .update(updateData)
-      .eq("user_id", user.id);
+    const { error } = await supabase.from("profiles").update(updateData).eq("user_id", user.id);
 
     if (error) {
       toast({
@@ -528,10 +526,10 @@ const Dashboard = () => {
       setUploadError(validation.error);
       return;
     }
-    
+
     const result = await mockAPIUploadAvatar("1", file);
     if (result.success) {
-      setFormData(prev => ({ ...prev, avatar: result.url }));
+      setFormData((prev) => ({ ...prev, avatar: result.url }));
     }
   };
 
@@ -562,14 +560,14 @@ const Dashboard = () => {
   };
 
   const handleRemoveAvatar = () => {
-    setFormData(prev => ({ ...prev, avatar: "" }));
+    setFormData((prev) => ({ ...prev, avatar: "" }));
   };
 
   // ============= Promotion handlers =============
-  
+
   const handleOpenPromotionDialog = (promotionId?: string) => {
     if (promotionId) {
-      const promotion = promotions.find(p => p.id === promotionId);
+      const promotion = promotions.find((p) => p.id === promotionId);
       if (promotion) {
         setEditingPromotionId(promotionId);
         setPromotionFormData({
@@ -616,26 +614,24 @@ const Dashboard = () => {
       setPromotionUploadError(validation.error);
       return;
     }
-    
+
     // Upload to Supabase Storage
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `promotions/${fileName}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(filePath, file);
-    
+
+    const { error: uploadError } = await supabase.storage.from("product-images").upload(filePath, file);
+
     if (uploadError) {
       setPromotionUploadError("Ошибка загрузки изображения");
       return;
     }
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(filePath);
-    
-    setPromotionFormData(prev => ({ ...prev, image_url: publicUrl }));
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("product-images").getPublicUrl(filePath);
+
+    setPromotionFormData((prev) => ({ ...prev, image_url: publicUrl }));
   };
 
   const handlePromotionDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -665,14 +661,14 @@ const Dashboard = () => {
   };
 
   const handleRemovePromotionImage = () => {
-    setPromotionFormData(prev => ({ ...prev, image_url: "" }));
+    setPromotionFormData((prev) => ({ ...prev, image_url: "" }));
   };
 
   // ============= News handlers =============
-  
+
   const handleOpenNewsDialog = (newsId?: string) => {
     if (newsId) {
-      const newsItem = news.find(n => n.id === newsId);
+      const newsItem = news.find((n) => n.id === newsId);
       if (newsItem) {
         setEditingNewsId(newsId);
         setNewsFormData({
@@ -710,7 +706,7 @@ const Dashboard = () => {
   const displayedNews = showAllNews ? news : news.slice(0, 5);
 
   // ============= Messages handlers =============
-  
+
   const handleToggleMessage = async (messageId: string) => {
     if (expandedMessageId === messageId) {
       setExpandedMessageId(null);
@@ -724,7 +720,7 @@ const Dashboard = () => {
   const handleSendReply = async (messageId: string) => {
     const text = replyText[messageId];
     if (!text?.trim()) return;
-    
+
     setIsSendingReply(true);
     try {
       await mockAPISendReply(messageId, text);
@@ -732,7 +728,7 @@ const Dashboard = () => {
         title: "Ответ отправлен",
         description: "Ваше сообщение успешно отправлено",
       });
-      setReplyText(prev => ({ ...prev, [messageId]: "" }));
+      setReplyText((prev) => ({ ...prev, [messageId]: "" }));
     } catch (error) {
       toast({
         title: "Ошибка",
@@ -790,14 +786,20 @@ const Dashboard = () => {
             <DialogHeader>
               <DialogTitle>Редактирование профиля</DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               {/* Avatar Upload Zone */}
               <div className="space-y-2">
-                <Label>Логотип / Аватар <span className="text-destructive">*</span></Label>
+                <Label>
+                  Логотип / Аватар <span className="text-destructive">*</span>
+                </Label>
                 <div
                   className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-                    isDragging ? "border-primary bg-primary/5" : formErrors.avatar ? "border-destructive" : "border-border hover:border-primary/50"
+                    isDragging
+                      ? "border-primary bg-primary/5"
+                      : formErrors.avatar
+                        ? "border-destructive"
+                        : "border-border hover:border-primary/50"
                   }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -810,7 +812,10 @@ const Dashboard = () => {
                       <button
                         type="button"
                         className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
-                        onClick={(e) => { e.stopPropagation(); handleRemoveAvatar(); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveAvatar();
+                        }}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -818,12 +823,8 @@ const Dashboard = () => {
                   ) : (
                     <div className="py-4">
                       <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        Перетащите изображение или нажмите для выбора
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        JPEG, PNG, WebP, GIF до 5MB
-                      </p>
+                      <p className="text-sm text-muted-foreground">Перетащите изображение или нажмите для выбора</p>
+                      <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, GIF до 5MB</p>
                     </div>
                   )}
                   <input
@@ -833,7 +834,7 @@ const Dashboard = () => {
                     className="hidden"
                     onChange={(e) => {
                       handleFileInputChange(e);
-                      if (formErrors.avatar) setFormErrors(prev => ({ ...prev, avatar: undefined }));
+                      if (formErrors.avatar) setFormErrors((prev) => ({ ...prev, avatar: undefined }));
                     }}
                   />
                 </div>
@@ -844,13 +845,15 @@ const Dashboard = () => {
               {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Имя и Фамилия <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="name">
+                    Имя и Фамилия <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => {
-                      setFormData(prev => ({ ...prev, name: e.target.value }));
-                      if (formErrors.name) setFormErrors(prev => ({ ...prev, name: undefined }));
+                      setFormData((prev) => ({ ...prev, name: e.target.value }));
+                      if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: undefined }));
                     }}
                   />
                   {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
@@ -861,19 +864,21 @@ const Dashboard = () => {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Телефон <span className="text-destructive">*</span></Label>
+                <Label htmlFor="phone">
+                  Телефон <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => {
-                    setFormData(prev => ({ ...prev, phone: e.target.value }));
-                    if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: undefined }));
+                    setFormData((prev) => ({ ...prev, phone: e.target.value }));
+                    if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: undefined }));
                   }}
                   placeholder="+7 (999) 123-45-67"
                 />
@@ -882,19 +887,32 @@ const Dashboard = () => {
 
               {/* City & Address */}
               <div className="space-y-2">
-                <Label htmlFor="city">Город / село <span className="text-destructive">*</span></Label>
+                <Label htmlFor="city">
+                  Город / село <span className="text-destructive">*</span>
+                </Label>
                 <Select
                   value={formData.city}
                   onValueChange={(value) => {
-                    setFormData(prev => ({ ...prev, city: value }));
-                    if (formErrors.city) setFormErrors(prev => ({ ...prev, city: undefined }));
+                    setFormData((prev) => ({ ...prev, city: value }));
+                    if (formErrors.city) setFormErrors((prev) => ({ ...prev, city: undefined }));
                   }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите населённый пункт" />
                   </SelectTrigger>
                   <SelectContent>
-                    {["Соколиное", "Аромат", "Куйбышево", "Танковое", "Голубинка", "Нижняя Голубинка", "Поляна", "Солнечноселье", "Счастливое", "Новоульяновка"].map((city) => (
+                    {[
+                      "Соколиное",
+                      "Аромат",
+                      "Куйбышево",
+                      "Танковое",
+                      "Голубинка",
+                      "Нижняя Голубинка",
+                      "Поляна",
+                      "Солнечноселье",
+                      "Счастливое",
+                      "Новоульяновка",
+                    ].map((city) => (
                       <SelectItem key={city} value={city}>
                         {city}
                       </SelectItem>
@@ -905,13 +923,15 @@ const Dashboard = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Адрес <span className="text-destructive">*</span></Label>
+                <Label htmlFor="address">
+                  Адрес <span className="text-destructive">*</span>
+                </Label>
                 <Textarea
                   id="address"
                   value={formData.address}
                   onChange={(e) => {
-                    setFormData(prev => ({ ...prev, address: e.target.value }));
-                    if (formErrors.address) setFormErrors(prev => ({ ...prev, address: undefined }));
+                    setFormData((prev) => ({ ...prev, address: e.target.value }));
+                    if (formErrors.address) setFormErrors((prev) => ({ ...prev, address: undefined }));
                   }}
                   placeholder="ул. Фермерская, д. 15"
                   rows={2}
@@ -927,7 +947,7 @@ const Dashboard = () => {
                   <Input
                     id="lat"
                     value={formData.lat}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lat: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, lat: e.target.value }))}
                     placeholder="55.123456"
                   />
                 </div>
@@ -938,7 +958,7 @@ const Dashboard = () => {
                   <Input
                     id="lng"
                     value={formData.lng}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lng: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, lng: e.target.value }))}
                     placeholder="38.123456"
                   />
                 </div>
@@ -952,7 +972,7 @@ const Dashboard = () => {
                     <span className="text-sm text-muted-foreground w-20">Telegram</span>
                     <Input
                       value={formData.telegram}
-                      onChange={(e) => setFormData(prev => ({ ...prev, telegram: e.target.value }))}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, telegram: e.target.value }))}
                       placeholder="@username"
                     />
                   </div>
@@ -960,7 +980,7 @@ const Dashboard = () => {
                     <span className="text-sm text-muted-foreground w-20">VK</span>
                     <Input
                       value={formData.vk}
-                      onChange={(e) => setFormData(prev => ({ ...prev, vk: e.target.value }))}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, vk: e.target.value }))}
                       placeholder="https://vk.com/..."
                     />
                   </div>
@@ -968,7 +988,7 @@ const Dashboard = () => {
                     <span className="text-sm text-muted-foreground w-20">Instagram</span>
                     <Input
                       value={formData.instagram}
-                      onChange={(e) => setFormData(prev => ({ ...prev, instagram: e.target.value }))}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, instagram: e.target.value }))}
                       placeholder="@username"
                     />
                   </div>
@@ -980,9 +1000,7 @@ const Dashboard = () => {
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Отмена
               </Button>
-              <Button onClick={handleSaveProfile}>
-                Сохранить
-              </Button>
+              <Button onClick={handleSaveProfile}>Сохранить</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -996,7 +1014,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               <TooltipProvider>
                 {businesses.map((card) => {
-                  const imageUrl = (card.content_json as { image_url?: string })?.image_url || DEFAULT_BUSINESS_IMAGE;
+                  const imageUrl = (card.content_json as { image?: string })?.image || DEFAULT_BUSINESS_IMAGE;
                   return (
                     <div key={card.id} className="flex flex-col">
                       <button
@@ -1006,12 +1024,20 @@ const Dashboard = () => {
                         }`}
                       >
                         {/* Status badge */}
-                        <div className={`absolute top-1 right-1 px-1.5 py-0.5 text-xs rounded ${
-                          card.status === 'published' ? 'bg-green-500/20 text-green-700' :
-                          card.status === 'moderation' ? 'bg-yellow-500/20 text-yellow-700' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
-                          {card.status === 'published' ? 'опубл.' : card.status === 'moderation' ? 'модер.' : 'черновик'}
+                        <div
+                          className={`absolute top-1 right-1 px-1.5 py-0.5 text-xs rounded ${
+                            card.status === "published"
+                              ? "bg-green-500/20 text-green-700"
+                              : card.status === "moderation"
+                                ? "bg-yellow-500/20 text-yellow-700"
+                                : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {card.status === "published"
+                            ? "опубл."
+                            : card.status === "moderation"
+                              ? "модер."
+                              : "черновик"}
                         </div>
                         <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
                           <img
@@ -1020,9 +1046,7 @@ const Dashboard = () => {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         </div>
-                        <p className="text-sm font-medium text-foreground text-center truncate">
-                          {card.name}
-                        </p>
+                        <p className="text-sm font-medium text-foreground text-center truncate">{card.name}</p>
                       </button>
                       <div className="flex items-center justify-between mt-2">
                         <Tooltip>
@@ -1040,14 +1064,17 @@ const Dashboard = () => {
                           </TooltipContent>
                         </Tooltip>
                         <div className="flex gap-1">
-                          {card.status === 'published' && (
+                          {card.status === "published" && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
-                                  onClick={(e) => { e.stopPropagation(); hideBusiness(card.id); }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    hideBusiness(card.id);
+                                  }}
                                 >
                                   <EyeOff className="h-3 w-3" />
                                 </Button>
@@ -1061,7 +1088,10 @@ const Dashboard = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 text-destructive hover:text-destructive"
-                                onClick={(e) => { e.stopPropagation(); deleteBusiness(card.id); }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteBusiness(card.id);
+                                }}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -1175,9 +1205,13 @@ const Dashboard = () => {
                     </div>
                     <p className="text-sm font-medium text-foreground truncate">{promotion.title}</p>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{promotion.discount}</span>
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                        {promotion.discount}
+                      </span>
                       {promotion.valid_until && (
-                        <span className="text-xs text-muted-foreground">до {new Date(promotion.valid_until).toLocaleDateString('ru-RU')}</span>
+                        <span className="text-xs text-muted-foreground">
+                          до {new Date(promotion.valid_until).toLocaleDateString("ru-RU")}
+                        </span>
                       )}
                     </div>
                   </button>
@@ -1213,7 +1247,7 @@ const Dashboard = () => {
             <DialogHeader>
               <DialogTitle>{editingPromotionId ? "Редактирование акции" : "Создание акции"}</DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               {/* Image Upload Zone */}
               <div className="space-y-2">
@@ -1229,11 +1263,18 @@ const Dashboard = () => {
                 >
                   {promotionFormData.image_url ? (
                     <div className="relative inline-block">
-                      <img src={promotionFormData.image_url} alt="Promotion" className="w-full max-h-40 object-cover rounded-lg mx-auto" />
+                      <img
+                        src={promotionFormData.image_url}
+                        alt="Promotion"
+                        className="w-full max-h-40 object-cover rounded-lg mx-auto"
+                      />
                       <button
                         type="button"
                         className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
-                        onClick={(e) => { e.stopPropagation(); handleRemovePromotionImage(); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemovePromotionImage();
+                        }}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -1241,12 +1282,8 @@ const Dashboard = () => {
                   ) : (
                     <div className="py-4">
                       <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        Перетащите изображение или нажмите для выбора
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        JPEG, PNG, WebP, GIF до 5MB
-                      </p>
+                      <p className="text-sm text-muted-foreground">Перетащите изображение или нажмите для выбора</p>
+                      <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, GIF до 5MB</p>
                     </div>
                   )}
                   <input
@@ -1266,7 +1303,7 @@ const Dashboard = () => {
                 <Input
                   id="promo-title"
                   value={promotionFormData.title}
-                  onChange={(e) => setPromotionFormData(prev => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) => setPromotionFormData((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder="Скидка 20% на молочные продукты"
                 />
               </div>
@@ -1277,7 +1314,7 @@ const Dashboard = () => {
                 <Textarea
                   id="promo-description"
                   value={promotionFormData.description}
-                  onChange={(e) => setPromotionFormData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) => setPromotionFormData((prev) => ({ ...prev, description: e.target.value }))}
                   placeholder="Условия акции..."
                   rows={3}
                 />
@@ -1290,7 +1327,7 @@ const Dashboard = () => {
                   <Input
                     id="promo-discount"
                     value={promotionFormData.discount}
-                    onChange={(e) => setPromotionFormData(prev => ({ ...prev, discount: e.target.value }))}
+                    onChange={(e) => setPromotionFormData((prev) => ({ ...prev, discount: e.target.value }))}
                     placeholder="20%"
                   />
                 </div>
@@ -1300,7 +1337,7 @@ const Dashboard = () => {
                     id="promo-valid-until"
                     type="date"
                     value={promotionFormData.valid_until}
-                    onChange={(e) => setPromotionFormData(prev => ({ ...prev, valid_until: e.target.value }))}
+                    onChange={(e) => setPromotionFormData((prev) => ({ ...prev, valid_until: e.target.value }))}
                   />
                 </div>
               </div>
@@ -1310,9 +1347,7 @@ const Dashboard = () => {
               <Button variant="outline" onClick={() => setIsPromotionDialogOpen(false)}>
                 Отмена
               </Button>
-              <Button onClick={handleSavePromotion}>
-                Сохранить
-              </Button>
+              <Button onClick={handleSavePromotion}>Сохранить</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1329,7 +1364,7 @@ const Dashboard = () => {
               Добавить
             </Button>
           </div>
-          
+
           {newsLoading ? (
             <p className="text-muted-foreground">Загрузка...</p>
           ) : (
@@ -1343,15 +1378,11 @@ const Dashboard = () => {
                       key={newsItem.id}
                       className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group"
                     >
-                      {newsItem.is_event && (
-                        <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
-                      )}
+                      {newsItem.is_event && <Calendar className="h-4 w-4 text-primary flex-shrink-0" />}
                       <span className="text-sm text-muted-foreground flex-shrink-0">
-                        {new Date(newsItem.created_at).toLocaleDateString('ru-RU')}
+                        {new Date(newsItem.created_at).toLocaleDateString("ru-RU")}
                       </span>
-                      <span className="text-sm font-medium text-foreground flex-1 truncate">
-                        {newsItem.title}
-                      </span>
+                      <span className="text-sm font-medium text-foreground flex-1 truncate">{newsItem.title}</span>
                       {newsItem.is_event && (
                         <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded flex-shrink-0">
                           Событие
@@ -1379,20 +1410,14 @@ const Dashboard = () => {
                   ))}
                 </div>
               )}
-              
+
               {!showAllNews && news.length > 5 && (
-                <button
-                  onClick={() => setShowAllNews(true)}
-                  className="mt-3 text-sm text-primary hover:underline"
-                >
+                <button onClick={() => setShowAllNews(true)} className="mt-3 text-sm text-primary hover:underline">
                   Все →
                 </button>
               )}
               {showAllNews && news.length > 5 && (
-                <button
-                  onClick={() => setShowAllNews(false)}
-                  className="mt-3 text-sm text-primary hover:underline"
-                >
+                <button onClick={() => setShowAllNews(false)} className="mt-3 text-sm text-primary hover:underline">
                   Свернуть
                 </button>
               )}
@@ -1406,7 +1431,7 @@ const Dashboard = () => {
             <DialogHeader>
               <DialogTitle>{editingNewsId ? "Редактирование новости" : "Создание новости"}</DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               {/* Title */}
               <div className="space-y-2">
@@ -1414,7 +1439,7 @@ const Dashboard = () => {
                 <Input
                   id="news-title"
                   value={newsFormData.title}
-                  onChange={(e) => setNewsFormData(prev => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) => setNewsFormData((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder="Заголовок новости"
                 />
               </div>
@@ -1425,7 +1450,7 @@ const Dashboard = () => {
                 <Textarea
                   id="news-content"
                   value={newsFormData.content}
-                  onChange={(e) => setNewsFormData(prev => ({ ...prev, content: e.target.value }))}
+                  onChange={(e) => setNewsFormData((prev) => ({ ...prev, content: e.target.value }))}
                   placeholder="Текст новости..."
                   rows={4}
                 />
@@ -1438,7 +1463,7 @@ const Dashboard = () => {
                   id="news-date"
                   type="date"
                   value={newsFormData.event_date}
-                  onChange={(e) => setNewsFormData(prev => ({ ...prev, event_date: e.target.value }))}
+                  onChange={(e) => setNewsFormData((prev) => ({ ...prev, event_date: e.target.value }))}
                 />
               </div>
 
@@ -1447,7 +1472,7 @@ const Dashboard = () => {
                 <Checkbox
                   id="news-is-event"
                   checked={newsFormData.is_event}
-                  onCheckedChange={(checked) => setNewsFormData(prev => ({ ...prev, is_event: checked === true }))}
+                  onCheckedChange={(checked) => setNewsFormData((prev) => ({ ...prev, is_event: checked === true }))}
                 />
                 <Label htmlFor="news-is-event" className="cursor-pointer">
                   Это событие
@@ -1459,9 +1484,7 @@ const Dashboard = () => {
               <Button variant="outline" onClick={() => setIsNewsDialogOpen(false)}>
                 Отмена
               </Button>
-              <Button onClick={handleSaveNews}>
-                Сохранить
-              </Button>
+              <Button onClick={handleSaveNews}>Сохранить</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1473,11 +1496,7 @@ const Dashboard = () => {
             {dashboardLinks.map((link) => {
               const Icon = link.icon;
               return (
-                <Link
-                  key={link.href}
-                  to={link.href}
-                  className="content-card hover:border-primary/30 transition-colors"
-                >
+                <Link key={link.href} to={link.href} className="content-card hover:border-primary/30 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                       <Icon className="h-5 w-5 text-primary" />
@@ -1486,9 +1505,7 @@ const Dashboard = () => {
                       <p className="font-medium text-foreground">{link.label}</p>
                     </div>
                     {link.count !== undefined && (
-                      <span className="bg-muted text-muted-foreground text-sm px-2 py-0.5 rounded">
-                        {link.count}
-                      </span>
+                      <span className="bg-muted text-muted-foreground text-sm px-2 py-0.5 rounded">{link.count}</span>
                     )}
                   </div>
                 </Link>
@@ -1496,7 +1513,6 @@ const Dashboard = () => {
             })}
           </div>
         </div>
-
       </div>
 
       {/* Messages Dialog */}
@@ -1507,13 +1523,11 @@ const Dashboard = () => {
               <MessageCircle className="h-5 w-5" />
               Сообщения
               {unreadCount > 0 && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({unreadCount} непрочитанных)
-                </span>
+                <span className="text-sm font-normal text-muted-foreground">({unreadCount} непрочитанных)</span>
               )}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-y-auto space-y-2 pr-2">
             {mockMessages.map((message) => {
               const isExpanded = expandedMessageId === message.id;
@@ -1534,21 +1548,11 @@ const Dashboard = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-foreground truncate">
-                          {message.senderName}
-                        </span>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {message.date}
-                        </span>
+                        <span className="font-medium text-foreground truncate">{message.senderName}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">{message.date}</span>
                       </div>
-                      <p className="text-sm font-medium text-foreground mt-0.5">
-                        {message.subject}
-                      </p>
-                      {!isExpanded && (
-                        <p className="text-sm text-muted-foreground truncate mt-1">
-                          {message.preview}
-                        </p>
-                      )}
+                      <p className="text-sm font-medium text-foreground mt-0.5">{message.subject}</p>
+                      {!isExpanded && <p className="text-sm text-muted-foreground truncate mt-1">{message.preview}</p>}
                     </div>
                     <div className="shrink-0">
                       {isExpanded ? (
@@ -1557,27 +1561,25 @@ const Dashboard = () => {
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
-                    {!message.isRead && (
-                      <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
-                    )}
+                    {!message.isRead && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
                   </button>
-                  
+
                   {/* Expanded content */}
                   {isExpanded && (
                     <div className="px-3 pb-3 pt-0 border-t border-border">
-                      <p className="text-sm text-foreground py-3 whitespace-pre-wrap">
-                        {message.fullText}
-                      </p>
-                      
+                      <p className="text-sm text-foreground py-3 whitespace-pre-wrap">{message.fullText}</p>
+
                       {/* Reply section */}
                       <div className="flex gap-2 mt-2">
                         <Input
                           placeholder="Написать ответ..."
                           value={replyText[message.id] || ""}
-                          onChange={(e) => setReplyText(prev => ({ 
-                            ...prev, 
-                            [message.id]: e.target.value 
-                          }))}
+                          onChange={(e) =>
+                            setReplyText((prev) => ({
+                              ...prev,
+                              [message.id]: e.target.value,
+                            }))
+                          }
                           className="flex-1"
                         />
                         <Button
@@ -1597,7 +1599,7 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Profile Edit Dialog for new users */}
       <ProfileEditDialog
         open={isProfileDialogOpen}
