@@ -3,13 +3,7 @@ import { Link } from "react-router-dom";
 import { Milk, Apple, Wheat, Droplets, Egg, Cookie, Salad, Package, Filter, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Category } from "@/types/db";
 
 // Маппинг имён иконок на компоненты
@@ -24,6 +18,12 @@ const iconMap: Record<string, React.ElementType> = {
   Package,
 };
 
+interface CategoryWithCount extends Category {
+  count: number; // переопределяем как динамическое значение
+}
+
+const [categories, setCategories] = useState<CategoryWithCount[]>([]);
+
 const Categories = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -34,16 +34,62 @@ const Categories = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       console.log("[Supabase] GET categories where is_hidden=false, order by position");
-      const { data, error } = await supabase
+      const { data: allCategories, error } = await supabase
         .from("categories")
-        .select("id, name, icon, count, cities, position, is_hidden, created_at")
+        .select("*")
         .eq("is_hidden", false)
         .order("position");
 
       if (error) {
         console.error("[Supabase] Error fetching categories:", error);
+        throw error;
       } else {
-        setCategories(data || []);
+        //Загрузить товары с category_id и producer_id
+
+        const { data: products, error } = await supabase
+          .from("products")
+          .select("category_id, producer_id")
+          .eq("is_available", true)
+          .not("category_id", "is", null);
+
+        if (error) throw error;
+
+        //Шаг 3: Загрузить визитки с category_id и owner_id
+
+        const { data: businesses, error } = await supabase
+          .from("businesses")
+          .select("category_id, owner_id, city")
+          .eq("status", "published")
+          .not("category_id", "is", null);
+        if (error) throw error;
+
+        //Шаг 4: Подсчитать уникальных производителей для каждой категории
+        // Для каждой категории собираем уникальных producer_id из товаров и owner_id из визиток
+        const producersByCategory = new Map<string, Set<string>>();
+
+        products?.forEach((p) => {
+          if (!producersByCategory.has(p.category_id)) {
+            producersByCategory.set(p.category_id, new Set());
+          }
+          producersByCategory.get(p.category_id)!.add(p.producer_id);
+        });
+
+        businesses?.forEach((b) => {
+          if (!producersByCategory.has(b.category_id)) {
+            producersByCategory.set(b.category_id, new Set());
+          }
+          producersByCategory.get(b.category_id)!.add(b.owner_id);
+        });
+
+        //Шаг 5: Фильтровать категории и добавить реальный count
+        const categoriesWithContent = allCategories
+          .filter((cat) => producersByCategory.has(cat.id))
+          .map((cat) => ({
+            ...cat,
+            count: producersByCategory.get(cat.id)?.size || 0,
+          }));
+
+        setCategories(categoriesWithContent || []);
       }
       setLoading(false);
     };
@@ -51,9 +97,35 @@ const Categories = () => {
     fetchCategories();
   }, []);
 
-  const filteredCategories = cityFilter === "Все города"
-    ? categories
-    : categories.filter(cat => cat.cities?.includes(cityFilter));
+  /*
+// При фильтрации по городу пересчитываем производителей
+const filteredProducersByCategory = new Map<string, Set<string>>();
+
+// Добавляем производителей товаров (без фильтра по городу)
+products?.forEach(p => {...});
+
+// Добавляем только визитки из выбранного города
+businesses
+  ?.filter(b => cityFilter === "Все города" || b.city === cityFilter)
+  .forEach(b => {...});
+Изменения в состоянии компонента
+Добавить расширенный тип для категорий с динамическим count:
+
+
+interface CategoryWithCount extends Category {
+  count: number; // переопределяем как динамическое значение
+}
+
+const [categories, setCategories] = useState<CategoryWithCount[]>([]);  
+  
+Динамический список городов
+Извлекать уникальные города из загруженных визиток вместо захардкоженного списка:
+const uniqueCities = [...new Set(businesses?.map(b => b.city).filter(Boolean))];
+const cities = ["Все города", ...uniqueCities.sort()];  
+  */
+
+  const filteredCategories =
+    cityFilter === "Все города" ? allCategories : allCategories.filter((cat) => cat.cities?.includes(cityFilter));
 
   return (
     <MainLayout>
@@ -61,11 +133,9 @@ const Categories = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Категории</h1>
-            <p className="text-muted-foreground mt-1">
-              Найдите производителей по категориям товаров
-            </p>
+            <p className="text-muted-foreground mt-1">Найдите производителей по категориям товаров</p>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <Select value={cityFilter} onValueChange={setCityFilter}>
@@ -105,9 +175,7 @@ const Categories = () => {
                       <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
                         {category.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {category.count} производителей
-                      </p>
+                      <p className="text-sm text-muted-foreground">{category.count} производителей</p>
                     </div>
                   </div>
                 </Link>
@@ -116,9 +184,7 @@ const Categories = () => {
           </div>
         ) : (
           <div className="content-card">
-            <p className="text-muted-foreground text-center py-8">
-              В выбранном городе нет категорий с производителями
-            </p>
+            <p className="text-muted-foreground text-center py-8">В выбранном городе нет категорий с производителями</p>
           </div>
         )}
       </div>
