@@ -125,7 +125,7 @@ const cities = ["Все города", ...uniqueCities.sort()];
   */
 
   const filteredCategories =
-    cityFilter === "Все города" ? allCategories : allCategories.filter((cat) => cat.cities?.includes(cityFilter));
+    cityFilter === "Все города" ? categories : categories.filter((cat) => cat.cities?.includes(cityFilter));
 
   return (
     <MainLayout>
