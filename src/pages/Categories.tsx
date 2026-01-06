@@ -34,34 +34,34 @@ const Categories = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       console.log("[Supabase] GET categories where is_hidden=false, order by position");
-      const { data: allCategories, error } = await supabase
+      const { data: allCategories, error: err } = await supabase
         .from("categories")
         .select("*")
         .eq("is_hidden", false)
         .order("position");
 
-      if (error) {
-        console.error("[Supabase] Error fetching categories:", error);
-        throw error;
+      if (err) {
+        console.error("[Supabase] Error fetching categories:", err);
+        throw err;
       } else {
         //Загрузить товары с category_id и producer_id
 
-        const { data: products, error } = await supabase
+        const { data: products, error: err } = await supabase
           .from("products")
           .select("category_id, producer_id")
           .eq("is_available", true)
           .not("category_id", "is", null);
 
-        if (error) throw error;
+        if (err) throw err;
 
         //Шаг 3: Загрузить визитки с category_id и owner_id
 
-        const { data: businesses, error } = await supabase
+        const { data: businesses, error: err } = await supabase
           .from("businesses")
           .select("category_id, owner_id, city")
           .eq("status", "published")
           .not("category_id", "is", null);
-        if (error) throw error;
+        if (err) throw err;
 
         //Шаг 4: Подсчитать уникальных производителей для каждой категории
         // Для каждой категории собираем уникальных producer_id из товаров и owner_id из визиток
