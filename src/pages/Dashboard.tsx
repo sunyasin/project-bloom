@@ -290,7 +290,14 @@ const Dashboard = () => {
   };
 
   // Business cards from Supabase
-  const { businesses, loading: businessesLoading, createBusiness, hideBusiness, deleteBusiness } = useBusinesses();
+  const {
+    businesses,
+    loading: businessesLoading,
+    createBusiness,
+    hideBusiness,
+    deleteBusiness,
+    updateBusinessStatus,
+  } = useBusinesses();
 
   // Products from Supabase
   const { products, loading: productsLoading, createProduct, deleteProduct } = useProducts();
@@ -1064,24 +1071,29 @@ const Dashboard = () => {
                           </TooltipContent>
                         </Tooltip>
                         <div className="flex gap-1">
-                          {card.status === "published" && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    hideBusiness(card.id);
-                                  }}
-                                >
-                                  <EyeOff className="h-3 w-3" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Скрыть</TooltipContent>
-                            </Tooltip>
-                          )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newStatus = card.status === "published" ? "draft" : "published";
+                                  updateBusinessStatus(card.id, newStatus);
+                                }}
+                              >
+                                {card.status === "published" ? (
+                                  <Eye className="h-3 w-3 text-green-600" />
+                                ) : (
+                                  <EyeOff className="h-3 w-3 text-muted-foreground" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {card.status === "published" ? "Скрыть (перевести в черновик)" : "Опубликовать"}
+                            </TooltipContent>
+                          </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
