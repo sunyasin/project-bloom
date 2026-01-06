@@ -46,22 +46,22 @@ const Categories = () => {
       } else {
         //Загрузить товары с category_id и producer_id
 
-        const { data: products, error: err } = await supabase
+        const { data: products, error: err1 } = await supabase
           .from("products")
           .select("category_id, producer_id")
           .eq("is_available", true)
           .not("category_id", "is", null);
 
-        if (err) throw err;
+        if (err1) throw err1;
 
         //Шаг 3: Загрузить визитки с category_id и owner_id
 
-        const { data: businesses, error: err } = await supabase
+        const { data: businesses, error: err2 } = await supabase
           .from("businesses")
           .select("category_id, owner_id, city")
           .eq("status", "published")
           .not("category_id", "is", null);
-        if (err) throw err;
+        if (err2) throw err2;
 
         //Шаг 4: Подсчитать уникальных производителей для каждой категории
         // Для каждой категории собираем уникальных producer_id из товаров и owner_id из визиток
