@@ -87,7 +87,17 @@ const Categories = () => {
             count: producersByCategory.get(cat.id)?.size || 0,
           }));
 
-        setCategories(categoriesWithContent || []);
+        //Динамический список городов
+        //Извлекать уникальные города из загруженных визиток вместо захардкоженного списка:
+        const uniqueCities = [...new Set(businesses?.map((b) => b.city).filter(Boolean))];
+        const cities = ["Все города", ...uniqueCities.sort()];
+
+        const filteredCategories =
+          cityFilter === "Все города"
+            ? categoriesWithContent
+            : categories.filter((cat) => cat.cities?.includes(cityFilter));
+
+        setCategories(filteredCategories || []);
       }
       setLoading(false);
     };
@@ -118,13 +128,6 @@ const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   
  
   */
-  //Динамический список городов
-  //Извлекать уникальные города из загруженных визиток вместо захардкоженного списка:
-  const uniqueCities = [...new Set(businesses?.map((b) => b.city).filter(Boolean))];
-  const cities = ["Все города", ...uniqueCities.sort()];
-
-  const filteredCategories =
-    cityFilter === "Все города" ? categories : categories.filter((cat) => cat.cities?.includes(cityFilter));
 
   return (
     <MainLayout>
