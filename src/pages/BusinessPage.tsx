@@ -117,11 +117,11 @@ const BusinessPage = () => {
       const cards: BusinessCard[] = (cardsResult.data || []).map((b: any) => ({
         id: b.id,
         name: b.name,
-        image:
-          b.content_json?.image || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+        image: b.content_json?.image || "",
         description: b.content_json?.description || "",
         isMain: b.id === id, // Текущая визитка - главная
       }));
+      //no image -> https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop
 
       setBusinessCards(cards);
       setProducts((productsResult.data || []) as Product[]);
@@ -359,14 +359,7 @@ const BusinessPage = () => {
                       <span className="text-xs text-muted-foreground">Выбрать</span>
                     </div>
                     <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
-                      <img
-                        src={
-                          product.image_url ||
-                          "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop"
-                        }
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={product.image_url || ""} alt={product.name} className="w-full h-full object-cover" />
                     </div>
                     <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
                     <p className="text-sm text-primary font-semibold">
@@ -378,7 +371,7 @@ const BusinessPage = () => {
             </div>
           </div>
         )}
-
+        {/* https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop*/}
         {/* Contacts */}
         <div className="content-card">
           <h2 className="section-title">Контакты</h2>
