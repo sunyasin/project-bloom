@@ -282,6 +282,45 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          amount: number
+          from_id: string
+          id: string
+          to_id: string
+          when: string
+        }
+        Insert: {
+          amount: number
+          from_id: string
+          id?: string
+          to_id: string
+          when?: string
+        }
+        Update: {
+          amount?: number
+          from_id?: string
+          id?: string
+          to_id?: string
+          when?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_from_id_fkey"
+            columns: ["from_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_to_id_fkey"
+            columns: ["to_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
