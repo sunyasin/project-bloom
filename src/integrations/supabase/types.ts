@@ -100,6 +100,47 @@ export type Database = {
         }
         Relationships: []
       }
+      coins: {
+        Row: {
+          amount: number
+          hash: string
+          id: string
+          id_text: string
+          profile_balance: number
+          total_balance: number
+          when: string
+          who: string
+        }
+        Insert: {
+          amount: number
+          hash: string
+          id?: string
+          id_text: string
+          profile_balance: number
+          total_balance: number
+          when?: string
+          who: string
+        }
+        Update: {
+          amount?: number
+          hash?: string
+          id?: string
+          id_text?: string
+          profile_balance?: number
+          total_balance?: number
+          when?: string
+          who?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_who_fkey"
+            columns: ["who"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news: {
         Row: {
           content: string | null
