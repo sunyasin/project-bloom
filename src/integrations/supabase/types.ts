@@ -141,6 +141,57 @@ export type Database = {
           },
         ]
       }
+      exchange: {
+        Row: {
+          amount: number
+          comment: string | null
+          created_at: string
+          creator: string
+          id: number
+          product_ids: string[]
+          provider: string
+          status: Database["public"]["Enums"]["exchange_status"]
+          type: Database["public"]["Enums"]["exchange_type"]
+        }
+        Insert: {
+          amount?: number
+          comment?: string | null
+          created_at?: string
+          creator: string
+          id?: number
+          product_ids?: string[]
+          provider: string
+          status?: Database["public"]["Enums"]["exchange_status"]
+          type?: Database["public"]["Enums"]["exchange_type"]
+        }
+        Update: {
+          amount?: number
+          comment?: string | null
+          created_at?: string
+          creator?: string
+          id?: number
+          product_ids?: string[]
+          provider?: string
+          status?: Database["public"]["Enums"]["exchange_status"]
+          type?: Database["public"]["Enums"]["exchange_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_creator_fkey"
+            columns: ["creator"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_provider_fkey"
+            columns: ["provider"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news: {
         Row: {
           content: string | null
@@ -408,6 +459,13 @@ export type Database = {
         | "news_editor"
         | "super_admin"
       business_status: "draft" | "moderation" | "published" | "deleted"
+      exchange_status:
+        | "created"
+        | "ok_meeting"
+        | "reject"
+        | "pending"
+        | "finished"
+      exchange_type: "goods" | "money"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -543,6 +601,14 @@ export const Constants = {
         "super_admin",
       ],
       business_status: ["draft", "moderation", "published", "deleted"],
+      exchange_status: [
+        "created",
+        "ok_meeting",
+        "reject",
+        "pending",
+        "finished",
+      ],
+      exchange_type: ["goods", "money"],
     },
   },
 } as const
