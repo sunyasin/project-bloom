@@ -70,6 +70,12 @@ const BusinessPage = () => {
 
   const [selectedCard, setSelectedCard] = useState<BusinessCard | null>(null);
 
+  // Digital exchange states
+  const [digitalExchangeDialogOpen, setDigitalExchangeDialogOpen] = useState(false);
+  const [exchangeMessageSent, setExchangeMessageSent] = useState(false);
+  const [exchangeMessage, setExchangeMessage] = useState("");
+  const [currentUserName, setCurrentUserName] = useState<string>("");
+
   // Загрузка данных из Supabase
   useEffect(() => {
     const fetchBusinessData = async () => {
@@ -144,6 +150,25 @@ const BusinessPage = () => {
     fetchBusinessData();
   }, [id]);
 
+  // Fetch current user name for exchange message
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("first_name, last_name, email")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (profile) {
+          const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.email || "Аноним";
+          setCurrentUserName(name);
+        }
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
   const handleProductSelect = (product: SelectedProduct, selected: boolean) => {
     if (selected) {
       setSelectedProducts((prev) => [...prev, product]);
@@ -195,6 +220,31 @@ const BusinessPage = () => {
     } finally {
       setIsSubscribing(false);
     }
+  };
+
+  const handleDigitalExchange = () => {
+    if (selectedProducts.length === 0) return;
+    
+    const now = new Date();
+    const dateStr = now.toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    
+    const productsList = selectedProducts
+      .map((p) => `${p.name} (${p.price} ₽)`)
+      .join("\n");
+    
+    const totalSum = selectedProducts.reduce((sum, p) => sum + p.price, 0);
+    
+    const message = `Предлагаю обмен.\n${productsList}\nНа сумму ${totalSum} ₽.\n${dateStr}.\nОт кого: ${currentUserName || "Аноним"}.`;
+    
+    setExchangeMessage(message);
+    setDigitalExchangeDialogOpen(false);
+    setExchangeMessageSent(true);
   };
 
   if (loading) {
@@ -319,15 +369,23 @@ const BusinessPage = () => {
                 <Package className="h-5 w-5" />
                 Товары
               </h2>
-              <Button disabled={selectedProducts.length === 0} onClick={() => setOrderDialogOpen(true)}>
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Заказать
-                {selectedProducts.length > 0 && (
-                  <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
-                    {selectedProducts.length}
-                  </span>
-                )}
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button disabled={selectedProducts.length === 0} onClick={() => setOrderDialogOpen(true)}>
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Заказать
+                  {selectedProducts.length > 0 && (
+                    <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
+                      {selectedProducts.length}
+                    </span>
+                  )}
+                </Button>
+                <Button variant="outline" disabled={selectedProducts.length === 0}>
+                  Обмен на товары
+                </Button>
+                <Button variant="outline" disabled={selectedProducts.length === 0} onClick={() => setDigitalExchangeDialogOpen(true)}>
+                  Обмен цифровой
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {products.map((product) => {
@@ -490,6 +548,61 @@ const BusinessPage = () => {
             </Button>
             <Button onClick={handleSubscribe} disabled={isSubscribing || !subscribeEmail}>
               {isSubscribing ? "Подписка..." : "Подписаться"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Digital Exchange Dialog */}
+      <Dialog open={digitalExchangeDialogOpen} onOpenChange={setDigitalExchangeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Обмен цифровой</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Выбранные товары:</h4>
+              <div className="max-h-48 overflow-y-auto space-y-2">
+                {selectedProducts.map((product) => (
+                  <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                    <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{product.name}</p>
+                      <p className="text-xs text-primary">{product.price} ₽</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="text-lg font-semibold text-center">
+              Я предлагаю: {selectedProducts.reduce((sum, p) => sum + p.price, 0)} долей
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDigitalExchangeDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleDigitalExchange}>
+              Отправить продавцу
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exchange Message Sent Dialog */}
+      <Dialog open={exchangeMessageSent} onOpenChange={setExchangeMessageSent}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Сообщение отправлено</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg font-mono">
+              {exchangeMessage}
+            </pre>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setExchangeMessageSent(false)}>
+              Закрыть
             </Button>
           </DialogFooter>
         </DialogContent>
