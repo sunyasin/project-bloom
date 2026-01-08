@@ -248,11 +248,7 @@ const ProductEditor = () => {
         unit: productData.unit,
         image_url: productData.image,
         category_id: productData.categoryId || null,
-<<<<<<< HEAD
         content: productData.content
-=======
-        content: productData.content,
->>>>>>> a05f6855d6f6c30c3491f5c03a6d6dd504edaad5
       };
 
       if (isNew || !productId) {
