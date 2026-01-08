@@ -9,7 +9,8 @@ import {
   Save,
   Map,
   ImageIcon,
-  Pencil
+  Pencil,
+  Wallet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,16 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
+  
+  // Wallet state
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRecipient, setSelectedRecipient] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferError, setTransferError] = useState("");
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
 
   const isProducer = user?.role === "moderator" || user?.role === "news_editor" || user?.role === "super_admin";
   const isClient = user?.role === "client";
@@ -122,6 +133,8 @@ const Profile = () => {
         };
         setProfileData(loaded);
         setFormData(loaded);
+        setWalletBalance(data.wallet || 0);
+        setProfileId(data.id);
       }
       setLoading(false);
     };
@@ -248,6 +261,74 @@ const Profile = () => {
     setDialogOpen(true);
   };
 
+  // Load all users for wallet transfer
+  const openWalletDialog = async () => {
+    setTransferAmount("");
+    setSelectedRecipient("");
+    setTransferError("");
+    
+    // Fetch all profiles except current user
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name")
+      .neq("user_id", user?.id || "");
+    
+    if (data) {
+      setAllUsers(
+        data.map((p) => ({
+          id: p.id,
+          name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
+        }))
+      );
+    }
+    setWalletDialogOpen(true);
+  };
+
+  const handleTransfer = async () => {
+    setTransferError("");
+    
+    const amount = parseInt(transferAmount, 10);
+    if (!amount || amount <= 0) {
+      setTransferError("Введите корректную сумму");
+      return;
+    }
+    if (amount > walletBalance) {
+      setTransferError("Недостаточно средств на балансе");
+      return;
+    }
+    if (!selectedRecipient) {
+      setTransferError("Выберите получателя");
+      return;
+    }
+    if (!profileId) {
+      setTransferError("Профиль не найден");
+      return;
+    }
+
+    setTransferring(true);
+
+    const { error } = await supabase.from("transactions").insert({
+      from_id: profileId,
+      to_id: selectedRecipient,
+      amount: amount,
+    });
+
+    if (error) {
+      setTransferError("Ошибка перевода: " + error.message);
+      setTransferring(false);
+      return;
+    }
+
+    // Update local balance
+    setWalletBalance((prev) => prev - amount);
+    setWalletDialogOpen(false);
+    toast({
+      title: "Перевод выполнен",
+      description: `Переведено ${amount} на счёт получателя`,
+    });
+    setTransferring(false);
+  };
+
   if (userLoading || loading) {
     return (
       <MainLayout>
@@ -268,10 +349,16 @@ const Profile = () => {
               Ваши личные данные
             </p>
           </div>
-          <Button onClick={openEditDialog}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Редактировать
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={openWalletDialog}>
+              <Wallet className="h-4 w-4 mr-2" />
+              Кошелёк ({walletBalance})
+            </Button>
+            <Button onClick={openEditDialog}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Редактировать
+            </Button>
+          </div>
         </div>
 
         {/* Profile Display */}
@@ -525,6 +612,63 @@ const Profile = () => {
                   {saving ? "Сохранение..." : "Сохранить"}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Wallet Dialog */}
+        <Dialog open={walletDialogOpen} onOpenChange={setWalletDialogOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Кошелёк</DialogTitle>
+              <DialogDescription>
+                Баланс: {walletBalance} долей
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Кому перевести:</Label>
+                <Select
+                  value={selectedRecipient}
+                  onValueChange={setSelectedRecipient}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите получателя" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Сумма:</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max={walletBalance}
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  placeholder="Введите сумму"
+                />
+              </div>
+
+              {transferError && (
+                <p className="text-sm text-destructive">{transferError}</p>
+              )}
+
+              <Button 
+                onClick={handleTransfer} 
+                className="w-full"
+                disabled={transferring}
+              >
+                {transferring ? "Отправка..." : "Отправить"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
