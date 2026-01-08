@@ -76,6 +76,13 @@ const BusinessPage = () => {
   const [exchangeMessage, setExchangeMessage] = useState("");
   const [currentUserName, setCurrentUserName] = useState<string>("");
 
+  // Goods exchange states
+  const [goodsExchangeDialogOpen, setGoodsExchangeDialogOpen] = useState(false);
+  const [userProducts, setUserProducts] = useState<Product[]>([]);
+  const [producerProductQuantities, setProducerProductQuantities] = useState<Record<string, number>>({});
+  const [userProductQuantities, setUserProductQuantities] = useState<Record<string, number>>({});
+  const [exchangeComment, setExchangeComment] = useState("");
+
   // Загрузка данных из Supabase
   useEffect(() => {
     const fetchBusinessData = async () => {
@@ -150,23 +157,35 @@ const BusinessPage = () => {
     fetchBusinessData();
   }, [id]);
 
-  // Fetch current user name for exchange message
+  // Fetch current user name and products for exchange
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const fetchCurrentUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("first_name, last_name, email")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (profile) {
-          const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.email || "Аноним";
+        const [profileResult, productsResult] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("first_name, last_name, email")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          supabase
+            .from("products")
+            .select("*")
+            .eq("producer_id", user.id)
+            .eq("is_available", true)
+        ]);
+        
+        if (profileResult.data) {
+          const name = [profileResult.data.first_name, profileResult.data.last_name].filter(Boolean).join(" ") || profileResult.data.email || "Аноним";
           setCurrentUserName(name);
+        }
+        
+        if (productsResult.data) {
+          setUserProducts(productsResult.data as Product[]);
         }
       }
     };
-    fetchCurrentUser();
+    fetchCurrentUserData();
   }, []);
 
   const handleProductSelect = (product: SelectedProduct, selected: boolean) => {
@@ -244,6 +263,40 @@ const BusinessPage = () => {
     
     setExchangeMessage(message);
     setDigitalExchangeDialogOpen(false);
+    setExchangeMessageSent(true);
+  };
+
+  const handleOpenGoodsExchange = () => {
+    if (selectedProducts.length === 0) return;
+    // Initialize producer product quantities for selected products
+    const initialQuantities: Record<string, number> = {};
+    selectedProducts.forEach(p => {
+      initialQuantities[p.id] = 1;
+    });
+    setProducerProductQuantities(initialQuantities);
+    setUserProductQuantities({});
+    setExchangeComment("");
+    setGoodsExchangeDialogOpen(true);
+  };
+
+  const handleGoodsExchange = () => {
+    const producerProductsList = selectedProducts
+      .filter(p => producerProductQuantities[p.id] > 0)
+      .map(p => `${p.name} (${producerProductQuantities[p.id]} шт)`)
+      .join(", ");
+    
+    const userProductsList = userProducts
+      .filter(p => userProductQuantities[p.id] > 0)
+      .map(p => `${p.name} (${userProductQuantities[p.id]} шт)`)
+      .join(", ");
+    
+    const message = `Запрос обмена от ${currentUserName || "Аноним"}.
+Выбраны ваши товары: ${producerProductsList || "не выбраны"}
+Предлагаю обмен на: ${userProductsList || "не выбраны"}
+Сообщение: ${exchangeComment || "без сообщения"}`;
+    
+    setExchangeMessage(message);
+    setGoodsExchangeDialogOpen(false);
     setExchangeMessageSent(true);
   };
 
@@ -379,7 +432,7 @@ const BusinessPage = () => {
                     </span>
                   )}
                 </Button>
-                <Button variant="outline" disabled={selectedProducts.length === 0}>
+                <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenGoodsExchange}>
                   Обмен на товары
                 </Button>
                 <Button variant="outline" disabled={selectedProducts.length === 0} onClick={() => setDigitalExchangeDialogOpen(true)}>
@@ -584,6 +637,93 @@ const BusinessPage = () => {
             </Button>
             <Button onClick={handleDigitalExchange}>
               Отправить продавцу
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Goods Exchange Dialog */}
+      <Dialog open={goodsExchangeDialogOpen} onOpenChange={setGoodsExchangeDialogOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Обмен на товары</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Left column - Producer products */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Товары производителя</h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {selectedProducts.map((product) => (
+                    <div key={product.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{product.name}</p>
+                        <p className="text-xs text-primary">{product.price} ₽</p>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={producerProductQuantities[product.id] || 1}
+                        onChange={(e) => setProducerProductQuantities(prev => ({
+                          ...prev,
+                          [product.id]: parseInt(e.target.value) || 1
+                        }))}
+                        className="w-16 h-8 text-center"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right column - User products */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Ваши товары</h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {userProducts.length > 0 ? (
+                    userProducts.map((product) => (
+                      <div key={product.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{product.name}</p>
+                          <p className="text-xs text-primary">{product.price} ₽</p>
+                        </div>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={userProductQuantities[product.id] || 0}
+                          onChange={(e) => setUserProductQuantities(prev => ({
+                            ...prev,
+                            [product.id]: parseInt(e.target.value) || 0
+                          }))}
+                          className="w-16 h-8 text-center"
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      У вас нет товаров для обмена
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Comment field */}
+            <div className="space-y-2">
+              <Label htmlFor="exchange-comment">Сообщение</Label>
+              <Input
+                id="exchange-comment"
+                value={exchangeComment}
+                onChange={(e) => setExchangeComment(e.target.value)}
+                placeholder="Введите сообщение..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGoodsExchangeDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleGoodsExchange}>
+              Отправить запрос
             </Button>
           </DialogFooter>
         </DialogContent>
