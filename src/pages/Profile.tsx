@@ -349,16 +349,10 @@ const Profile = () => {
               Ваши личные данные
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={openWalletDialog}>
-              <Wallet className="h-4 w-4 mr-2" />
-              Кошелёк ({walletBalance})
-            </Button>
-            <Button onClick={openEditDialog}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Редактировать
-            </Button>
-          </div>
+          <Button onClick={openEditDialog}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Редактировать
+          </Button>
         </div>
 
         {/* Profile Display */}
@@ -374,13 +368,17 @@ const Profile = () => {
           )}
           
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label className="text-muted-foreground text-xs">Имя</Label>
-              <p className="font-medium">{profileData?.first_name || "—"}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground text-xs">Фамилия</Label>
-              <p className="font-medium">{profileData?.last_name || "—"}</p>
+            <div className="md:col-span-2 flex items-center justify-between border-b pb-3 mb-2">
+              <div>
+                <Label className="text-muted-foreground text-xs">Имя и Фамилия</Label>
+                <p className="font-medium text-lg">
+                  {profileData?.first_name || "—"} {profileData?.last_name || ""}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={openWalletDialog}>
+                <Wallet className="h-4 w-4 mr-2" />
+                Кошелёк ({walletBalance})
+              </Button>
             </div>
             <div>
               <Label className="text-muted-foreground text-xs">Email</Label>
