@@ -19,6 +19,7 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
+  Wallet,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -347,6 +348,16 @@ const Dashboard = () => {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const { toast } = useToast();
 
+  // Wallet state
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRecipient, setSelectedRecipient] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferError, setTransferError] = useState("");
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
+
   // Profile data from Supabase
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
@@ -389,6 +400,8 @@ const Dashboard = () => {
           logo_url: data.logo_url || "",
         };
         setProfileData(loaded);
+        setWalletBalance(data.wallet || 0);
+        setProfileId(data.id);
         setFormData({
           name: `${loaded.first_name} ${loaded.last_name}`.trim() || "Новый пользователь",
           email: loaded.email,
@@ -749,6 +762,73 @@ const Dashboard = () => {
 
   const unreadCount = getUnreadCount();
 
+  // Wallet handlers
+  const openWalletDialog = async () => {
+    setTransferAmount("");
+    setSelectedRecipient("");
+    setTransferError("");
+    
+    // Fetch all profiles except current user
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name")
+      .neq("user_id", user?.id || "");
+    
+    if (data) {
+      setAllUsers(
+        data.map((p) => ({
+          id: p.id,
+          name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
+        }))
+      );
+    }
+    setWalletDialogOpen(true);
+  };
+
+  const handleTransfer = async () => {
+    setTransferError("");
+    
+    const amount = parseInt(transferAmount, 10);
+    if (!amount || amount <= 0) {
+      setTransferError("Введите корректную сумму");
+      return;
+    }
+    if (amount > walletBalance) {
+      setTransferError("Недостаточно средств на балансе");
+      return;
+    }
+    if (!selectedRecipient) {
+      setTransferError("Выберите получателя");
+      return;
+    }
+    if (!profileId) {
+      setTransferError("Профиль не найден");
+      return;
+    }
+
+    setTransferring(true);
+
+    const { error } = await supabase.from("transactions").insert({
+      from_id: profileId,
+      to_id: selectedRecipient,
+      amount: amount,
+    });
+
+    if (error) {
+      setTransferError("Ошибка перевода: " + error.message);
+      setTransferring(false);
+      return;
+    }
+
+    // Update local balance
+    setWalletBalance((prev) => prev - amount);
+    setWalletDialogOpen(false);
+    toast({
+      title: "Перевод выполнен",
+      description: `Переведено ${amount} на счёт получателя`,
+    });
+    setTransferring(false);
+  };
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -770,6 +850,10 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={openWalletDialog}>
+                <Wallet className="h-4 w-4 mr-1" />
+                Кошелёк ({walletBalance})
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setIsMessagesDialogOpen(true)}>
                 <MessageCircle className="h-4 w-4 mr-1" />
                 Сообщения
@@ -1608,6 +1692,61 @@ const Dashboard = () => {
                 </div>
               );
             })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Wallet Dialog */}
+      <Dialog open={walletDialogOpen} onOpenChange={setWalletDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Кошелёк</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Баланс: {walletBalance} долей</p>
+
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Кому перевести:</Label>
+              <Select
+                value={selectedRecipient}
+                onValueChange={setSelectedRecipient}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите получателя" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Сумма:</Label>
+              <Input
+                type="number"
+                min="1"
+                max={walletBalance}
+                value={transferAmount}
+                onChange={(e) => setTransferAmount(e.target.value)}
+                placeholder="Введите сумму"
+              />
+            </div>
+
+            {transferError && (
+              <p className="text-sm text-destructive">{transferError}</p>
+            )}
+
+            <Button 
+              onClick={handleTransfer} 
+              className="w-full"
+              disabled={transferring}
+            >
+              {transferring ? "Отправка..." : "Отправить"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
