@@ -187,12 +187,12 @@ const ProductEditor = () => {
               price: data.price || 0,
               unit: data.unit || "шт",
               image: data.image_url || "",
-              content: "",
+              content: data.content || "",
               categoryId: data.category_id || "",
             });
             setProductId(data.id);
-            if (editor && data.description) {
-              editor.commands.setContent(data.description);
+            if (editor && data.content) {
+              editor.commands.setContent(data.content);
             }
           } else {
             toast({
@@ -248,7 +248,11 @@ const ProductEditor = () => {
         unit: productData.unit,
         image_url: productData.image,
         category_id: productData.categoryId || null,
+<<<<<<< HEAD
+        content: productData.content
+=======
         content: productData.content,
+>>>>>>> a05f6855d6f6c30c3491f5c03a6d6dd504edaad5
       };
 
       if (isNew || !productId) {

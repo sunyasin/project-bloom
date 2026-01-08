@@ -14,6 +14,7 @@ export interface Product {
   is_available: boolean;
   created_at: string;
   updated_at: string;
+  content: string;
 }
 
 export interface ProductInsert {
