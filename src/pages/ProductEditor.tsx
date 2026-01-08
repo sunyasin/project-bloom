@@ -17,12 +17,12 @@ import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import ImageExtension from "@tiptap/extension-image";
 import { cn } from "@/lib/utils";
-import { 
-  Bold, 
-  Italic, 
-  Underline as UnderlineIcon, 
-  AlignLeft, 
-  AlignCenter, 
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  AlignLeft,
+  AlignCenter,
   AlignRight,
   Image,
   Link as LinkIcon,
@@ -40,7 +40,7 @@ import {
   X,
   ImagePlus,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
 } from "lucide-react";
 
 interface Category {
@@ -62,7 +62,7 @@ interface ProductFormData {
 const validateProductImage = (file: File): { valid: boolean; error?: string } => {
   const maxSize = 5 * 1024 * 1024;
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  
+
   if (!allowedTypes.includes(file.type)) {
     return { valid: false, error: "Неподдерживаемый формат. Используйте JPG, PNG, WebP или GIF" };
   }
@@ -79,14 +79,14 @@ const mockAPIProductPreviewData = {
 };
 
 // Toolbar Button Component
-const ToolbarButton = ({ 
-  onClick, 
-  isActive = false, 
+const ToolbarButton = ({
+  onClick,
+  isActive = false,
   disabled = false,
-  children 
-}: { 
-  onClick: () => void; 
-  isActive?: boolean; 
+  children,
+}: {
+  onClick: () => void;
+  isActive?: boolean;
   disabled?: boolean;
   children: React.ReactNode;
 }) => (
@@ -130,12 +130,8 @@ const ProductEditor = () => {
   // Загрузка категорий из БД
   useEffect(() => {
     const loadCategories = async () => {
-      const { data } = await supabase
-        .from('categories')
-        .select('id, name')
-        .eq('is_hidden', false)
-        .order('position');
-      
+      const { data } = await supabase.from("categories").select("id, name").eq("is_hidden", false).order("position");
+
       if (data) {
         setCategories(data);
       }
@@ -252,6 +248,7 @@ const ProductEditor = () => {
         unit: productData.unit,
         image_url: productData.image,
         category_id: productData.categoryId || null,
+        content: productData.content,
       };
 
       if (isNew || !productId) {
@@ -329,7 +326,7 @@ const ProductEditor = () => {
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith("image/")) {
       await uploadImage(file);
@@ -351,7 +348,7 @@ const ProductEditor = () => {
 
   const setLink = useCallback(() => {
     if (!editor) return;
-    
+
     const previousUrl = editor.getAttributes("link").href;
     const url = prompt("Введите URL ссылки:", previousUrl);
 
@@ -384,16 +381,10 @@ const ProductEditor = () => {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/dashboard")}
-            >
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-bold text-foreground">
-              {isNew ? "Создание товара" : "Редактирование товара"}
-            </h1>
+            <h1 className="text-xl font-bold text-foreground">{isNew ? "Создание товара" : "Редактирование товара"}</h1>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setPreviewOpen(true)}>
@@ -410,7 +401,7 @@ const ProductEditor = () => {
         {/* Основные данные */}
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Основные данные</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Название товара</label>
@@ -464,7 +455,7 @@ const ProductEditor = () => {
                   className="w-full justify-between"
                 >
                   {productData.categoryId
-                    ? categories.find(c => c.id === productData.categoryId)?.name
+                    ? categories.find((c) => c.id === productData.categoryId)?.name
                     : "Выберите категорию..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -487,7 +478,7 @@ const ProductEditor = () => {
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              productData.categoryId === category.id ? "opacity-100" : "opacity-0"
+                              productData.categoryId === category.id ? "opacity-100" : "opacity-0",
                             )}
                           />
                           {category.name}
@@ -502,7 +493,7 @@ const ProductEditor = () => {
 
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">Изображение товара</label>
-            
+
             {/* Drop Zone */}
             <div
               onDragOver={handleDragOver}
@@ -510,28 +501,16 @@ const ProductEditor = () => {
               onDrop={handleDrop}
               className={`
                 relative border-2 border-dashed rounded-lg transition-all duration-200
-                ${isDragging 
-                  ? "border-primary bg-primary/5" 
-                  : "border-border hover:border-primary/50"
-                }
+                ${isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}
                 ${productData.image ? "p-2" : "p-8"}
               `}
             >
               {productData.image ? (
                 <div className="relative group">
-                  <img 
-                    src={productData.image} 
-                    alt="Товар" 
-                    className="w-full max-h-48 object-cover rounded-lg"
-                  />
+                  <img src={productData.image} alt="Товар" className="w-full max-h-48 object-cover rounded-lg" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                     <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageUpload}
-                      />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                       <Button type="button" variant="secondary" size="sm" asChild>
                         <span>
                           <Upload className="h-4 w-4 mr-1" />
@@ -539,12 +518,7 @@ const ProductEditor = () => {
                         </span>
                       </Button>
                     </label>
-                    <Button 
-                      type="button" 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={handleDeleteImage}
-                    >
+                    <Button type="button" variant="destructive" size="sm" onClick={handleDeleteImage}>
                       <X className="h-4 w-4 mr-1" />
                       Удалить
                     </Button>
@@ -560,16 +534,9 @@ const ProductEditor = () => {
                   ) : (
                     <>
                       <ImagePlus className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Перетащите изображение сюда или
-                      </p>
+                      <p className="text-sm text-muted-foreground mb-2">Перетащите изображение сюда или</p>
                       <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImageUpload}
-                        />
+                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                         <Button type="button" variant="outline" size="sm" asChild>
                           <span>
                             <Upload className="h-4 w-4 mr-1" />
@@ -577,9 +544,7 @@ const ProductEditor = () => {
                           </span>
                         </Button>
                       </label>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        JPG, PNG, WebP, GIF до 5MB
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">JPG, PNG, WebP, GIF до 5MB</p>
                     </>
                   )}
                 </div>
@@ -601,19 +566,13 @@ const ProductEditor = () => {
         {/* TipTap WYSIWYG Editor */}
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Подробное описание</h2>
-          
+
           {/* Toolbar */}
           <div className="flex flex-wrap gap-1 p-2 bg-muted rounded-lg border border-border">
-            <ToolbarButton
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
-            >
+            <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
               <Undo className="h-4 w-4" />
             </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
-            >
+            <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
               <Redo className="h-4 w-4" />
             </ToolbarButton>
 
@@ -634,10 +593,7 @@ const ProductEditor = () => {
 
             <div className="w-px bg-border mx-1 h-8" />
 
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              isActive={editor.isActive("bold")}
-            >
+            <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive("bold")}>
               <Bold className="h-4 w-4" />
             </ToolbarButton>
             <ToolbarButton
@@ -718,31 +674,21 @@ const ProductEditor = () => {
           <DialogHeader>
             <DialogTitle>Предпросмотр товара</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {productData.image && (
               <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                <img
-                  src={productData.image}
-                  alt="Товар"
-                  className="w-full h-full object-cover"
-                />
+                <img src={productData.image} alt="Товар" className="w-full h-full object-cover" />
               </div>
             )}
-            
+
             <div>
-              <h2 className="text-2xl font-bold text-foreground">
-                {productData.name || "Название товара"}
-              </h2>
-              <p className="text-muted-foreground mt-1">
-                {productData.description || "Описание товара"}
-              </p>
+              <h2 className="text-2xl font-bold text-foreground">{productData.name || "Название товара"}</h2>
+              <p className="text-muted-foreground mt-1">{productData.description || "Описание товара"}</p>
             </div>
 
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-primary">
-                {productData.price || 0} ₽
-              </span>
+              <span className="text-2xl font-bold text-primary">{productData.price || 0} ₽</span>
               <span className="text-muted-foreground">/ {productData.unit || "шт"}</span>
             </div>
 
@@ -755,8 +701,8 @@ const ProductEditor = () => {
               <div className="border-t border-border pt-4">
                 <div
                   className="prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ 
-                    __html: editor.getHTML() 
+                  dangerouslySetInnerHTML={{
+                    __html: editor.getHTML(),
                   }}
                 />
               </div>
