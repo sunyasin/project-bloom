@@ -367,52 +367,7 @@ const BusinessPage = () => {
           </div>
         )}
 
-        {/* Business Cards (Визитки) */}
-        {businessCards.length > 0 && (
-          <div>
-            <h2 className="section-title">Визитки</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {businessCards.map((card) => (
-                <button
-                  key={card.id}
-                  onClick={() => setSelectedCard(card)}
-                  className={`content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left ${
-                    selectedCard?.id === card.id ? "ring-2 ring-primary border-primary" : ""
-                  }`}
-                >
-                  <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
-                    <img
-                      src={card.image}
-                      alt={card.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <p className="text-sm font-medium text-foreground text-center truncate">{card.name}</p>
-                </button>
-              ))}
-            </div>
-
-            {/* Selected card preview */}
-            {selectedCard && (
-              <div className="content-card mt-4">
-                <div className="flex gap-4">
-                  <div className="w-32 h-32 rounded-lg overflow-hidden bg-muted shrink-0">
-                    <img src={selectedCard.image} alt={selectedCard.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-foreground">{selectedCard.name}</h3>
-                    {selectedCard.description && (
-                      <div
-                        className="text-sm text-muted-foreground mt-2 prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: selectedCard.description }}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        
 
         {/* Products (Товары) with ordering */}
         {products.length > 0 && (
@@ -482,6 +437,54 @@ const BusinessPage = () => {
             </div>
           </div>
         )}
+
+        {/* Business Cards (Визитки) */}
+        {businessCards.length > 0 && (
+          <div>
+            <h2 className="section-title">Визитки</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {businessCards.map((card) => (
+                <button
+                  key={card.id}
+                  onClick={() => setSelectedCard(card)}
+                  className={`content-card hover:border-primary/30 transition-all hover:shadow-md group p-3 text-left ${
+                    selectedCard?.id === card.id ? "ring-2 ring-primary border-primary" : ""
+                  }`}
+                >
+                  <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                    <img
+                      src={card.image}
+                      alt={card.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <p className="text-sm font-medium text-foreground text-center truncate">{card.name}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* Selected card preview */}
+            {selectedCard && (
+              <div className="content-card mt-4">
+                <div className="flex gap-4">
+                  <div className="w-32 h-32 rounded-lg overflow-hidden bg-muted shrink-0">
+                    <img src={selectedCard.image} alt={selectedCard.name} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-foreground">{selectedCard.name}</h3>
+                    {selectedCard.description && (
+                      <div
+                        className="text-sm text-muted-foreground mt-2 prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: selectedCard.description }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
         {/* https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop*/}
         {/* Contacts */}
         <div className="content-card">
