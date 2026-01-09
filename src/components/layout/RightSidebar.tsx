@@ -1,28 +1,68 @@
 import { Tag, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { Link } from "react-router-dom";
 
-// Mock promotions data
-const mockPromotions = [
-  {
-    id: "1",
-    title: "Скидка 20% на мёд",
-    business: "Пасека Иванова",
-    validUntil: "31 января",
-  },
-  {
-    id: "2",
-    title: "2+1 на сыры",
-    business: "Ферма Петровых",
-    validUntil: "15 февраля",
-  },
-  {
-    id: "3",
-    title: "Бесплатная доставка",
-    business: "Эко-овощи",
-    validUntil: "28 января",
-  },
-];
+interface PromotionDisplay {
+  id: string;
+  title: string;
+  businessName: string;
+  validUntil: string | null;
+}
 
 export const RightSidebar = () => {
+  const [promotions, setPromotions] = useState<PromotionDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPromotions = async () => {
+      const { data, error } = await supabase
+        .from("promotions")
+        .select(`
+          id,
+          title,
+          valid_until,
+          business_id
+        `)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) {
+        console.error("Error fetching promotions:", error);
+        setLoading(false);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        // Fetch business names for promotions
+        const businessIds = data.map(p => p.business_id).filter(Boolean);
+        const { data: businesses } = await supabase
+          .from("businesses")
+          .select("id, name")
+          .in("id", businessIds);
+
+        const businessMap = new Map(businesses?.map(b => [b.id, b.name]) || []);
+
+        const mapped: PromotionDisplay[] = data.map(p => ({
+          id: p.id,
+          title: p.title,
+          businessName: p.business_id ? (businessMap.get(p.business_id) || "Неизвестный") : "Неизвестный",
+          validUntil: p.valid_until 
+            ? format(new Date(p.valid_until), "d MMMM", { locale: ru })
+            : null,
+        }));
+
+        setPromotions(mapped);
+      }
+      setLoading(false);
+    };
+
+    fetchPromotions();
+  }, []);
+
   return (
     <div className="p-4 space-y-4">
       {/* Promotions Header */}
@@ -33,32 +73,40 @@ export const RightSidebar = () => {
 
       {/* Promotions List */}
       <div className="space-y-3">
-        {mockPromotions.map((promo) => (
-          <div key={promo.id} className="promo-card cursor-pointer hover:border-primary/50 transition-colors">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <Tag className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground truncate">
-                  {promo.title}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {promo.business}
-                </p>
-                <p className="text-xs text-primary mt-1">
-                  до {promo.validUntil}
-                </p>
+        {loading ? (
+          <p className="text-xs text-muted-foreground">Загрузка...</p>
+        ) : promotions.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Нет активных акций</p>
+        ) : (
+          promotions.map((promo) => (
+            <div key={promo.id} className="promo-card cursor-pointer hover:border-primary/50 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Tag className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm text-foreground truncate">
+                    {promo.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {promo.businessName}
+                  </p>
+                  {promo.validUntil && (
+                    <p className="text-xs text-primary mt-1">
+                      до {promo.validUntil}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* View All Link */}
-      <button className="w-full text-center text-sm text-primary hover:underline py-2">
+      <Link to="/promotions" className="w-full block text-center text-sm text-primary hover:underline py-2">
         Все акции →
-      </button>
+      </Link>
 
       {/* Placeholder Banner */}
       <div className="mt-6 p-4 rounded-lg border border-dashed border-border bg-muted/30 text-center">
