@@ -192,7 +192,7 @@ const ProductEditor = () => {
             });
             setProductId(data.id);
             if (editor && data.content) {
-              editor.commands.setContent(data.content + "___1111");
+              editor.commands.setContent(data.content);
             }
           } else {
             toast({
