@@ -192,6 +192,33 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          created_at: string
+          from_id: string
+          id: number
+          message: string
+          to_id: string
+          type: Database["public"]["Enums"]["message_type"]
+        }
+        Insert: {
+          created_at?: string
+          from_id: string
+          id?: number
+          message: string
+          to_id: string
+          type?: Database["public"]["Enums"]["message_type"]
+        }
+        Update: {
+          created_at?: string
+          from_id?: string
+          id?: number
+          message?: string
+          to_id?: string
+          type?: Database["public"]["Enums"]["message_type"]
+        }
+        Relationships: []
+      }
       news: {
         Row: {
           content: string | null
@@ -469,6 +496,13 @@ export type Database = {
         | "pending"
         | "finished"
       exchange_type: "goods" | "money"
+      message_type:
+        | "admin_status"
+        | "from_admin"
+        | "chat"
+        | "exchange"
+        | "income"
+        | "deleted"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -612,6 +646,14 @@ export const Constants = {
         "finished",
       ],
       exchange_type: ["goods", "money"],
+      message_type: [
+        "admin_status",
+        "from_admin",
+        "chat",
+        "exchange",
+        "income",
+        "deleted",
+      ],
     },
   },
 } as const
