@@ -192,7 +192,7 @@ const ProductEditor = () => {
             });
             setProductId(data.id);
             if (editor && data.content) {
-              editor.commands.setContent(data.content);
+              editor.commands.setContent(data.content + "___1111");
             }
           } else {
             toast({
@@ -248,7 +248,7 @@ const ProductEditor = () => {
         unit: productData.unit,
         image_url: productData.image,
         category_id: productData.categoryId || null,
-        content: productData.content
+        content: productData.content,
       };
 
       if (isNew || !productId) {
