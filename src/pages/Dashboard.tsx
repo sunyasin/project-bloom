@@ -1584,31 +1584,6 @@ const Dashboard = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Quick Links */}
-        <div>
-          <h2 className="section-title">Управление</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {dashboardLinks.map((link) => {
-              const Icon = link.icon;
-              return (
-                <Link key={link.href} to={link.href} className="content-card hover:border-primary/30 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{link.label}</p>
-                    </div>
-                    {link.count !== undefined && (
-                      <span className="bg-muted text-muted-foreground text-sm px-2 py-0.5 rounded">{link.count}</span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Messages Dialog */}
