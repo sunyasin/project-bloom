@@ -44,13 +44,13 @@ const Categories = () => {
       } else {
         //Загрузить товары с category_id и producer_id
 
-        const { data: products, error: err1 } = await supabase
-          .from("products")
-          .select("category_id, producer_id")
-          .eq("is_available", true)
-          .not("category_id", "is", null);
+        // const { data: products, error: err1 } = await supabase
+        //   .from("products")
+        //   .select("category_id, producer_id")
+        //   .eq("is_available", true)
+        //   .not("category_id", "is", null);
 
-        if (err1) throw err1;
+        // if (err1) throw err1;
 
         //Шаг 3: Загрузить визитки с category_id и owner_id
 
@@ -65,12 +65,12 @@ const Categories = () => {
         // Для каждой категории собираем уникальных producer_id из товаров и owner_id из визиток
         const producersByCategory = new Map<string, Set<string>>();
 
-        products?.forEach((p) => {
-          if (!producersByCategory.has(p.category_id)) {
-            producersByCategory.set(p.category_id, new Set());
-          }
-          producersByCategory.get(p.category_id)!.add(p.producer_id);
-        });
+        // products?.forEach((p) => {
+        //   if (!producersByCategory.has(p.category_id)) {
+        //     producersByCategory.set(p.category_id, new Set());
+        //   }
+        //   producersByCategory.get(p.category_id)!.add(p.producer_id);
+        // });
 
         businesses?.forEach((b) => {
           if (!producersByCategory.has(b.category_id)) {
