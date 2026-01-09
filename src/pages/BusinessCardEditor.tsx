@@ -312,7 +312,7 @@ const BusinessCardEditor = () => {
             city: cardData.city || "",
             location: cardData.location || "",
             content_json: contentJson,
-            status: 'draft',
+            status: 'published',
           }])
           .select()
           .single();
