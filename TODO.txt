@@ -1,3 +1,5 @@
+Supabase last migration applied 12/01/26 (-- Drop and recreate exchange_type enum with new values)
+
 TODO 
 
 
