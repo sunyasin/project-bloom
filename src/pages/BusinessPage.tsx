@@ -61,6 +61,7 @@ const BusinessPage = () => {
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderPhone, setOrderPhone] = useState("");
+  const [orderAddress, setOrderAddress] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Subscribe to producer news state
@@ -562,6 +563,16 @@ const BusinessPage = () => {
                 value={orderPhone}
                 onChange={(e) => setOrderPhone(e.target.value)}
                 placeholder="+7 (___) ___-__-__"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Адрес доставки</Label>
+              <Input
+                id="address"
+                value={orderAddress}
+                onChange={(e) => setOrderAddress(e.target.value)}
+                placeholder="Город, улица, дом, квартира"
               />
             </div>
           </div>

@@ -495,7 +495,7 @@ export type Database = {
         | "reject"
         | "pending"
         | "finished"
-      exchange_type: "goods" | "money"
+      exchange_type: "goods-goods" | "goods-rub" | "goods-coin"
       message_type:
         | "admin_status"
         | "from_admin"
@@ -645,7 +645,7 @@ export const Constants = {
         "pending",
         "finished",
       ],
-      exchange_type: ["goods", "money"],
+      exchange_type: ["goods-goods", "goods-rub", "goods-coin"],
       message_type: [
         "admin_status",
         "from_admin",
