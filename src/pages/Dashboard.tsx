@@ -69,11 +69,30 @@ const mockAPISaveProfile = async (id: string, data: typeof mockProfileData) => {
   return { success: true, data };
 };
 
-// Имитация загрузки аватара (POST /api/profile/:id/avatar)
-const mockAPIUploadAvatar = async (id: string, file: File) => {
-  console.log(`[mockAPI] POST /api/profile/${id}/avatar`, { fileName: file.name, size: file.size });
-  // Возвращаем локальный URL для превью
-  return { success: true, url: URL.createObjectURL(file) };
+// Загрузка аватара в Supabase Storage
+const uploadAvatar = async (userId: string, file: File): Promise<{ success: boolean; url?: string; error?: string }> => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file, { upsert: true });
+    
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return { success: false, error: uploadError.message };
+    }
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+    
+    return { success: true, url: publicUrl };
+  } catch (err) {
+    console.error('Upload error:', err);
+    return { success: false, error: 'Ошибка загрузки файла' };
+  }
 };
 
 // Валидация изображения
@@ -540,6 +559,8 @@ const Dashboard = () => {
   };
 
   const handleFileUpload = async (file: File) => {
+    if (!user) return;
+    
     setUploadError(null);
     const validation = validateImage(file);
     if (!validation.valid) {
@@ -547,9 +568,11 @@ const Dashboard = () => {
       return;
     }
 
-    const result = await mockAPIUploadAvatar("1", file);
-    if (result.success) {
+    const result = await uploadAvatar(user.id, file);
+    if (result.success && result.url) {
       setFormData((prev) => ({ ...prev, avatar: result.url }));
+    } else {
+      setUploadError(result.error || 'Ошибка загрузки');
     }
   };
 
