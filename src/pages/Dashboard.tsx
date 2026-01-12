@@ -42,56 +42,30 @@ import { Textarea } from "@/components/ui/textarea";
 
 // ============= Mock API functions =============
 
-// Имитация данных профиля клиента
-const mockProfileData = {
-  id: "1",
-  name: "Иван Петров",
-  email: "ivan@example.com",
-  phone: "+7 (999) 123-45-67",
-  city: "Коломна",
-  address: "ул. Фермерская, д. 15",
-  coordinates: { lat: "55.079201", lng: "38.778389" },
-  avatar: "",
-  telegram: "@ivan_petrov",
-  vk: "https://vk.com/ivan_petrov",
-  instagram: "",
-};
-
-// Имитация получения профиля (GET /api/profile/:id)
-const mockAPIGetProfile = async (id: string) => {
-  console.log(`[mockAPI] GET /api/profile/${id}`);
-  return { ...mockProfileData };
-};
-
-// Имитация сохранения профиля (PUT /api/profile/:id)
-const mockAPISaveProfile = async (id: string, data: typeof mockProfileData) => {
-  console.log(`[mockAPI] PUT /api/profile/${id}`, data);
-  return { success: true, data };
-};
-
 // Загрузка аватара в Supabase Storage
-const uploadAvatar = async (userId: string, file: File): Promise<{ success: boolean; url?: string; error?: string }> => {
+const uploadAvatar = async (
+  userId: string,
+  file: File,
+): Promise<{ success: boolean; url?: string; error?: string }> => {
   try {
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split(".").pop();
     const fileName = `${userId}/${Date.now()}.${fileExt}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(fileName, file, { upsert: true });
-    
+
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, file, { upsert: true });
+
     if (uploadError) {
-      console.error('Upload error:', uploadError);
+      console.error("Upload error:", uploadError);
       return { success: false, error: uploadError.message };
     }
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(fileName);
-    
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(fileName);
+
     return { success: true, url: publicUrl };
   } catch (err) {
-    console.error('Upload error:', err);
-    return { success: false, error: 'Ошибка загрузки файла' };
+    console.error("Upload error:", err);
+    return { success: false, error: "Ошибка загрузки файла" };
   }
 };
 
@@ -110,14 +84,6 @@ const validateImage = (file: File) => {
 };
 
 // ============= End Mock API =============
-
-// Mock user data
-const mockUser = {
-  name: "Иван Петров",
-  email: "ivan@example.com",
-  role: "client",
-  businessCount: 2,
-};
 
 // Placeholder image for business cards without images
 const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
@@ -560,7 +526,7 @@ const Dashboard = () => {
 
   const handleFileUpload = async (file: File) => {
     if (!user) return;
-    
+
     setUploadError(null);
     const validation = validateImage(file);
     if (!validation.valid) {
@@ -572,7 +538,7 @@ const Dashboard = () => {
     if (result.success && result.url) {
       setFormData((prev) => ({ ...prev, avatar: result.url }));
     } else {
-      setUploadError(result.error || 'Ошибка загрузки');
+      setUploadError(result.error || "Ошибка загрузки");
     }
   };
 
@@ -790,19 +756,19 @@ const Dashboard = () => {
     setTransferAmount("");
     setSelectedRecipient("");
     setTransferError("");
-    
+
     // Fetch all profiles except current user
     const { data } = await supabase
       .from("profiles")
       .select("id, first_name, last_name")
       .neq("user_id", user?.id || "");
-    
+
     if (data) {
       setAllUsers(
         data.map((p) => ({
           id: p.id,
           name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
-        }))
+        })),
       );
     }
     setWalletDialogOpen(true);
@@ -810,7 +776,7 @@ const Dashboard = () => {
 
   const handleTransfer = async () => {
     setTransferError("");
-    
+
     const amount = parseInt(transferAmount, 10);
     if (!amount || amount <= 0) {
       setTransferError("Введите корректную сумму");
@@ -1705,10 +1671,7 @@ const Dashboard = () => {
           <div className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label>Кому перевести:</Label>
-              <Select
-                value={selectedRecipient}
-                onValueChange={setSelectedRecipient}
-              >
+              <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите получателя" />
                 </SelectTrigger>
@@ -1734,15 +1697,9 @@ const Dashboard = () => {
               />
             </div>
 
-            {transferError && (
-              <p className="text-sm text-destructive">{transferError}</p>
-            )}
+            {transferError && <p className="text-sm text-destructive">{transferError}</p>}
 
-            <Button 
-              onClick={handleTransfer} 
-              className="w-full"
-              disabled={transferring}
-            >
+            <Button onClick={handleTransfer} className="w-full" disabled={transferring}>
               {transferring ? "Отправка..." : "Отправить"}
             </Button>
           </div>
