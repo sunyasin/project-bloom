@@ -42,6 +42,11 @@ interface ProductDisplay {
   image: string;
   price: string;
   saleType: string;
+  galleryUrls: string[];
+  description: string;
+  content: string;
+  unit: string;
+  rawPrice: number;
 }
 
 interface SelectedProduct extends ProductDisplay {
@@ -189,6 +194,8 @@ const CategoryPage = () => {
     businessId: string;
     businessPhone: string;
   } | null>(null);
+  const [productDetailOpen, setProductDetailOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState<string | null>(null);
@@ -318,6 +325,11 @@ const CategoryPage = () => {
               image: p.image_url || "/placeholder.svg",
               price: p.price ? `${p.price} ₽${p.unit ? `/${p.unit}` : ""}` : "Цена по запросу",
               saleType: (p as any).sale_type || "sell_only",
+              galleryUrls: (p as any).gallery_urls || [],
+              description: p.description || "",
+              content: (p as any).content || "",
+              unit: p.unit || "шт",
+              rawPrice: p.price || 0,
             });
           });
         }
@@ -345,6 +357,8 @@ const CategoryPage = () => {
 
   const handleProductClick = (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string) => {
     setSelectedProduct({ product, businessName, businessId, businessPhone });
+    setGalleryIndex(0);
+    setProductDetailOpen(true);
   };
 
   const handleProductSelect = (product: ProductDisplay, businessId: string, businessName: string, selected: boolean) => {
@@ -610,6 +624,171 @@ const CategoryPage = () => {
               >
                 {isSubmitting ? "Отправка..." : "Отправить заказ"}
               </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Detail Dialog with Gallery */}
+      <Dialog open={productDetailOpen} onOpenChange={setProductDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedProduct?.product.name || "Товар"}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedProduct && (
+            <div className="space-y-4">
+              {/* Product Image Gallery */}
+              {(() => {
+                const allImages = [
+                  selectedProduct.product.image,
+                  ...selectedProduct.product.galleryUrls
+                ].filter(Boolean);
+                
+                if (allImages.length === 0) return null;
+                
+                return (
+                  <div className="relative">
+                    <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                      <img 
+                        src={allImages[galleryIndex] || allImages[0]} 
+                        alt={selectedProduct.product.name} 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                    
+                    {/* Navigation arrows */}
+                    {allImages.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setGalleryIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => setGalleryIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                        
+                        {/* Dots indicator */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                          {allImages.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setGalleryIndex(idx)}
+                              className={`w-2 h-2 rounded-full transition-colors ${
+                                idx === galleryIndex ? "bg-primary" : "bg-background/60"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Thumbnails */}
+                    {allImages.length > 1 && (
+                      <div className="flex gap-2 mt-2 overflow-x-auto">
+                        {allImages.map((url, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setGalleryIndex(idx)}
+                            className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                              idx === galleryIndex ? "border-primary" : "border-transparent"
+                            }`}
+                          >
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Price and Unit */}
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-primary">
+                  {selectedProduct.product.rawPrice || 0} ₽
+                </span>
+                <span className="text-muted-foreground">
+                  / {selectedProduct.product.unit}
+                </span>
+              </div>
+
+              {/* Sale Type Badge */}
+              <div>
+                {selectedProduct.product.saleType === "barter_goods" && (
+                  <span className="inline-block text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-1 rounded">
+                    Бартер товар-товар
+                  </span>
+                )}
+                {selectedProduct.product.saleType === "barter_coin" && (
+                  <span className="inline-block text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded">
+                    Бартер цифровой
+                  </span>
+                )}
+                {(selectedProduct.product.saleType === "sell_only" || !selectedProduct.product.saleType) && (
+                  <span className="inline-block text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded">
+                    Только продажа
+                  </span>
+                )}
+              </div>
+
+              {/* Short Description */}
+              {selectedProduct.product.description && (
+                <div>
+                  <h3 className="font-medium text-foreground mb-1">Описание</h3>
+                  <p className="text-muted-foreground">{selectedProduct.product.description}</p>
+                </div>
+              )}
+
+              {/* Detailed Content */}
+              {selectedProduct.product.content && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="font-medium text-foreground mb-2">Подробнее</h3>
+                  <div 
+                    className="prose prose-sm max-w-none text-muted-foreground"
+                    dangerouslySetInnerHTML={{ __html: selectedProduct.product.content }}
+                  />
+                </div>
+              )}
+
+              {/* Producer Info */}
+              <div className="border-t border-border pt-4 text-sm text-muted-foreground">
+                <p>Производитель: {selectedProduct.businessName}</p>
+                {selectedProduct.businessPhone && <p>Телефон: {selectedProduct.businessPhone}</p>}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => {
+                    const isCurrentlySelected = selectedProducts.some(
+                      p => p.id === selectedProduct.product.id && p.businessId === selectedProduct.businessId
+                    );
+                    handleProductSelect(
+                      selectedProduct.product,
+                      selectedProduct.businessId,
+                      selectedProduct.businessName,
+                      !isCurrentlySelected
+                    );
+                  }}
+                  variant={selectedProducts.some(
+                    p => p.id === selectedProduct.product.id && p.businessId === selectedProduct.businessId
+                  ) ? "secondary" : "default"}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  {selectedProducts.some(
+                    p => p.id === selectedProduct.product.id && p.businessId === selectedProduct.businessId
+                  ) ? "Убрать из заказа" : "Добавить в заказ"}
+                </Button>
+                <Button variant="outline" onClick={() => setProductDetailOpen(false)}>
+                  Закрыть
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
