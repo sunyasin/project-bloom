@@ -48,6 +48,8 @@ interface Category {
   name: string;
 }
 
+type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin';
+
 interface ProductFormData {
   name: string;
   description: string;
@@ -56,6 +58,7 @@ interface ProductFormData {
   image: string;
   content: string;
   categoryId: string;
+  saleType: ProductSaleType;
 }
 
 // Валидация файла изображения (для будущего Storage)
@@ -118,6 +121,7 @@ const ProductEditor = () => {
     image: "",
     content: "",
     categoryId: "",
+    saleType: "sell_only",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(!isNew);
@@ -190,6 +194,7 @@ const ProductEditor = () => {
               image: data.image_url || "",
               content: data.content || "",
               categoryId: data.category_id || "",
+              saleType: (data as any).sale_type || "sell_only",
             });
             setProductId(data.id);
             if (editor && data.content) {
@@ -250,6 +255,7 @@ const ProductEditor = () => {
         image_url: productData.image,
         category_id: productData.categoryId || null,
         content: productData.content,
+        sale_type: productData.saleType,
       };
 
       if (isNew || !productId) {
@@ -552,6 +558,46 @@ const ProductEditor = () => {
                 </Command>
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* Sale Type Selection */}
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">Тип продажи</label>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="saleType"
+                  value="sell_only"
+                  checked={productData.saleType === "sell_only"}
+                  onChange={() => updateField("saleType", "sell_only")}
+                  className="w-4 h-4 text-primary"
+                />
+                <span className="text-sm">Только продажа</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="saleType"
+                  value="barter_goods"
+                  checked={productData.saleType === "barter_goods"}
+                  onChange={() => updateField("saleType", "barter_goods")}
+                  className="w-4 h-4 text-primary"
+                />
+                <span className="text-sm">Бартер товар-товар</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="saleType"
+                  value="barter_coin"
+                  checked={productData.saleType === "barter_coin"}
+                  onChange={() => updateField("saleType", "barter_coin")}
+                  className="w-4 h-4 text-primary"
+                />
+                <span className="text-sm">Бартер цифровой</span>
+              </label>
+            </div>
           </div>
 
           <div>
