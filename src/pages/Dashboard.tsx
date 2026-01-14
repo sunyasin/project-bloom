@@ -551,6 +551,15 @@ const Dashboard = () => {
   };
 
   const handleSavePromotion = async () => {
+    if (!promotionFormData.business_id) {
+      toast({
+        title: "Ошибка",
+        description: "Выберите визитку для акции",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (editingPromotionId) {
       await updatePromotion(editingPromotionId, promotionFormData);
     } else {
