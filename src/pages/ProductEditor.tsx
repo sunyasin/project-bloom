@@ -96,6 +96,7 @@ const ToolbarButton = ({
     size="icon"
     className="h-8 w-8"
     onClick={onClick}
+    onMouseDown={(e) => e.preventDefault()}
     disabled={disabled}
   >
     {children}
