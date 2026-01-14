@@ -545,6 +545,8 @@ const Dashboard = () => {
   };
 
   const handlePromotionFileUpload = async (file: File) => {
+    if (!user) return;
+    
     setPromotionUploadError(null);
     const validation = validateImage(file);
     if (!validation.valid) {
@@ -552,14 +554,15 @@ const Dashboard = () => {
       return;
     }
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage - use user.id as folder name to match RLS policy
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `promotions/${fileName}`;
+    const fileName = `promo_${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage.from("product-images").upload(filePath, file);
 
     if (uploadError) {
+      console.error("Upload error:", uploadError);
       setPromotionUploadError("Ошибка загрузки изображения");
       return;
     }
