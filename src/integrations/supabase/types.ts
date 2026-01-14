@@ -198,6 +198,7 @@ export type Database = {
           from_id: string
           id: number
           message: string
+          reply_to: number | null
           to_id: string
           type: Database["public"]["Enums"]["message_type"]
         }
@@ -206,6 +207,7 @@ export type Database = {
           from_id: string
           id?: number
           message: string
+          reply_to?: number | null
           to_id: string
           type?: Database["public"]["Enums"]["message_type"]
         }
@@ -214,10 +216,19 @@ export type Database = {
           from_id?: string
           id?: number
           message?: string
+          reply_to?: number | null
           to_id?: string
           type?: Database["public"]["Enums"]["message_type"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       news: {
         Row: {
