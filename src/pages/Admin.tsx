@@ -28,10 +28,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-type AdminRole = "moderator" | "news_editor" | "super_admin";
+type AdminRole = "super_admin";
 
-// Map app roles to admin menu roles
-const ADMIN_ROLES: AdminRole[] = ["moderator", "news_editor", "super_admin"];
+// Only super_admin can access admin panel
+const ADMIN_ROLES: AdminRole[] = ["super_admin"];
 
 interface AdminMenuItem {
   label: string;
@@ -40,12 +40,12 @@ interface AdminMenuItem {
 }
 
 const adminMenu: AdminMenuItem[] = [
-  { label: "Дашборд", icon: LayoutDashboard, roles: ["moderator", "news_editor", "super_admin"] },
+  { label: "Дашборд", icon: LayoutDashboard, roles: ["super_admin"] },
   { label: "Пользователи", icon: Users, roles: ["super_admin"] },
-  { label: "Производители", icon: Building2, roles: ["moderator", "super_admin"] },
-  { label: "Акции", icon: Tag, roles: ["moderator", "super_admin"] },
-  { label: "Заявки", icon: FileText, roles: ["moderator", "super_admin"] },
-  { label: "Новости", icon: Newspaper, roles: ["news_editor", "super_admin"] },
+  { label: "Производители", icon: Building2, roles: ["super_admin"] },
+  { label: "Акции", icon: Tag, roles: ["super_admin"] },
+  { label: "Заявки", icon: FileText, roles: ["super_admin"] },
+  { label: "Новости", icon: Newspaper, roles: ["super_admin"] },
   { label: "Коины", icon: Coins, roles: ["super_admin"] },
   { label: "Роли и права", icon: Shield, roles: ["super_admin"] },
   { label: "Настройки", icon: Settings, roles: ["super_admin"] },
@@ -488,10 +488,12 @@ const AdminContent = () => {
   const [activeSection, setActiveSection] = useState("Дашборд");
   const { user } = useCurrentUserWithRole();
   
-  // Get user role, default to moderator for menu filtering
-  const userRole = (user?.role as AdminRole) || "moderator";
+  // Get user role
+  const userRole = user?.role;
 
-  const availableMenu = adminMenu.filter((item) => item.roles.includes(userRole));
+  const availableMenu = adminMenu.filter((item) => 
+    userRole && item.roles.includes(userRole as AdminRole)
+  );
 
   const renderContent = () => {
     switch (activeSection) {
@@ -519,11 +521,7 @@ const AdminContent = () => {
             </div>
             <div>
               <p className="font-semibold text-foreground">Админ-панель</p>
-              <p className="text-xs text-muted-foreground">
-                {userRole === "super_admin" && "Суперадмин"}
-                {userRole === "moderator" && "Модератор"}
-                {userRole === "news_editor" && "Редактор новостей"}
-              </p>
+              <p className="text-xs text-muted-foreground">Суперадмин</p>
             </div>
           </div>
         </div>
