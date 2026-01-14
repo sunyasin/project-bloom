@@ -9,6 +9,7 @@ import {
   Settings,
   Shield,
   Coins,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -20,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type AdminRole = "moderator" | "news_editor" | "super_admin";
 
@@ -47,30 +50,61 @@ const adminMenu: AdminMenuItem[] = [
 // Coin Exchange Section Component
 const CoinExchangeSection = () => {
   const { toast } = useToast();
-  const [profiles, setProfiles] = useState<{ user_id: string; name: string; wallet: number }[]>([]);
+  const [profiles, setProfiles] = useState<{ user_id: string; id: string; name: string; wallet: number }[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [isRubToCoin, setIsRubToCoin] = useState(true);
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultHash, setResultHash] = useState<string | null>(null);
 
+  // Coins history
+  interface CoinRecord {
+    id: string;
+    id_text: string;
+    when: string;
+    amount: number;
+    who: string;
+    profile_balance: number;
+    total_balance: number;
+    hash: string;
+  }
+  const [coins, setCoins] = useState<CoinRecord[]>([]);
+  const [coinsLoading, setCoinsLoading] = useState(false);
+
+  const loadProfiles = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, user_id, first_name, last_name, wallet");
+    
+    if (data) {
+      setProfiles(
+        data.map((p) => ({
+          id: p.id,
+          user_id: p.user_id,
+          name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
+          wallet: p.wallet || 0,
+        }))
+      );
+    }
+  };
+
+  const loadCoins = async () => {
+    setCoinsLoading(true);
+    const { data } = await supabase
+      .from("coins")
+      .select("*")
+      .order("when", { ascending: false })
+      .limit(100);
+    
+    if (data) {
+      setCoins(data as CoinRecord[]);
+    }
+    setCoinsLoading(false);
+  };
+
   useEffect(() => {
-    const loadProfiles = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("user_id, first_name, last_name, wallet");
-      
-      if (data) {
-        setProfiles(
-          data.map((p) => ({
-            user_id: p.user_id,
-            name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
-            wallet: p.wallet || 0,
-          }))
-        );
-      }
-    };
     loadProfiles();
+    loadCoins();
   }, []);
 
   const handleExchange = async () => {
@@ -105,19 +139,21 @@ const CoinExchangeSection = () => {
             : `Списано ${sum} коинов`,
         });
         setAmount("");
-        // Refresh profiles to update wallet balance
+        // Refresh profiles and coins
         const { data: refreshed } = await supabase
           .from("profiles")
-          .select("user_id, first_name, last_name, wallet");
+          .select("id, user_id, first_name, last_name, wallet");
         if (refreshed) {
           setProfiles(
             refreshed.map((p) => ({
+              id: p.id,
               user_id: p.user_id,
               name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
               wallet: p.wallet || 0,
             }))
           );
         }
+        loadCoins();
       }
     } catch (err) {
       toast({ title: "Ошибка", description: "Не удалось выполнить операцию", variant: "destructive" });
@@ -197,6 +233,68 @@ const CoinExchangeSection = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Coins History Table */}
+      <div className="content-card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">История операций с коинами</h2>
+          <Button variant="outline" size="sm" onClick={loadCoins} disabled={coinsLoading}>
+            <RefreshCw className={cn("h-4 w-4 mr-1", coinsLoading && "animate-spin")} />
+            Обновить
+          </Button>
+        </div>
+
+        {coinsLoading ? (
+          <p className="text-muted-foreground text-center py-8">Загрузка...</p>
+        ) : coins.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">Нет записей</p>
+        ) : (
+          <ScrollArea className="h-[400px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[140px]">Дата</TableHead>
+                  <TableHead>Пользователь</TableHead>
+                  <TableHead className="text-right">Сумма</TableHead>
+                  <TableHead className="text-right">Баланс</TableHead>
+                  <TableHead className="text-right">Общий</TableHead>
+                  <TableHead className="w-[200px]">Хеш</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {coins.map((coin) => {
+                  const profile = profiles.find((p) => p.id === coin.who);
+                  return (
+                    <TableRow key={coin.id}>
+                      <TableCell className="text-xs">
+                        {new Date(coin.when).toLocaleString("ru-RU")}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {profile?.name || coin.who.slice(0, 8) + "..."}
+                      </TableCell>
+                      <TableCell className={cn(
+                        "text-right font-medium",
+                        coin.amount > 0 ? "text-green-600" : "text-red-600"
+                      )}>
+                        {coin.amount > 0 ? "+" : ""}{coin.amount}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">
+                        {coin.profile_balance}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">
+                        {coin.total_balance}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs truncate max-w-[200px]" title={coin.hash}>
+                        {coin.hash.slice(0, 20)}...
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        )}
       </div>
     </div>
   );
