@@ -25,6 +25,8 @@ import {
   History,
   ArrowUpRight,
   ArrowDownLeft,
+  Reply,
+  CornerDownRight,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -270,6 +272,7 @@ const Dashboard = () => {
   const [replyText, setReplyText] = useState<Record<number, string>>({});
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [messageTypeFilter, setMessageTypeFilter] = useState<MessageTypeFilter>('all');
+  const [replyingToMessageId, setReplyingToMessageId] = useState<number | null>(null);
   const { toast } = useToast();
 
   // Categories state for promotions
@@ -777,10 +780,13 @@ const Dashboard = () => {
 
     setIsSendingReply(true);
     
+    // Determine recipient - if replying to my own message, send to the partner
+    const recipientId = message.from_id === user.id ? message.to_id : message.from_id;
+    
     // Send reply with reply_to reference
     const { error } = await supabase.from("messages").insert({
       from_id: user.id,
-      to_id: message.from_id,
+      to_id: recipientId,
       message: text.trim(),
       type: "chat" as const,
       reply_to: message.id,
@@ -795,9 +801,10 @@ const Dashboard = () => {
     } else {
       toast({
         title: "Ответ отправлен",
-        description: `Сообщение отправлено ${message.senderName}`,
+        description: `Сообщение отправлено`,
       });
       setReplyText((prev) => ({ ...prev, [message.id]: "" }));
+      setReplyingToMessageId(null);
       // Reload messages to show the new reply
       await loadMessages();
     }
@@ -805,7 +812,7 @@ const Dashboard = () => {
     setIsSendingReply(false);
   };
 
-  // Group messages into conversation threads
+  // Group messages into reply chains within conversation threads
   const getConversationThreads = () => {
     if (!user?.id) return [];
     
@@ -836,11 +843,58 @@ const Dashboard = () => {
         const latestMsg = sortedMsgs[sortedMsgs.length - 1];
         const partnerProfile = msgs.find(m => m.from_id === partnerId);
         
+        // Build reply chains - group messages by their thread root
+        const messageById = new Map(sortedMsgs.map(m => [m.id, m]));
+        const chains: MessageWithSender[][] = [];
+        const assignedToChain = new Set<number>();
+        
+        // Find root messages (no reply_to or reply_to not in this conversation)
+        const rootMessages = sortedMsgs.filter(m => !m.reply_to || !messageById.has(m.reply_to));
+        
+        // Build chain for each root
+        rootMessages.forEach(root => {
+          if (assignedToChain.has(root.id)) return;
+          
+          const chain: MessageWithSender[] = [root];
+          assignedToChain.add(root.id);
+          
+          // Find all replies recursively
+          const findReplies = (parentId: number) => {
+            sortedMsgs.forEach(m => {
+              if (m.reply_to === parentId && !assignedToChain.has(m.id)) {
+                chain.push(m);
+                assignedToChain.add(m.id);
+                findReplies(m.id);
+              }
+            });
+          };
+          
+          findReplies(root.id);
+          // Sort chain by time
+          chain.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          chains.push(chain);
+        });
+        
+        // Add any orphaned messages
+        sortedMsgs.forEach(m => {
+          if (!assignedToChain.has(m.id)) {
+            chains.push([m]);
+          }
+        });
+        
+        // Sort chains by latest message in each
+        chains.sort((a, b) => {
+          const aLatest = a[a.length - 1];
+          const bLatest = b[b.length - 1];
+          return new Date(bLatest.created_at).getTime() - new Date(aLatest.created_at).getTime();
+        });
+        
         return {
           partnerId,
           partnerName: partnerProfile?.senderName || 'Неизвестный',
           partnerEmail: partnerProfile?.senderEmail || '',
           messages: sortedMsgs,
+          chains,
           latestMessage: latestMsg,
         };
       })
@@ -1894,73 +1948,130 @@ const Dashboard = () => {
                       </div>
                     </button>
 
-                    {/* Expanded content - full conversation thread */}
+                    {/* Expanded content - grouped by reply chains */}
                     {isExpanded && (
                       <div className="border-t border-border">
-                        {/* Messages scroll area */}
-                        <div className="max-h-64 overflow-y-auto p-3 space-y-3">
-                          {thread.messages.map((msg) => {
-                            const isFromMe = msg.from_id === user?.id;
-                            return (
-                              <div
-                                key={msg.id}
-                                className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}
-                              >
-                                <div
-                                  className={`max-w-[80%] rounded-lg p-2 ${
-                                    isFromMe 
-                                      ? 'bg-primary text-primary-foreground' 
-                                      : 'bg-muted'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 mb-1">
-                                    {getTypeBadge(msg.type)}
-                                    <span className={`text-xs ${isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                      {new Date(msg.created_at).toLocaleString("ru-RU", {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                        {/* Messages scroll area - organized by chains */}
+                        <div className="max-h-80 overflow-y-auto p-3 space-y-4">
+                          {thread.chains.map((chain, chainIndex) => (
+                            <div key={chainIndex} className="space-y-2">
+                              {/* Chain header for multi-message chains */}
+                              {chain.length > 1 && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <CornerDownRight className="h-3 w-3" />
+                                  <span>Цепочка из {chain.length} сообщений</span>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Reply section */}
-                        <div className="flex gap-2 p-3 border-t border-border">
-                          <Input
-                            placeholder="Написать ответ..."
-                            value={replyText[thread.messages[thread.messages.length - 1]?.id] || ""}
-                            onChange={(e) =>
-                              setReplyText((prev) => ({
-                                ...prev,
-                                [thread.messages[thread.messages.length - 1]?.id]: e.target.value,
-                              }))
-                            }
-                            className="flex-1"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                const lastMsg = thread.messages[thread.messages.length - 1];
-                                if (lastMsg && replyText[lastMsg.id]?.trim()) {
-                                  handleSendReply(lastMsg);
-                                }
-                              }
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => handleSendReply(thread.messages[thread.messages.length - 1])}
-                            disabled={isSendingReply || !replyText[thread.messages[thread.messages.length - 1]?.id]?.trim()}
-                          >
-                            <Send className="h-4 w-4 mr-1" />
-                            Отправить
-                          </Button>
+                              )}
+                              
+                              {chain.map((msg, msgIndex) => {
+                                const isFromMe = msg.from_id === user?.id;
+                                const isReplyTarget = replyingToMessageId === msg.id;
+                                const parentMessage = msg.reply_to ? thread.messages.find(m => m.id === msg.reply_to) : null;
+                                
+                                return (
+                                  <div key={msg.id} className="space-y-1">
+                                    {/* Show reply reference if exists */}
+                                    {parentMessage && msgIndex > 0 && (
+                                      <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} px-2`}>
+                                        <div className="flex items-center gap-1 text-xs text-muted-foreground max-w-[60%]">
+                                          <CornerDownRight className="h-3 w-3 shrink-0" />
+                                          <span className="truncate">
+                                            В ответ на: "{parentMessage.message.slice(0, 30)}..."
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} group`}>
+                                      <div
+                                        className={`max-w-[80%] rounded-lg p-2 relative ${
+                                          isFromMe 
+                                            ? 'bg-primary text-primary-foreground' 
+                                            : 'bg-muted'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 mb-1">
+                                          {getTypeBadge(msg.type)}
+                                          <span className={`text-xs ${isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                            {new Date(msg.created_at).toLocaleString("ru-RU", {
+                                              day: '2-digit',
+                                              month: '2-digit',
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            })}
+                                          </span>
+                                          {/* Reply button */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setReplyingToMessageId(isReplyTarget ? null : msg.id);
+                                            }}
+                                            className={`p-1 rounded hover:bg-black/10 transition-colors ${
+                                              isFromMe ? 'text-primary-foreground/70 hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                                            } ${isReplyTarget ? 'bg-black/10' : ''}`}
+                                            title="Ответить на это сообщение"
+                                          >
+                                            <Reply className="h-3 w-3" />
+                                          </button>
+                                        </div>
+                                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Inline reply input for this specific message */}
+                                    {isReplyTarget && (
+                                      <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                                        <div className="max-w-[80%] w-full space-y-1">
+                                          <div className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+                                            <Reply className="h-3 w-3" />
+                                            <span>Ответ на сообщение</span>
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <Input
+                                              placeholder="Введите ответ..."
+                                              value={replyText[msg.id] || ""}
+                                              onChange={(e) =>
+                                                setReplyText((prev) => ({
+                                                  ...prev,
+                                                  [msg.id]: e.target.value,
+                                                }))
+                                              }
+                                              className="flex-1 h-8 text-sm"
+                                              autoFocus
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                  e.preventDefault();
+                                                  if (replyText[msg.id]?.trim()) {
+                                                    handleSendReply(msg);
+                                                  }
+                                                }
+                                                if (e.key === 'Escape') {
+                                                  setReplyingToMessageId(null);
+                                                }
+                                              }}
+                                            />
+                                            <Button
+                                              size="sm"
+                                              className="h-8"
+                                              onClick={() => handleSendReply(msg)}
+                                              disabled={isSendingReply || !replyText[msg.id]?.trim()}
+                                            >
+                                              <Send className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              
+                              {/* Separator between chains */}
+                              {chainIndex < thread.chains.length - 1 && (
+                                <div className="border-t border-dashed border-border/50 my-3" />
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
