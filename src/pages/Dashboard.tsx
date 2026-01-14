@@ -1006,11 +1006,12 @@ const Dashboard = () => {
       return;
     }
 
-    // Record transaction in transactions table
+    // Record transaction in transactions table (transferData contains the hash)
     await supabase.from("transactions").insert({
       from_id: profileId,
       to_id: selectedRecipient,
       amount: amount,
+      hash: hashResult || '',
     });
 
     // Update local balance
