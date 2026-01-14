@@ -860,7 +860,7 @@ const Dashboard = () => {
               <h1 className="text-xl font-bold text-foreground">{formData.name}</h1>
               <p className="text-muted-foreground">{formData.email}</p>
               <span className="inline-block mt-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
-                Клиент
+                {user?.role || 'visitor'}
               </span>
             </div>
             <div className="flex gap-2 flex-wrap">
