@@ -72,6 +72,7 @@ export interface Product {
   price: number | null;
   unit: string | null;
   image_url: string | null;
+  gallery_urls: string[] | null;
   category_id: string | null;
   is_available: boolean;
   sale_type: 'sell_only' | 'barter_goods' | 'barter_coin';

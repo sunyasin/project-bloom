@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell, Loader2, MessageCircle, Send, Filter } from "lucide-react";
+import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell, Loader2, MessageCircle, Send, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -105,6 +105,7 @@ const BusinessPage = () => {
   // Product detail dialog
   const [productDetailOpen, setProductDetailOpen] = useState(false);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState(0);
   useEffect(() => {
     const fetchBusinessData = async () => {
       if (!id) {
@@ -538,6 +539,7 @@ const BusinessPage = () => {
                     <button 
                       onClick={() => {
                         setSelectedProductDetail(product);
+                        setGalleryIndex(0);
                         setProductDetailOpen(true);
                       }}
                       className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted cursor-pointer hover:opacity-90 transition-opacity w-full"
@@ -920,16 +922,75 @@ const BusinessPage = () => {
           
           {selectedProductDetail && (
             <div className="space-y-4">
-              {/* Product Image */}
-              {selectedProductDetail.image_url && (
-                <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                  <img 
-                    src={selectedProductDetail.image_url} 
-                    alt={selectedProductDetail.name} 
-                    className="w-full h-full object-cover" 
-                  />
-                </div>
-              )}
+              {/* Product Image Gallery */}
+              {(() => {
+                const allImages = [
+                  selectedProductDetail.image_url,
+                  ...(selectedProductDetail.gallery_urls || [])
+                ].filter(Boolean) as string[];
+                
+                if (allImages.length === 0) return null;
+                
+                return (
+                  <div className="relative">
+                    <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                      <img 
+                        src={allImages[galleryIndex] || allImages[0]} 
+                        alt={selectedProductDetail.name} 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                    
+                    {/* Navigation arrows */}
+                    {allImages.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setGalleryIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => setGalleryIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                        
+                        {/* Dots indicator */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                          {allImages.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setGalleryIndex(idx)}
+                              className={`w-2 h-2 rounded-full transition-colors ${
+                                idx === galleryIndex ? "bg-primary" : "bg-background/60"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Thumbnails */}
+                    {allImages.length > 1 && (
+                      <div className="flex gap-2 mt-2 overflow-x-auto">
+                        {allImages.map((url, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setGalleryIndex(idx)}
+                            className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                              idx === galleryIndex ? "border-primary" : "border-transparent"
+                            }`}
+                          >
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Price and Unit */}
               <div className="flex items-baseline gap-2">
