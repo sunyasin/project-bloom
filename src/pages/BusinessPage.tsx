@@ -50,12 +50,6 @@ const mockAPISendOrder = async (order: { products: any[]; phone: string; busines
   return { success: true, orderId: `ORD-${Date.now()}` };
 };
 
-// Mock subscribe API (оставляем по просьбе пользователя)
-const mockAPISubscribeProducer = async (producerId: string, email: string) => {
-  console.log(`[mockAPI] POST /api/producers/${producerId}/subscribe`, { email });
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  return { success: true, message: "Подписка на новости производителя оформлена" };
-};
 
 const BusinessPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -261,15 +255,51 @@ const BusinessPage = () => {
   };
 
   const handleSubscribe = async () => {
+    if (!business?.owner_id) return;
+    
     setIsSubscribing(true);
     try {
-      await mockAPISubscribeProducer(id || "", subscribeEmail);
+      // Check if subscription exists
+      const { data: existing } = await supabase
+        .from("newsletter_subscriptions")
+        .select("id, send_profiles")
+        .eq("email", subscribeEmail)
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing subscription - add profile to send_profiles array
+        const currentProfiles = (existing.send_profiles as string[]) || [];
+        if (!currentProfiles.includes(business.owner_id)) {
+          const { error } = await supabase
+            .from("newsletter_subscriptions")
+            .update({ 
+              send_profiles: [...currentProfiles, business.owner_id],
+              enabled: true
+            })
+            .eq("id", existing.id);
+          
+          if (error) throw error;
+        }
+      } else {
+        // Create new subscription
+        const { error } = await supabase
+          .from("newsletter_subscriptions")
+          .insert({
+            email: subscribeEmail,
+            send_profiles: [business.owner_id],
+            enabled: true
+          });
+        
+        if (error) throw error;
+      }
+
       toast({
         title: "Успешно!",
         description: `Вы подписаны на новости ${business?.name}`,
       });
       setIsSubscribeDialogOpen(false);
     } catch (error) {
+      console.error("Subscription error:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось оформить подписку",
