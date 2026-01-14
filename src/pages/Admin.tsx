@@ -277,8 +277,8 @@ const CoinExchangeSection = () => {
   // Filters
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [filterUserId, setFilterUserId] = useState<string>("");
-  const [amountOperator, setAmountOperator] = useState<string>("");
+  const [filterUserId, setFilterUserId] = useState<string>("__all__");
+  const [amountOperator, setAmountOperator] = useState<string>("__none__");
   const [amountValue, setAmountValue] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -327,14 +327,14 @@ const CoinExchangeSection = () => {
       endDate.setHours(23, 59, 59, 999);
       query = query.lte("when", endDate.toISOString());
     }
-    if (filterUserId) {
+    if (filterUserId && filterUserId !== "__all__") {
       // Find profile id by user_id
       const profile = profiles.find((p) => p.user_id === filterUserId);
       if (profile) {
         query = query.eq("who", profile.id);
       }
     }
-    if (amountOperator && amountValue) {
+    if (amountOperator && amountOperator !== "__none__" && amountValue) {
       const numValue = parseInt(amountValue, 10);
       if (!isNaN(numValue)) {
         switch (amountOperator) {
@@ -488,8 +488,8 @@ const CoinExchangeSection = () => {
   const resetFilters = () => {
     setDateFrom("");
     setDateTo("");
-    setFilterUserId("");
-    setAmountOperator("");
+    setFilterUserId("__all__");
+    setAmountOperator("__none__");
     setAmountValue("");
     setCurrentPage(1);
     setTimeout(() => loadCoins(), 0);
@@ -701,7 +701,7 @@ const CoinExchangeSection = () => {
                       <SelectValue placeholder="Все" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Все</SelectItem>
+                      <SelectItem value="__all__">Все</SelectItem>
                       {profiles.map((p) => (
                         <SelectItem key={p.user_id} value={p.user_id}>
                           {p.name}
@@ -719,7 +719,7 @@ const CoinExchangeSection = () => {
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">—</SelectItem>
+                        <SelectItem value="__none__">—</SelectItem>
                         <SelectItem value=">">&gt;</SelectItem>
                         <SelectItem value="<">&lt;</SelectItem>
                         <SelectItem value="=">=</SelectItem>
