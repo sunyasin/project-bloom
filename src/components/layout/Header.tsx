@@ -168,6 +168,20 @@ export const Header = () => {
               </Button>
             </Link>
           )}
+          {user && userWithRole?.role === "moderator" && (
+            <Link to="/moderator">
+              <Button variant="outline" size="sm">
+                Админка
+              </Button>
+            </Link>
+          )}
+          {user && userWithRole?.role === "news_editor" && (
+            <Link to="/news-editor">
+              <Button variant="outline" size="sm">
+                Админка
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>

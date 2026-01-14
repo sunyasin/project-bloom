@@ -20,6 +20,8 @@ import Profile from "./pages/Profile";
 import BusinessCardEditor from "./pages/BusinessCardEditor";
 import ProductEditor from "./pages/ProductEditor";
 import Admin from "./pages/Admin";
+import ModeratorAdmin from "./pages/ModeratorAdmin";
+import NewsEditorAdmin from "./pages/NewsEditorAdmin";
 import Barter from "./pages/Barter";
 import NotFound from "./pages/NotFound";
 
@@ -56,9 +58,11 @@ const App = () => (
           {/* User profile */}
           <Route path="/profile" element={<Profile />} />
           
-          {/* Admin panel */}
+          {/* Admin panels */}
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/*" element={<Admin />} />
+          <Route path="/moderator" element={<ModeratorAdmin />} />
+          <Route path="/news-editor" element={<NewsEditorAdmin />} />
           
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
