@@ -519,7 +519,8 @@ const CoinExchangeSection = () => {
       if (error) {
         toast({ title: "Ошибка", description: error.message, variant: "destructive" });
       } else {
-        setResultHash(data);
+        const hashResult = data as string;
+        setResultHash(hashResult);
         toast({
           title: "Успешно",
           description: isRubToCoin
@@ -527,6 +528,29 @@ const CoinExchangeSection = () => {
             : `Списано ${sum} коинов`,
         });
         setAmount("");
+
+        // Send notification message to recipient with hash
+        const now = new Date();
+        const dateStr = now.toLocaleString("ru-RU");
+        const operationType = isRubToCoin ? "Начисление" : "Списание";
+        
+        // Get recipient's profile id
+        const recipientProfile = profiles.find((p) => p.user_id === selectedUserId);
+        const newBalance = recipientProfile ? (isRubToCoin ? recipientProfile.wallet + sum : recipientProfile.wallet - sum) : sum;
+        
+        const notificationContent = `💰 ${operationType} коинов\n\n` +
+          `Сумма: ${isRubToCoin ? "+" : "-"}${sum} коинов\n` +
+          `Новый баланс: ${newBalance} коинов\n` +
+          `Дата: ${dateStr}\n\n` +
+          `🔐 Хэш транзакции:\n${hashResult}`;
+
+        await supabase.from("messages").insert([{
+          from_id: selectedUserId,
+          to_id: selectedUserId,
+          message: notificationContent,
+          type: "wallet" as const,
+        }]);
+
         // Refresh profiles and coins
         const { data: refreshed } = await supabase
           .from("profiles")
