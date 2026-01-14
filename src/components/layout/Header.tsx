@@ -30,7 +30,20 @@ export const Header = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user: userWithRole } = useCurrentUserWithRole();
+
+  // Fetch unread messages count
+  const fetchUnreadCount = async (userId: string) => {
+    const { count, error } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("to_id", userId);
+    
+    if (!error && count !== null) {
+      setUnreadCount(count);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener
@@ -38,6 +51,11 @@ export const Header = () => {
       (event, session) => {
         setUser(session?.user ?? null);
         setLoading(false);
+        if (session?.user) {
+          fetchUnreadCount(session.user.id);
+        } else {
+          setUnreadCount(0);
+        }
       }
     );
 
@@ -45,6 +63,9 @@ export const Header = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        fetchUnreadCount(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -121,9 +142,16 @@ export const Header = () => {
         {/* Right actions */}
         <div className="flex items-center gap-2">
           {!loading && user && (
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5 text-muted-foreground" />
-            </Button>
+            <Link to="/dashboard" className="relative">
+              <Button variant="ghost" size="icon">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
           )}
           
           {loading ? (
