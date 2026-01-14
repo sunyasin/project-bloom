@@ -1005,9 +1005,34 @@ const Dashboard = () => {
       return;
     }
 
+    // Update sender's wallet in DB
+    const newSenderBalance = walletBalance - amount;
+    const { error: senderUpdateError } = await supabase
+      .from("profiles")
+      .update({ wallet: newSenderBalance })
+      .eq("id", profileId);
+
+    if (senderUpdateError) {
+      console.error("Error updating sender wallet:", senderUpdateError);
+    }
+
+    // Update recipient's wallet in DB
+    const { data: recipientData } = await supabase
+      .from("profiles")
+      .select("wallet")
+      .eq("id", selectedRecipient)
+      .single();
+
+    if (recipientData) {
+      const newRecipientBalance = (recipientData.wallet || 0) + amount;
+      await supabase
+        .from("profiles")
+        .update({ wallet: newRecipientBalance })
+        .eq("id", selectedRecipient);
+    }
+
     // Update local balance
-    const newBalance = walletBalance - amount;
-    setWalletBalance(newBalance);
+    setWalletBalance(newSenderBalance);
     
     // Get recipient name for notifications
     const recipientInfo = allUsers.find(u => u.id === selectedRecipient);
@@ -1041,7 +1066,7 @@ const Dashboard = () => {
       });
       
       // Message to sender (self-notification)
-      const senderMessage = `💸 Исходящий перевод\nКому: ${recipientName}\nДата: ${dateTimeStr}\nСумма: -${amount} долей\nБаланс: ${newBalance} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ''}`;
+      const senderMessage = `💸 Исходящий перевод\nКому: ${recipientName}\nДата: ${dateTimeStr}\nСумма: -${amount} долей\nБаланс: ${newSenderBalance} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ''}`;
       
       await supabase.from("messages").insert({
         from_id: user.id,
