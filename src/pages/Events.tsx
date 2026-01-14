@@ -1,35 +1,60 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Calendar, MapPin, Clock } from "lucide-react";
-
-// Mock events data
-const mockEvents = [
-  {
-    id: "1",
-    title: "Фермерский рынок выходного дня",
-    date: "4 января 2026",
-    time: "09:00 - 15:00",
-    location: "Центральная площадь",
-    type: "Ярмарка",
-  },
-  {
-    id: "2",
-    title: "Мастер-класс по сыроварению",
-    date: "10 января 2026",
-    time: "14:00 - 17:00",
-    location: "Ферма Петровых",
-    type: "Мастер-класс",
-  },
-  {
-    id: "3",
-    title: "Дегустация мёда",
-    date: "15 января 2026",
-    time: "12:00 - 16:00",
-    location: "Пасека Иванова",
-    type: "Дегустация",
-  },
-];
+import { Calendar, MapPin, Clock, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { NewsItem } from "@/hooks/use-news";
 
 const Events = () => {
+  const [events, setEvents] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<NewsItem | null>(null);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("news")
+          .select("*")
+          .eq("is_published", true)
+          .eq("is_event", true)
+          .order("event_date", { ascending: true });
+
+        if (error) throw error;
+        setEvents((data as NewsItem[]) || []);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Дата не указана";
+    return new Date(dateString).toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formatShortDate = (dateString: string | null) => {
+    if (!dateString) return { day: "—", month: "" };
+    const date = new Date(dateString);
+    return {
+      day: date.getDate().toString(),
+      month: date.toLocaleDateString("ru-RU", { month: "short" }),
+    };
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -40,40 +65,98 @@ const Events = () => {
           </p>
         </div>
 
-        <div className="space-y-4">
-          {mockEvents.map((event) => (
-            <article key={event.id} className="content-card hover:border-primary/30 transition-colors cursor-pointer">
-              <div className="flex gap-4">
-                <div className="w-16 text-center shrink-0">
-                  <div className="w-14 h-14 mx-auto rounded-lg bg-primary/10 flex flex-col items-center justify-center">
-                    <Calendar className="h-5 w-5 text-primary" />
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : events.length === 0 ? (
+          <div className="content-card text-center py-12">
+            <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Предстоящих событий нет</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {events.map((event) => {
+              const shortDate = formatShortDate(event.event_date);
+              return (
+                <article
+                  key={event.id}
+                  onClick={() => setSelectedEvent(event)}
+                  className="content-card hover:border-primary/30 transition-colors cursor-pointer"
+                >
+                  <div className="flex gap-4">
+                    <div className="w-16 text-center shrink-0">
+                      {event.image_url ? (
+                        <div className="w-14 h-14 mx-auto rounded-lg overflow-hidden">
+                          <img
+                            src={event.image_url}
+                            alt={event.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 mx-auto rounded-lg bg-primary/10 flex flex-col items-center justify-center">
+                          <span className="text-lg font-bold text-primary">{shortDate.day}</span>
+                          <span className="text-xs text-primary">{shortDate.month}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
+                        Событие
+                      </span>
+                      <h3 className="font-medium text-foreground mt-1">{event.title}</h3>
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {formatDate(event.event_date)}
+                        </span>
+                      </div>
+                      {event.content && (
+                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                          {event.content.replace(/<[^>]*>/g, "").slice(0, 100)}...
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
-                    {event.type}
-                  </span>
-                  <h3 className="font-medium text-foreground mt-1">{event.title}</h3>
-                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {event.date}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {event.time}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      {event.location}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Event Details Dialog */}
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedEvent?.title}</DialogTitle>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="space-y-4">
+              {selectedEvent.image_url && (
+                <div className="aspect-video rounded-lg overflow-hidden">
+                  <img
+                    src={selectedEvent.image_url}
+                    alt={selectedEvent.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span>{formatDate(selectedEvent.event_date)}</span>
+              </div>
+              {selectedEvent.content && (
+                <div
+                  className="prose prose-sm max-w-none text-foreground"
+                  dangerouslySetInnerHTML={{ __html: selectedEvent.content }}
+                />
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
