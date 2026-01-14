@@ -270,6 +270,7 @@ export type Database = {
           name: string
           price: number | null
           producer_id: string
+          sale_type: Database["public"]["Enums"]["product_sale_type"]
           unit: string | null
           updated_at: string
         }
@@ -284,6 +285,7 @@ export type Database = {
           name: string
           price?: number | null
           producer_id: string
+          sale_type?: Database["public"]["Enums"]["product_sale_type"]
           unit?: string | null
           updated_at?: string
         }
@@ -298,6 +300,7 @@ export type Database = {
           name?: string
           price?: number | null
           producer_id?: string
+          sale_type?: Database["public"]["Enums"]["product_sale_type"]
           unit?: string | null
           updated_at?: string
         }
@@ -508,6 +511,7 @@ export type Database = {
         | "exchange"
         | "income"
         | "deleted"
+      product_sale_type: "sell_only" | "barter_goods" | "barter_coin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -659,6 +663,7 @@ export const Constants = {
         "income",
         "deleted",
       ],
+      product_sale_type: ["sell_only", "barter_goods", "barter_coin"],
     },
   },
 } as const
