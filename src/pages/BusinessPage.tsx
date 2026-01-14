@@ -82,6 +82,7 @@ const BusinessPage = () => {
   const [exchangeMessage, setExchangeMessage] = useState("");
   const [currentUserName, setCurrentUserName] = useState<string>("");
   const [digitalOfferAmount, setDigitalOfferAmount] = useState<string>("");
+  const [digitalProductQuantities, setDigitalProductQuantities] = useState<Record<string, number>>({});
 
   // Goods exchange states
   const [goodsExchangeDialogOpen, setGoodsExchangeDialogOpen] = useState(false);
@@ -334,7 +335,10 @@ const BusinessPage = () => {
     });
     
     const productsList = selectedProducts
-      .map((p) => `${p.name} (${p.price} ₽)`)
+      .map((p) => {
+        const qty = digitalProductQuantities[p.id] || 1;
+        return `• ${p.name} — ${qty} шт. (${p.price} ₽/шт)`;
+      })
       .join("\n");
     
     const message = `💰 Предлагаю обмен на доли.\nТовары:\n${productsList}\n\nПредлагаю: ${offerAmount} долей.\n${dateStr}.\nОт кого: ${currentUserName || "Аноним"}.`;
@@ -354,6 +358,7 @@ const BusinessPage = () => {
     setDigitalExchangeDialogOpen(false);
     setExchangeMessageSent(true);
     setDigitalOfferAmount("");
+    setDigitalProductQuantities({});
   };
 
   const handleOpenGoodsExchange = () => {
@@ -824,6 +829,16 @@ const BusinessPage = () => {
                       <p className="text-sm font-medium truncate">{product.name}</p>
                       <p className="text-xs text-primary">{product.price} ₽</p>
                     </div>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={digitalProductQuantities[product.id] || 1}
+                      onChange={(e) => setDigitalProductQuantities(prev => ({
+                        ...prev,
+                        [product.id]: parseInt(e.target.value) || 1
+                      }))}
+                      className="w-16 h-8 text-center"
+                    />
                   </div>
                 ))}
               </div>
