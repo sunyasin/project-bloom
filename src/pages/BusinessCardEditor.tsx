@@ -77,6 +77,7 @@ const ToolbarButton = ({
     size="icon"
     className="h-8 w-8"
     onClick={onClick}
+    onMouseDown={(e) => e.preventDefault()}
     disabled={disabled}
   >
     {children}
@@ -572,8 +573,15 @@ const BusinessCardEditor = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full p-0">
-                <Command>
-                  <CommandInput placeholder="Поиск категории..." />
+                <Command shouldFilter={false}>
+                  <CommandInput 
+                    placeholder="Поиск категории..." 
+                    onKeyDown={(e) => {
+                      if (e.key === " ") {
+                        e.stopPropagation();
+                      }
+                    }}
+                  />
                   <CommandList>
                     <CommandEmpty>Категория не найдена</CommandEmpty>
                     <CommandGroup>
