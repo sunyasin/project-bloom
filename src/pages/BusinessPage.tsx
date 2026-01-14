@@ -81,6 +81,7 @@ const BusinessPage = () => {
   const [exchangeMessageSent, setExchangeMessageSent] = useState(false);
   const [exchangeMessage, setExchangeMessage] = useState("");
   const [currentUserName, setCurrentUserName] = useState<string>("");
+  const [digitalOfferAmount, setDigitalOfferAmount] = useState<string>("");
 
   // Goods exchange states
   const [goodsExchangeDialogOpen, setGoodsExchangeDialogOpen] = useState(false);
@@ -313,6 +314,16 @@ const BusinessPage = () => {
   const handleDigitalExchange = async () => {
     if (selectedProducts.length === 0) return;
     
+    const offerAmount = parseInt(digitalOfferAmount, 10);
+    if (!offerAmount || offerAmount <= 0) {
+      toast({
+        title: "Ошибка",
+        description: "Введите корректную сумму долей",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const now = new Date();
     const dateStr = now.toLocaleString("ru-RU", {
       day: "2-digit",
@@ -326,9 +337,7 @@ const BusinessPage = () => {
       .map((p) => `${p.name} (${p.price} ₽)`)
       .join("\n");
     
-    const totalSum = selectedProducts.reduce((sum, p) => sum + p.price, 0);
-    
-    const message = `Предлагаю обмен.\n${productsList}\nНа сумму ${totalSum} ₽.\n${dateStr}.\nОт кого: ${currentUserName || "Аноним"}.`;
+    const message = `💰 Предлагаю обмен на доли.\nТовары:\n${productsList}\n\nПредлагаю: ${offerAmount} долей.\n${dateStr}.\nОт кого: ${currentUserName || "Аноним"}.`;
     
     // Save message to database
     const { data: { user } } = await supabase.auth.getUser();
@@ -344,6 +353,7 @@ const BusinessPage = () => {
     setExchangeMessage(message);
     setDigitalExchangeDialogOpen(false);
     setExchangeMessageSent(true);
+    setDigitalOfferAmount("");
   };
 
   const handleOpenGoodsExchange = () => {
@@ -818,9 +828,18 @@ const BusinessPage = () => {
                 ))}
               </div>
             </div>
-            <p className="text-lg font-semibold text-center">
-              Я предлагаю: {selectedProducts.reduce((sum, p) => sum + p.price, 0)} долей
-            </p>
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-lg font-semibold">Я предлагаю:</span>
+              <Input
+                type="number"
+                min="1"
+                value={digitalOfferAmount}
+                onChange={(e) => setDigitalOfferAmount(e.target.value)}
+                placeholder="0"
+                className="w-24 text-center text-lg font-semibold"
+              />
+              <span className="text-lg font-semibold">долей</span>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDigitalExchangeDialogOpen(false)}>
