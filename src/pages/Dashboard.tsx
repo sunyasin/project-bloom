@@ -854,10 +854,11 @@ const Dashboard = () => {
   const getConversationThreads = () => {
     if (!user?.id) return [];
     
-    // Filter by type if needed
+    // Filter out deleted messages first, then apply type filter
+    const nonDeletedMessages = messages.filter(m => m.type !== 'deleted');
     const filteredMessages = messageTypeFilter === 'all' 
-      ? messages 
-      : messages.filter(m => m.type === messageTypeFilter);
+      ? nonDeletedMessages 
+      : nonDeletedMessages.filter(m => m.type === messageTypeFilter);
     
     // Group by conversation partner
     const conversationMap = new Map<string, MessageWithSender[]>();
