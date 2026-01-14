@@ -22,6 +22,9 @@ import {
   Wallet,
   Key,
   Search,
+  History,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -274,6 +277,19 @@ const Dashboard = () => {
   const [decodedResult, setDecodedResult] = useState<string | null>(null);
   const [hashError, setHashError] = useState("");
   const [decoding, setDecoding] = useState(false);
+
+  // Transaction history state
+  interface TransactionHistoryItem {
+    id: string;
+    type: 'transfer_out' | 'transfer_in' | 'coin_exchange';
+    amount: number;
+    date: string;
+    counterparty?: string;
+    balance_after?: number;
+  }
+  const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
+  const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   const [formData, setFormData] = useState<ProfileFormData>({
@@ -866,6 +882,84 @@ const Dashboard = () => {
     } finally {
       setDecoding(false);
     }
+  };
+
+  // Load transaction history
+  const loadTransactionHistory = async () => {
+    if (!profileId) return;
+
+    setTransactionsLoading(true);
+    try {
+      const items: TransactionHistoryItem[] = [];
+
+      // Load transfers (from transactions table)
+      const { data: transfers, error: transfersError } = await supabase
+        .from("transactions")
+        .select("id, from_id, to_id, amount, when")
+        .or(`from_id.eq.${profileId},to_id.eq.${profileId}`)
+        .order("when", { ascending: false })
+        .limit(50);
+
+      if (!transfersError && transfers) {
+        // Get profile names for counterparties
+        const counterpartyIds = transfers.map(t => t.from_id === profileId ? t.to_id : t.from_id);
+        const uniqueIds = [...new Set(counterpartyIds)];
+        
+        let profileMap = new Map<string, string>();
+        if (uniqueIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, first_name, last_name")
+            .in("id", uniqueIds);
+
+          profileMap = new Map(profiles?.map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Неизвестный']) || []);
+        }
+
+        transfers.forEach(t => {
+          const isOutgoing = t.from_id === profileId;
+          items.push({
+            id: t.id,
+            type: isOutgoing ? 'transfer_out' : 'transfer_in',
+            amount: t.amount,
+            date: t.when,
+            counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id) || 'Неизвестный',
+          });
+        });
+      }
+
+      // Load coin exchanges (from coins table)
+      const { data: coins, error: coinsError } = await supabase
+        .from("coins")
+        .select("id, amount, when, profile_balance")
+        .eq("who", profileId)
+        .order("when", { ascending: false })
+        .limit(50);
+
+      if (!coinsError && coins) {
+        coins.forEach(c => {
+          items.push({
+            id: c.id,
+            type: 'coin_exchange',
+            amount: c.amount,
+            date: c.when,
+            balance_after: c.profile_balance,
+          });
+        });
+      }
+
+      // Sort by date
+      items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setTransactionHistory(items);
+    } catch (err) {
+      console.error("Error loading transactions:", err);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
+  const openTransactionsDialog = () => {
+    setTransactionsDialogOpen(true);
+    loadTransactionHistory();
   };
 
   return (
@@ -1760,19 +1854,29 @@ const Dashboard = () => {
           </DialogHeader>
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Баланс: {walletBalance} долей</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setHashInput("");
-                setDecodedResult(null);
-                setHashError("");
-                setHashDialogOpen(true);
-              }}
-            >
-              <Key className="h-4 w-4 mr-1" />
-              Проверить хэш
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openTransactionsDialog}
+              >
+                <History className="h-4 w-4 mr-1" />
+                Транзакции
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setHashInput("");
+                  setDecodedResult(null);
+                  setHashError("");
+                  setHashDialogOpen(true);
+                }}
+              >
+                <Key className="h-4 w-4 mr-1" />
+                Проверить хэш
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-4 mt-4">
@@ -1857,6 +1961,83 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Transactions History Dialog */}
+      <Dialog open={transactionsDialogOpen} onOpenChange={setTransactionsDialogOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              История транзакций
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {transactionsLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Загрузка...</p>
+            ) : transactionHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Транзакций пока нет</p>
+            ) : (
+              transactionHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    item.type === 'transfer_out' 
+                      ? 'bg-destructive/10 text-destructive' 
+                      : item.type === 'transfer_in'
+                        ? 'bg-green-500/10 text-green-600'
+                        : item.amount > 0
+                          ? 'bg-green-500/10 text-green-600'
+                          : 'bg-destructive/10 text-destructive'
+                  }`}>
+                    {item.type === 'transfer_out' ? (
+                      <ArrowUpRight className="h-4 w-4" />
+                    ) : item.type === 'transfer_in' ? (
+                      <ArrowDownLeft className="h-4 w-4" />
+                    ) : item.amount > 0 ? (
+                      <ArrowDownLeft className="h-4 w-4" />
+                    ) : (
+                      <ArrowUpRight className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {item.type === 'transfer_out' && `Перевод → ${item.counterparty}`}
+                      {item.type === 'transfer_in' && `Получено от ${item.counterparty}`}
+                      {item.type === 'coin_exchange' && (item.amount > 0 ? 'Пополнение' : 'Списание')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(item.date).toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold ${
+                      (item.type === 'transfer_out' || item.amount < 0)
+                        ? 'text-destructive'
+                        : 'text-green-600'
+                    }`}>
+                      {item.type === 'transfer_out' ? '-' : item.amount > 0 ? '+' : ''}
+                      {item.type === 'transfer_out' ? item.amount : item.amount}
+                    </p>
+                    {item.balance_after !== undefined && (
+                      <p className="text-xs text-muted-foreground">
+                        Баланс: {item.balance_after}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Profile Edit Dialog for new users */}
       <ProfileEditDialog
