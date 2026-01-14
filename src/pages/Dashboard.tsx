@@ -106,7 +106,20 @@ interface MessageWithSender {
   created_at: string;
   senderName: string;
   senderEmail: string;
+  reply_to: number | null;
 }
+
+// Message types for filtering
+type MessageTypeFilter = 'all' | 'admin_status' | 'from_admin' | 'chat' | 'exchange' | 'income';
+
+const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
+  all: 'Все',
+  admin_status: 'Системные',
+  from_admin: 'От модератора',
+  chat: 'Чат',
+  exchange: 'Обмен',
+  income: 'Кошелёк',
+};
 
 // ============= End Messages types =============
 
@@ -256,6 +269,7 @@ const Dashboard = () => {
   const [expandedMessageId, setExpandedMessageId] = useState<number | null>(null);
   const [replyText, setReplyText] = useState<Record<number, string>>({});
   const [isSendingReply, setIsSendingReply] = useState(false);
+  const [messageTypeFilter, setMessageTypeFilter] = useState<MessageTypeFilter>('all');
   const { toast } = useToast();
 
   // Categories state for promotions
@@ -696,12 +710,12 @@ const Dashboard = () => {
     
     setMessagesLoading(true);
     
-    // Fetch messages where current user is recipient
+    // Fetch all messages where current user is sender or recipient
     const { data: messagesData, error } = await supabase
       .from("messages")
       .select("*")
-      .eq("to_id", user.id)
-      .order("created_at", { ascending: false });
+      .or(`to_id.eq.${user.id},from_id.eq.${user.id}`)
+      .order("created_at", { ascending: true });
     
     if (error) {
       console.error("Error loading messages:", error);
@@ -709,16 +723,16 @@ const Dashboard = () => {
       return;
     }
     
-    // Get unique sender IDs
-    const senderIds = [...new Set((messagesData || []).map(m => m.from_id))];
+    // Get unique user IDs (both senders and receivers)
+    const userIds = [...new Set((messagesData || []).flatMap(m => [m.from_id, m.to_id]))];
     
-    // Fetch sender profiles
+    // Fetch user profiles
     let profilesMap: Record<string, { name: string; email: string }> = {};
-    if (senderIds.length > 0) {
+    if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, first_name, last_name, email")
-        .in("user_id", senderIds);
+        .in("user_id", userIds);
       
       if (profiles) {
         profilesMap = profiles.reduce((acc, p) => {
@@ -736,6 +750,7 @@ const Dashboard = () => {
       ...m,
       senderName: profilesMap[m.from_id]?.name || "Неизвестный",
       senderEmail: profilesMap[m.from_id]?.email || "",
+      reply_to: m.reply_to || null,
     }));
     
     setMessages(messagesWithSender);
@@ -744,6 +759,7 @@ const Dashboard = () => {
 
   const handleOpenMessagesDialog = async () => {
     setIsMessagesDialogOpen(true);
+    setMessageTypeFilter('all');
     await loadMessages();
   };
 
@@ -761,12 +777,13 @@ const Dashboard = () => {
 
     setIsSendingReply(true);
     
-    // Send reply (swap from_id and to_id)
+    // Send reply with reply_to reference
     const { error } = await supabase.from("messages").insert({
       from_id: user.id,
       to_id: message.from_id,
       message: text.trim(),
       type: "chat" as const,
+      reply_to: message.id,
     });
     
     if (error) {
@@ -781,12 +798,59 @@ const Dashboard = () => {
         description: `Сообщение отправлено ${message.senderName}`,
       });
       setReplyText((prev) => ({ ...prev, [message.id]: "" }));
+      // Reload messages to show the new reply
+      await loadMessages();
     }
     
     setIsSendingReply(false);
   };
 
-  const unreadCount = messages.length;
+  // Group messages into conversation threads
+  const getConversationThreads = () => {
+    if (!user?.id) return [];
+    
+    // Filter by type if needed
+    const filteredMessages = messageTypeFilter === 'all' 
+      ? messages 
+      : messages.filter(m => m.type === messageTypeFilter);
+    
+    // Group by conversation partner
+    const conversationMap = new Map<string, MessageWithSender[]>();
+    
+    filteredMessages.forEach(msg => {
+      // Determine the conversation partner (the other person)
+      const partnerId = msg.from_id === user.id ? msg.to_id : msg.from_id;
+      
+      if (!conversationMap.has(partnerId)) {
+        conversationMap.set(partnerId, []);
+      }
+      conversationMap.get(partnerId)!.push(msg);
+    });
+    
+    // Convert to array and sort by latest message
+    return Array.from(conversationMap.entries())
+      .map(([partnerId, msgs]) => {
+        const sortedMsgs = msgs.sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        const latestMsg = sortedMsgs[sortedMsgs.length - 1];
+        const partnerProfile = msgs.find(m => m.from_id === partnerId);
+        
+        return {
+          partnerId,
+          partnerName: partnerProfile?.senderName || 'Неизвестный',
+          partnerEmail: partnerProfile?.senderEmail || '',
+          messages: sortedMsgs,
+          latestMessage: latestMsg,
+        };
+      })
+      .sort((a, b) => 
+        new Date(b.latestMessage.created_at).getTime() - new Date(a.latestMessage.created_at).getTime()
+      );
+  };
+
+  const conversationThreads = getConversationThreads();
+  const unreadCount = messages.filter(m => m.to_id === user?.id).length;
 
   // Wallet handlers
   const openWalletDialog = async () => {
@@ -1738,37 +1802,56 @@ const Dashboard = () => {
 
       {/* Messages Dialog */}
       <Dialog open={isMessagesDialogOpen} onOpenChange={setIsMessagesDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
-              Входящие сообщения
+              Сообщения
               {messages.length > 0 && (
                 <span className="text-sm font-normal text-muted-foreground">({messages.length})</span>
               )}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+          {/* Filter tabs */}
+          <div className="flex flex-wrap gap-1 border-b border-border pb-2">
+            {(Object.keys(MESSAGE_TYPE_LABELS) as MessageTypeFilter[]).map((type) => (
+              <Button
+                key={type}
+                variant={messageTypeFilter === type ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setMessageTypeFilter(type)}
+                className="text-xs h-7"
+              >
+                {MESSAGE_TYPE_LABELS[type]}
+              </Button>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2">
             {messagesLoading ? (
               <p className="text-muted-foreground text-center py-8">Загрузка...</p>
-            ) : messages.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">Нет входящих сообщений</p>
+            ) : conversationThreads.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Нет сообщений</p>
             ) : (
-              messages.map((message) => {
-                const isExpanded = expandedMessageId === message.id;
-                const messagePreview = message.message.length > 80 
-                  ? message.message.slice(0, 80) + "..." 
-                  : message.message;
+              conversationThreads.map((thread) => {
+                const isExpanded = expandedMessageId === thread.messages[0]?.id;
+                const latestPreview = thread.latestMessage.message.length > 60 
+                  ? thread.latestMessage.message.slice(0, 60) + "..." 
+                  : thread.latestMessage.message;
                 
                 const getTypeBadge = (type: string) => {
                   switch (type) {
                     case "exchange":
                       return <span className="text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded">Обмен</span>;
                     case "admin_status":
-                      return <span className="text-xs bg-yellow-500/10 text-yellow-700 px-2 py-0.5 rounded">Статус</span>;
+                      return <span className="text-xs bg-yellow-500/10 text-yellow-700 px-2 py-0.5 rounded">Системное</span>;
                     case "from_admin":
-                      return <span className="text-xs bg-red-500/10 text-red-700 px-2 py-0.5 rounded">От админа</span>;
+                      return <span className="text-xs bg-red-500/10 text-red-700 px-2 py-0.5 rounded">Модератор</span>;
+                    case "income":
+                      return <span className="text-xs bg-green-500/10 text-green-700 px-2 py-0.5 rounded">Кошелёк</span>;
+                    case "chat":
+                      return <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Чат</span>;
                     default:
                       return null;
                   }
@@ -1776,12 +1859,12 @@ const Dashboard = () => {
 
                 return (
                   <div
-                    key={message.id}
+                    key={thread.partnerId}
                     className="border rounded-lg transition-colors border-border hover:border-primary/30"
                   >
-                    {/* Message header - clickable */}
+                    {/* Thread header - clickable */}
                     <button
-                      onClick={() => handleToggleMessage(message.id)}
+                      onClick={() => handleToggleMessage(thread.messages[0]?.id)}
                       className="w-full p-3 text-left flex items-start gap-3 hover:bg-muted/50 transition-colors"
                     >
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -1789,16 +1872,18 @@ const Dashboard = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground truncate">{message.senderName}</span>
+                          <span className="font-medium text-foreground truncate">{thread.partnerName}</span>
                           <span className="text-xs text-muted-foreground shrink-0">
-                            {new Date(message.created_at).toLocaleDateString("ru-RU")}
+                            {new Date(thread.latestMessage.created_at).toLocaleDateString("ru-RU")}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          {getTypeBadge(message.type)}
-                          <span className="text-xs text-muted-foreground">{message.senderEmail}</span>
+                          {getTypeBadge(thread.latestMessage.type)}
+                          <span className="text-xs text-muted-foreground">
+                            {thread.messages.length} сообщ.
+                          </span>
                         </div>
-                        {!isExpanded && <p className="text-sm text-muted-foreground truncate mt-1">{messagePreview}</p>}
+                        {!isExpanded && <p className="text-sm text-muted-foreground truncate mt-1">{latestPreview}</p>}
                       </div>
                       <div className="shrink-0">
                         {isExpanded ? (
@@ -1809,28 +1894,69 @@ const Dashboard = () => {
                       </div>
                     </button>
 
-                    {/* Expanded content */}
+                    {/* Expanded content - full conversation thread */}
                     {isExpanded && (
-                      <div className="px-3 pb-3 pt-0 border-t border-border">
-                        <p className="text-sm text-foreground py-3 whitespace-pre-wrap">{message.message}</p>
+                      <div className="border-t border-border">
+                        {/* Messages scroll area */}
+                        <div className="max-h-64 overflow-y-auto p-3 space-y-3">
+                          {thread.messages.map((msg) => {
+                            const isFromMe = msg.from_id === user?.id;
+                            return (
+                              <div
+                                key={msg.id}
+                                className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}
+                              >
+                                <div
+                                  className={`max-w-[80%] rounded-lg p-2 ${
+                                    isFromMe 
+                                      ? 'bg-primary text-primary-foreground' 
+                                      : 'bg-muted'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {getTypeBadge(msg.type)}
+                                    <span className={`text-xs ${isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                      {new Date(msg.created_at).toLocaleString("ru-RU", {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
 
                         {/* Reply section */}
-                        <div className="flex gap-2 mt-2">
+                        <div className="flex gap-2 p-3 border-t border-border">
                           <Input
                             placeholder="Написать ответ..."
-                            value={replyText[message.id] || ""}
+                            value={replyText[thread.messages[thread.messages.length - 1]?.id] || ""}
                             onChange={(e) =>
                               setReplyText((prev) => ({
                                 ...prev,
-                                [message.id]: e.target.value,
+                                [thread.messages[thread.messages.length - 1]?.id]: e.target.value,
                               }))
                             }
                             className="flex-1"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                const lastMsg = thread.messages[thread.messages.length - 1];
+                                if (lastMsg && replyText[lastMsg.id]?.trim()) {
+                                  handleSendReply(lastMsg);
+                                }
+                              }
+                            }}
                           />
                           <Button
                             size="sm"
-                            onClick={() => handleSendReply(message)}
-                            disabled={isSendingReply || !replyText[message.id]?.trim()}
+                            onClick={() => handleSendReply(thread.messages[thread.messages.length - 1])}
+                            disabled={isSendingReply || !replyText[thread.messages[thread.messages.length - 1]?.id]?.trim()}
                           >
                             <Send className="h-4 w-4 mr-1" />
                             Отправить
