@@ -1,10 +1,11 @@
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell, Loader2 } from "lucide-react";
+import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell, Loader2, MessageCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -83,6 +84,11 @@ const BusinessPage = () => {
   const [producerProductQuantities, setProducerProductQuantities] = useState<Record<string, number>>({});
   const [userProductQuantities, setUserProductQuantities] = useState<Record<string, number>>({});
   const [exchangeComment, setExchangeComment] = useState("");
+
+  // Contact message states
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [isSendingContact, setIsSendingContact] = useState(false);
 
   // Загрузка данных из Supabase
   useEffect(() => {
@@ -323,6 +329,55 @@ const BusinessPage = () => {
     setExchangeMessageSent(true);
   };
 
+  const handleSendContactMessage = async () => {
+    if (!contactMessage.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Введите сообщение",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Ошибка",
+        description: "Войдите в аккаунт, чтобы отправить сообщение",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!business?.owner_id) return;
+
+    setIsSendingContact(true);
+
+    const { error } = await supabase.from("messages").insert({
+      from_id: user.id,
+      to_id: business.owner_id,
+      message: contactMessage.trim(),
+      type: "chat" as const,
+    });
+
+    if (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отправить сообщение",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Отправлено",
+        description: `Сообщение отправлено ${business.name}`,
+      });
+      setContactMessage("");
+      setContactDialogOpen(false);
+    }
+
+    setIsSendingContact(false);
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -374,7 +429,10 @@ const BusinessPage = () => {
                 <Bell className="h-4 w-4 mr-1" />
                 Подписка
               </Button>
-              <Button>Связаться</Button>
+              <Button onClick={() => setContactDialogOpen(true)}>
+                <MessageCircle className="h-4 w-4 mr-1" />
+                Связаться
+              </Button>
             </div>
           </div>
         </div>
@@ -779,6 +837,39 @@ const BusinessPage = () => {
           <DialogFooter>
             <Button onClick={() => setExchangeMessageSent(false)}>
               Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Message Dialog */}
+      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Написать сообщение</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Отправить сообщение производителю <span className="font-medium text-foreground">{business?.name}</span>
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="contact-message">Сообщение</Label>
+              <Textarea
+                id="contact-message"
+                value={contactMessage}
+                onChange={(e) => setContactMessage(e.target.value)}
+                placeholder="Введите ваше сообщение..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleSendContactMessage} disabled={isSendingContact || !contactMessage.trim()}>
+              <Send className="h-4 w-4 mr-1" />
+              {isSendingContact ? "Отправка..." : "Отправить"}
             </Button>
           </DialogFooter>
         </DialogContent>
