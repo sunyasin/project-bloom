@@ -255,6 +255,9 @@ const Dashboard = () => {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const { toast } = useToast();
 
+  // Categories state for promotions
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+
   // Wallet state
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
@@ -334,6 +337,22 @@ const Dashboard = () => {
       loadProfile();
     }
   }, [user]);
+
+  // Load categories for promotions
+  useEffect(() => {
+    const loadCategories = async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("is_hidden", false)
+        .order("position", { ascending: true });
+
+      if (!error && data) {
+        setCategories(data);
+      }
+    };
+    loadCategories();
+  }, []);
 
   const handleMainCardChange = (cardId: string, checked: boolean) => {
     setMainCardId(checked ? cardId : null);
@@ -532,6 +551,15 @@ const Dashboard = () => {
   };
 
   const handleSavePromotion = async () => {
+    if (!promotionFormData.business_id) {
+      toast({
+        title: "Ошибка",
+        description: "Выберите визитку для акции",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (editingPromotionId) {
       await updatePromotion(editingPromotionId, promotionFormData);
     } else {
@@ -545,6 +573,8 @@ const Dashboard = () => {
   };
 
   const handlePromotionFileUpload = async (file: File) => {
+    if (!user) return;
+    
     setPromotionUploadError(null);
     const validation = validateImage(file);
     if (!validation.valid) {
@@ -552,14 +582,15 @@ const Dashboard = () => {
       return;
     }
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage - use user.id as folder name to match RLS policy
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `promotions/${fileName}`;
+    const fileName = `promo_${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage.from("product-images").upload(filePath, file);
 
     if (uploadError) {
+      console.error("Upload error:", uploadError);
       setPromotionUploadError("Ошибка загрузки изображения");
       return;
     }
@@ -1449,6 +1480,26 @@ const Dashboard = () => {
                     onChange={(e) => setPromotionFormData((prev) => ({ ...prev, valid_until: e.target.value }))}
                   />
                 </div>
+              </div>
+
+              {/* Business (визитка) */}
+              <div className="space-y-2">
+                <Label>Визитка (обязательно)</Label>
+                <Select
+                  value={promotionFormData.business_id}
+                  onValueChange={(value) => setPromotionFormData((prev) => ({ ...prev, business_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите визитку" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businesses.map((biz) => (
+                      <SelectItem key={biz.id} value={biz.id}>
+                        {biz.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

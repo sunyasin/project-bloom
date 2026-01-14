@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Business, Product, Promotion } from "@/types/db";
+import type { User } from "@supabase/supabase-js";
 import {
   Select,
   SelectContent,
@@ -106,6 +107,22 @@ const BusinessPage = () => {
   const [productDetailOpen, setProductDetailOpen] = useState(false);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Current user for auth check
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Check auth state
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
   useEffect(() => {
     const fetchBusinessData = async () => {
       if (!id) {
@@ -440,11 +457,20 @@ const BusinessPage = () => {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
-              <Button variant="outline" onClick={() => setIsSubscribeDialogOpen(true)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsSubscribeDialogOpen(true)}
+                disabled={!currentUser}
+                title={!currentUser ? "Войдите, чтобы подписаться" : undefined}
+              >
                 <Bell className="h-4 w-4 mr-1" />
                 Подписка
               </Button>
-              <Button onClick={() => setContactDialogOpen(true)}>
+              <Button 
+                onClick={() => setContactDialogOpen(true)}
+                disabled={!currentUser}
+                title={!currentUser ? "Войдите, чтобы связаться" : undefined}
+              >
                 <MessageCircle className="h-4 w-4 mr-1" />
                 Связаться
               </Button>
@@ -520,6 +546,7 @@ const BusinessPage = () => {
                     <div className="flex items-start gap-2 mb-2">
                       <Checkbox
                         checked={selected}
+                        disabled={!currentUser}
                         onCheckedChange={(checked) =>
                           handleProductSelect(
                             {
@@ -528,13 +555,15 @@ const BusinessPage = () => {
                               price: product.price || 0,
                               image:
                                 product.image_url ||
-                                "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+                                "https://images.unsplash.com/photo-472354-b33ff0c44a43?w=200&h=200&fit=crop",
                             },
                             checked as boolean,
                           )
                         }
                       />
-                      <span className="text-xs text-muted-foreground">Выбрать</span>
+                      <span className={`text-xs ${!currentUser ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                        {!currentUser ? 'Войдите' : 'Выбрать'}
+                      </span>
                     </div>
                     <button 
                       onClick={() => {

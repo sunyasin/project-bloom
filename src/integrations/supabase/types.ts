@@ -258,6 +258,48 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_subscriptions: {
+        Row: {
+          created_at: string
+          email: string
+          enabled: boolean
+          id: string
+          last_send_status: string | null
+          last_sent_at: string | null
+          send_categories: string[] | null
+          send_common: boolean
+          send_profiles: string[] | null
+          subscribed_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          enabled?: boolean
+          id?: string
+          last_send_status?: string | null
+          last_sent_at?: string | null
+          send_categories?: string[] | null
+          send_common?: boolean
+          send_profiles?: string[] | null
+          subscribed_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          enabled?: boolean
+          id?: string
+          last_send_status?: string | null
+          last_sent_at?: string | null
+          send_categories?: string[] | null
+          send_common?: boolean
+          send_profiles?: string[] | null
+          subscribed_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category_id: string | null
@@ -362,10 +404,11 @@ export type Database = {
       }
       promotions: {
         Row: {
-          business_id: string | null
+          business_id: string
           created_at: string
           description: string | null
           discount: string
+          donation: number
           id: string
           image_url: string | null
           is_active: boolean
@@ -375,10 +418,11 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
-          business_id?: string | null
+          business_id: string
           created_at?: string
           description?: string | null
           discount: string
+          donation?: number
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -388,10 +432,11 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
-          business_id?: string | null
+          business_id?: string
           created_at?: string
           description?: string | null
           discount?: string
+          donation?: number
           id?: string
           image_url?: string | null
           is_active?: boolean

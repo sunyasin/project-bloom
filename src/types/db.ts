@@ -84,13 +84,14 @@ export interface Product {
 export interface Promotion {
   id: string;
   owner_id: string;
-  business_id: string | null;
+  business_id: string;
   title: string;
   description: string | null;
   discount: string;
   image_url: string | null;
   valid_until: string | null;
   is_active: boolean;
+  donation: number;
   created_at: string;
   updated_at: string;
 }

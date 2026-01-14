@@ -3,16 +3,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 interface PromotionDisplay {
   id: string;
   title: string;
-  businessName: string;
+  businessId: string;
   validUntil: string | null;
 }
 
 export const RightSidebar = () => {
+  const navigate = useNavigate();
   const [promotions, setPromotions] = useState<PromotionDisplay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +28,7 @@ export const RightSidebar = () => {
           business_id
         `)
         .eq("is_active", true)
-        .order("created_at", { ascending: false })
+        .order("donation", { ascending: false })
         .limit(5);
 
       if (error) {
@@ -37,19 +38,10 @@ export const RightSidebar = () => {
       }
 
       if (data && data.length > 0) {
-        // Fetch business names for promotions
-        const businessIds = data.map(p => p.business_id).filter(Boolean);
-        const { data: businesses } = await supabase
-          .from("businesses")
-          .select("id, name")
-          .in("id", businessIds);
-
-        const businessMap = new Map(businesses?.map(b => [b.id, b.name]) || []);
-
         const mapped: PromotionDisplay[] = data.map(p => ({
           id: p.id,
           title: p.title,
-          businessName: p.business_id ? (businessMap.get(p.business_id) || "Неизвестный") : "Неизвестный",
+          businessId: p.business_id,
           validUntil: p.valid_until 
             ? format(new Date(p.valid_until), "d MMMM", { locale: ru })
             : null,
@@ -62,6 +54,10 @@ export const RightSidebar = () => {
 
     fetchPromotions();
   }, []);
+
+  const handlePromoClick = (promo: PromotionDisplay) => {
+    navigate(`/business/${promo.businessId}`);
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -79,7 +75,11 @@ export const RightSidebar = () => {
           <p className="text-xs text-muted-foreground">Нет активных акций</p>
         ) : (
           promotions.map((promo) => (
-            <div key={promo.id} className="promo-card cursor-pointer hover:border-primary/50 transition-colors">
+            <div 
+              key={promo.id} 
+              className="promo-card cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => handlePromoClick(promo)}
+            >
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                   <Tag className="h-4 w-4 text-primary" />
@@ -87,9 +87,6 @@ export const RightSidebar = () => {
                 <div className="min-w-0">
                   <p className="font-medium text-sm text-foreground truncate">
                     {promo.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {promo.businessName}
                   </p>
                   {promo.validUntil && (
                     <p className="text-xs text-primary mt-1">
