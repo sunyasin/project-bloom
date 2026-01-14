@@ -10,6 +10,10 @@ import {
   Shield,
   Coins,
   RefreshCw,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -71,6 +75,18 @@ const CoinExchangeSection = () => {
   const [coins, setCoins] = useState<CoinRecord[]>([]);
   const [coinsLoading, setCoinsLoading] = useState(false);
 
+  // Verification state
+  type VerificationStatus = "pending" | "valid" | "invalid" | "error";
+  interface VerificationResult {
+    coinId: string;
+    status: VerificationStatus;
+    decoded?: string;
+    error?: string;
+  }
+  const [verificationResults, setVerificationResults] = useState<Record<string, VerificationResult>>({});
+  const [verifying, setVerifying] = useState(false);
+  const [verificationSummary, setVerificationSummary] = useState<{ total: number; valid: number; invalid: number; errors: number } | null>(null);
+
   const loadProfiles = async () => {
     const { data } = await supabase
       .from("profiles")
@@ -100,6 +116,111 @@ const CoinExchangeSection = () => {
       setCoins(data as CoinRecord[]);
     }
     setCoinsLoading(false);
+  };
+
+  // Verify all coin hashes in the chain
+  const verifyChain = async () => {
+    setVerifying(true);
+    setVerificationResults({});
+    setVerificationSummary(null);
+
+    // Load ALL coins ordered by time ascending for chain verification
+    const { data: allCoins } = await supabase
+      .from("coins")
+      .select("*")
+      .order("when", { ascending: true });
+
+    if (!allCoins || allCoins.length === 0) {
+      toast({ title: "Нет данных", description: "Таблица coins пуста", variant: "destructive" });
+      setVerifying(false);
+      return;
+    }
+
+    const results: Record<string, VerificationResult> = {};
+    let validCount = 0;
+    let invalidCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < allCoins.length; i++) {
+      const coin = allCoins[i] as CoinRecord;
+      
+      try {
+        // Call decode_coin_hash to decrypt
+        const { data: decoded, error } = await supabase.rpc("decode_coin_hash", {
+          p_hash_text: coin.hash,
+        });
+
+        if (error) {
+          results[coin.id] = { coinId: coin.id, status: "error", error: error.message };
+          errorCount++;
+          continue;
+        }
+
+        // Parse decoded string: DD.MM.YYYY_HH24:MI:SS.MS_amount_profile_balance_total_balance_user_id
+        const parts = (decoded as string).split("_");
+        if (parts.length < 6) {
+          results[coin.id] = { coinId: coin.id, status: "invalid", decoded, error: "Неверный формат" };
+          invalidCount++;
+          continue;
+        }
+
+        // Extract values from decoded string
+        const decodedAmount = parseInt(parts[2], 10);
+        const decodedProfileBalance = parseInt(parts[3], 10);
+        const decodedTotalBalance = parseInt(parts[4], 10);
+        const decodedUserId = parts.slice(5).join("_"); // UUID may have been split
+
+        // Find profile by user_id to compare with coin.who (which is profile.id)
+        const matchingProfile = profiles.find((p) => p.user_id === decodedUserId);
+
+        // Validate values
+        const isAmountValid = decodedAmount === coin.amount;
+        const isProfileBalanceValid = decodedProfileBalance === coin.profile_balance;
+        const isTotalBalanceValid = decodedTotalBalance === coin.total_balance;
+        const isUserValid = matchingProfile ? matchingProfile.id === coin.who : false;
+
+        if (isAmountValid && isProfileBalanceValid && isTotalBalanceValid && isUserValid) {
+          results[coin.id] = { coinId: coin.id, status: "valid", decoded };
+          validCount++;
+        } else {
+          const errors: string[] = [];
+          if (!isAmountValid) errors.push(`сумма: ${decodedAmount}≠${coin.amount}`);
+          if (!isProfileBalanceValid) errors.push(`баланс: ${decodedProfileBalance}≠${coin.profile_balance}`);
+          if (!isTotalBalanceValid) errors.push(`общий: ${decodedTotalBalance}≠${coin.total_balance}`);
+          if (!isUserValid) errors.push(`пользователь не совпадает`);
+          
+          results[coin.id] = { 
+            coinId: coin.id, 
+            status: "invalid", 
+            decoded, 
+            error: errors.join(", ") 
+          };
+          invalidCount++;
+        }
+      } catch (err) {
+        results[coin.id] = { coinId: coin.id, status: "error", error: "Ошибка декодирования" };
+        errorCount++;
+      }
+    }
+
+    setVerificationResults(results);
+    setVerificationSummary({
+      total: allCoins.length,
+      valid: validCount,
+      invalid: invalidCount,
+      errors: errorCount,
+    });
+    setVerifying(false);
+
+    if (invalidCount === 0 && errorCount === 0) {
+      toast({ title: "Верификация успешна", description: `Все ${validCount} записей прошли проверку` });
+    } else {
+      toast({ 
+        title: "Обнаружены проблемы", 
+        description: `Валидных: ${validCount}, невалидных: ${invalidCount}, ошибок: ${errorCount}`,
+        variant: "destructive"
+      });
+    }
   };
 
   useEffect(() => {
@@ -239,11 +360,51 @@ const CoinExchangeSection = () => {
       <div className="content-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">История операций с коинами</h2>
-          <Button variant="outline" size="sm" onClick={loadCoins} disabled={coinsLoading}>
-            <RefreshCw className={cn("h-4 w-4 mr-1", coinsLoading && "animate-spin")} />
-            Обновить
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={verifyChain} 
+              disabled={verifying || coinsLoading}
+            >
+              <ShieldCheck className={cn("h-4 w-4 mr-1", verifying && "animate-pulse")} />
+              {verifying ? "Проверка..." : "Верифицировать"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={loadCoins} disabled={coinsLoading}>
+              <RefreshCw className={cn("h-4 w-4 mr-1", coinsLoading && "animate-spin")} />
+              Обновить
+            </Button>
+          </div>
         </div>
+
+        {/* Verification Summary */}
+        {verificationSummary && (
+          <div className={cn(
+            "p-3 rounded-lg mb-4 flex items-center gap-4",
+            verificationSummary.invalid === 0 && verificationSummary.errors === 0
+              ? "bg-green-500/10 border border-green-500/20"
+              : "bg-red-500/10 border border-red-500/20"
+          )}>
+            {verificationSummary.invalid === 0 && verificationSummary.errors === 0 ? (
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600" />
+            )}
+            <div className="flex-1">
+              <p className="font-medium">
+                {verificationSummary.invalid === 0 && verificationSummary.errors === 0
+                  ? "Цепочка верифицирована успешно"
+                  : "Обнаружены проблемы в цепочке"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Всего: {verificationSummary.total} | 
+                Валидных: <span className="text-green-600">{verificationSummary.valid}</span> | 
+                Невалидных: <span className="text-red-600">{verificationSummary.invalid}</span> | 
+                Ошибок: <span className="text-orange-600">{verificationSummary.errors}</span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {coinsLoading ? (
           <p className="text-muted-foreground text-center py-8">Загрузка...</p>
@@ -254,6 +415,7 @@ const CoinExchangeSection = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">Статус</TableHead>
                   <TableHead className="w-[140px]">Дата</TableHead>
                   <TableHead>Пользователь</TableHead>
                   <TableHead className="text-right">Сумма</TableHead>
@@ -265,8 +427,30 @@ const CoinExchangeSection = () => {
               <TableBody>
                 {coins.map((coin) => {
                   const profile = profiles.find((p) => p.id === coin.who);
+                  const verification = verificationResults[coin.id];
+                  
                   return (
-                    <TableRow key={coin.id}>
+                    <TableRow key={coin.id} className={cn(
+                      verification?.status === "invalid" && "bg-red-500/5",
+                      verification?.status === "error" && "bg-orange-500/5"
+                    )}>
+                      <TableCell>
+                        {verification ? (
+                          <div title={verification.error || verification.decoded || ""}>
+                            {verification.status === "valid" && (
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            )}
+                            {verification.status === "invalid" && (
+                              <XCircle className="h-4 w-4 text-red-600" />
+                            )}
+                            {verification.status === "error" && (
+                              <AlertCircle className="h-4 w-4 text-orange-600" />
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">
                         {new Date(coin.when).toLocaleString("ru-RU")}
                       </TableCell>
