@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell, Loader2, MessageCircle, Send } from "lucide-react";
+import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell, Loader2, MessageCircle, Send, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Business, Product, Promotion } from "@/types/db";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin' | 'all';
 
 interface BusinessCard {
   id: string;
@@ -90,7 +99,8 @@ const BusinessPage = () => {
   const [contactMessage, setContactMessage] = useState("");
   const [isSendingContact, setIsSendingContact] = useState(false);
 
-  // Загрузка данных из Supabase
+  // Sale type filter
+  const [saleTypeFilter, setSaleTypeFilter] = useState<ProductSaleType>("all");
   useEffect(() => {
     const fetchBusinessData = async () => {
       if (!id) {
@@ -453,12 +463,26 @@ const BusinessPage = () => {
         {/* Products (Товары) with ordering */}
         {products.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
               <h2 className="section-title flex items-center gap-2 mb-0">
                 <Package className="h-5 w-5" />
                 Товары
               </h2>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={saleTypeFilter} onValueChange={(v) => setSaleTypeFilter(v as ProductSaleType)}>
+                    <SelectTrigger className="w-44 bg-background">
+                      <SelectValue placeholder="Тип продажи" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border shadow-lg z-50">
+                      <SelectItem value="all">Все типы</SelectItem>
+                      <SelectItem value="sell_only">Только продажа</SelectItem>
+                      <SelectItem value="barter_goods">Бартер товар-товар</SelectItem>
+                      <SelectItem value="barter_coin">Бартер цифровой</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button disabled={selectedProducts.length === 0} onClick={() => setOrderDialogOpen(true)}>
                   <ShoppingCart className="h-4 w-4 mr-2" />
                   Заказать
@@ -477,7 +501,9 @@ const BusinessPage = () => {
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {products.map((product) => {
+              {products
+                .filter(p => saleTypeFilter === "all" || (p as any).sale_type === saleTypeFilter)
+                .map((product) => {
                 const selected = isSelected(product.id);
                 return (
                   <div
