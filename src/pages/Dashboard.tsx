@@ -993,45 +993,28 @@ const Dashboard = () => {
 
     setTransferring(true);
 
-    const { error } = await supabase.from("transactions").insert({
+    // Use transfer_coins stored procedure
+    const { data: hashResult, error: transferError } = await supabase.rpc("transfer_coins", {
+      p_from_profile: profileId,
+      p_to_profile: selectedRecipient,
+      p_amount: amount,
+    });
+
+    if (transferError) {
+      setTransferError("Ошибка перевода: " + transferError.message);
+      setTransferring(false);
+      return;
+    }
+
+    // Record transaction in transactions table
+    await supabase.from("transactions").insert({
       from_id: profileId,
       to_id: selectedRecipient,
       amount: amount,
     });
 
-    if (error) {
-      setTransferError("Ошибка перевода: " + error.message);
-      setTransferring(false);
-      return;
-    }
-
-    // Update sender's wallet in DB
-    const newSenderBalance = walletBalance - amount;
-    const { error: senderUpdateError } = await supabase
-      .from("profiles")
-      .update({ wallet: newSenderBalance })
-      .eq("id", profileId);
-
-    if (senderUpdateError) {
-      console.error("Error updating sender wallet:", senderUpdateError);
-    }
-
-    // Update recipient's wallet in DB
-    const { data: recipientData } = await supabase
-      .from("profiles")
-      .select("wallet")
-      .eq("id", selectedRecipient)
-      .single();
-
-    if (recipientData) {
-      const newRecipientBalance = (recipientData.wallet || 0) + amount;
-      await supabase
-        .from("profiles")
-        .update({ wallet: newRecipientBalance })
-        .eq("id", selectedRecipient);
-    }
-
     // Update local balance
+    const newSenderBalance = walletBalance - amount;
     setWalletBalance(newSenderBalance);
     
     // Get recipient name for notifications
@@ -1062,7 +1045,7 @@ const Dashboard = () => {
         from_id: user.id,
         to_id: recipientProfile.user_id,
         message: recipientMessage,
-        type: "income" as const,
+        type: "wallet" as const,
       });
       
       // Message to sender (self-notification)
@@ -1072,15 +1055,18 @@ const Dashboard = () => {
         from_id: user.id,
         to_id: user.id,
         message: senderMessage,
-        type: "income" as const,
+        type: "wallet" as const,
       });
     }
     
     setWalletDialogOpen(false);
     toast({
       title: "Перевод выполнен",
-      description: `Переведено ${amount} долей → ${recipientName}`,
+      description: `Переведено ${amount} долей → ${recipientName}. Хеш: ${hashResult?.substring(0, 16)}...`,
     });
+    setTransferAmount("");
+    setTransferMessage("");
+    setSelectedRecipient("");
     setTransferring(false);
   };
 

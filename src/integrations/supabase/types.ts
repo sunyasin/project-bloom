@@ -554,6 +554,10 @@ export type Database = {
         Args: { "": string }
         Returns: Record<string, unknown>[]
       }
+      transfer_coins: {
+        Args: { p_amount: number; p_from_profile: string; p_to_profile: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role:
