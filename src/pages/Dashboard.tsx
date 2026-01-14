@@ -2346,17 +2346,45 @@ const Dashboard = () => {
 
             {hashError && <p className="text-sm text-destructive">{hashError}</p>}
 
-            {decodedResult && (
-              <div className="space-y-2">
-                <Label>Результат декодирования:</Label>
-                <div className="p-3 bg-muted rounded-lg font-mono text-sm break-all">
-                  {decodedResult}
+            {decodedResult && (() => {
+              // Parse format: DD.MM.YYYY_HH24:MI:SS.MS_AMOUNT_USER_BALANCE_TOTAL_BALANCE_UUID
+              const parts = decodedResult.split("_");
+              const dateTime = parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0] || "";
+              const amount = parts[2] || "";
+              const userBalance = parts[3] || "";
+              const totalBalance = parts[4] || "";
+              const uuid = parts.slice(5).join("_") || "";
+
+              return (
+                <div className="space-y-3">
+                  <Label>Результат декодирования:</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                      <span className="text-sm text-muted-foreground">Дата и время:</span>
+                      <span className="font-mono text-sm font-medium">{dateTime}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                      <span className="text-sm text-muted-foreground">Сумма:</span>
+                      <span className={`font-mono text-sm font-medium ${parseInt(amount) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                        {parseInt(amount) >= 0 ? '+' : ''}{amount}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                      <span className="text-sm text-muted-foreground">Баланс пользователя:</span>
+                      <span className="font-mono text-sm font-medium">{userBalance}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                      <span className="text-sm text-muted-foreground">Общий баланс:</span>
+                      <span className="font-mono text-sm font-medium">{totalBalance}</span>
+                    </div>
+                    <div className="p-2 bg-muted rounded-lg">
+                      <span className="text-sm text-muted-foreground block mb-1">UUID пользователя:</span>
+                      <span className="font-mono text-xs break-all">{uuid}</span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Формат: ДАТА_СУММА_баланс_пользователя_общий_баланс_UUID
-                </p>
-              </div>
-            )}
+              );
+            })()}
 
             <Button onClick={handleDecodeHash} className="w-full" disabled={decoding}>
               <Search className="h-4 w-4 mr-2" />
