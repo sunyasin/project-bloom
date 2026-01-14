@@ -283,14 +283,48 @@ const ProductEditor = () => {
       return;
     }
 
-    // For now, just create a local URL (Storage not implemented)
     setIsUploading(true);
     try {
-      const localUrl = URL.createObjectURL(file);
-      updateField("image", localUrl);
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generate unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      updateField("image", publicUrl);
       toast({
         title: "Загружено",
-        description: "Изображение добавлено (локально)",
+        description: "Изображение успешно загружено",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить изображение",
+        variant: "destructive",
       });
     } finally {
       setIsUploading(false);
