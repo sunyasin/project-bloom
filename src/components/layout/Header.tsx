@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import type { User } from "@supabase/supabase-js";
 
 // Пункты главного меню
@@ -29,6 +30,7 @@ export const Header = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user: userWithRole } = useCurrentUserWithRole();
 
   useEffect(() => {
     // Set up auth state listener
@@ -159,7 +161,7 @@ export const Header = () => {
             </>
           )}
           
-          {user && (
+          {user && userWithRole?.role === "super_admin" && (
             <Link to="/admin">
               <Button variant="outline" size="sm">
                 Админка
