@@ -19,6 +19,10 @@ import {
   ChevronRight,
   Filter,
   X,
+  Plus,
+  Trash2,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -33,6 +37,29 @@ import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type AdminRole = "super_admin";
 
@@ -78,10 +105,30 @@ const RolesManagementSection = () => {
     role: string;
     role_id: string;
   }
+
+  interface ProfileData {
+    user_id: string;
+    email: string | null;
+    first_name: string | null;
+    last_name: string | null;
+  }
   
   const [users, setUsers] = useState<UserWithRoleData[]>([]);
+  const [allProfiles, setAllProfiles] = useState<ProfileData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  
+  // Add new role state
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [newUserOpen, setNewUserOpen] = useState(false);
+  const [newSelectedUserId, setNewSelectedUserId] = useState("");
+  const [newSelectedRole, setNewSelectedRole] = useState("client");
+  const [addingRole, setAddingRole] = useState(false);
+
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserWithRoleData | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadUsersWithRoles = async () => {
     setLoading(true);
@@ -101,6 +148,10 @@ const RolesManagementSection = () => {
     const { data: profilesData } = await supabase
       .from("profiles")
       .select("user_id, email, first_name, last_name");
+
+    if (profilesData) {
+      setAllProfiles(profilesData);
+    }
 
     // Merge data
     const merged = rolesData.map((role) => {
@@ -122,6 +173,11 @@ const RolesManagementSection = () => {
   useEffect(() => {
     loadUsersWithRoles();
   }, []);
+
+  // Users without roles (for add combobox)
+  const usersWithoutRoles = allProfiles.filter(
+    (p) => !users.some((u) => u.user_id === p.user_id)
+  );
 
   const handleRoleChange = async (userId: string, roleId: string, newRole: string) => {
     setUpdating(userId);
@@ -153,6 +209,62 @@ const RolesManagementSection = () => {
     setUpdating(null);
   };
 
+  const handleAddRole = async () => {
+    if (!newSelectedUserId) {
+      toast({ title: "Ошибка", description: "Выберите пользователя", variant: "destructive" });
+      return;
+    }
+
+    setAddingRole(true);
+
+    const { error } = await supabase
+      .from("user_roles")
+      .insert({
+        user_id: newSelectedUserId,
+        role: newSelectedRole as "visitor" | "client" | "moderator" | "news_editor" | "super_admin",
+      });
+
+    if (error) {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Роль добавлена", description: `Пользователю назначена роль ${AVAILABLE_ROLES.find(r => r.value === newSelectedRole)?.label}` });
+      setIsAddingNew(false);
+      setNewSelectedUserId("");
+      setNewSelectedRole("client");
+      loadUsersWithRoles();
+    }
+
+    setAddingRole(false);
+  };
+
+  const handleDeleteRole = async () => {
+    if (!userToDelete) return;
+
+    setDeleting(true);
+
+    const { error } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("id", userToDelete.role_id);
+
+    if (error) {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Роль удалена", description: `Роль пользователя ${userToDelete.email} удалена` });
+      setUsers((prev) => prev.filter((u) => u.role_id !== userToDelete.role_id));
+    }
+
+    setDeleting(false);
+    setDeleteConfirmOpen(false);
+    setUserToDelete(null);
+  };
+
+  const cancelAddNew = () => {
+    setIsAddingNew(false);
+    setNewSelectedUserId("");
+    setNewSelectedRole("client");
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case "super_admin":
@@ -168,20 +280,38 @@ const RolesManagementSection = () => {
     }
   };
 
+  const getSelectedUserLabel = () => {
+    const profile = allProfiles.find((p) => p.user_id === newSelectedUserId);
+    if (!profile) return "Выберите пользователя...";
+    const name = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+    return name || profile.email || "Без имени";
+  };
+
   return (
     <div className="space-y-6">
       <div className="content-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Управление ролями пользователей</h2>
-          <Button variant="outline" size="sm" onClick={loadUsersWithRoles} disabled={loading}>
-            <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
-            Обновить
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => setIsAddingNew(true)} 
+              disabled={isAddingNew || usersWithoutRoles.length === 0}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Добавить
+            </Button>
+            <Button variant="outline" size="sm" onClick={loadUsersWithRoles} disabled={loading}>
+              <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+              Обновить
+            </Button>
+          </div>
         </div>
 
         {loading ? (
           <p className="text-muted-foreground text-center py-8">Загрузка...</p>
-        ) : users.length === 0 ? (
+        ) : users.length === 0 && !isAddingNew ? (
           <p className="text-muted-foreground text-center py-8">Нет пользователей</p>
         ) : (
           <ScrollArea className="h-[500px]">
@@ -192,9 +322,90 @@ const RolesManagementSection = () => {
                   <TableHead>Email</TableHead>
                   <TableHead>Текущая роль</TableHead>
                   <TableHead className="w-[200px]">Изменить роль</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {/* New row for adding */}
+                {isAddingNew && (
+                  <TableRow className="bg-muted/50">
+                    <TableCell colSpan={2}>
+                      <Popover open={newUserOpen} onOpenChange={setNewUserOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={newUserOpen}
+                            className="w-full justify-between"
+                          >
+                            {getSelectedUserLabel()}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Поиск пользователя..." />
+                            <CommandList>
+                              <CommandEmpty>Пользователи не найдены</CommandEmpty>
+                              <CommandGroup>
+                                {usersWithoutRoles.map((profile) => {
+                                  const name = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+                                  return (
+                                    <CommandItem
+                                      key={profile.user_id}
+                                      value={`${name} ${profile.email}`}
+                                      onSelect={() => {
+                                        setNewSelectedUserId(profile.user_id);
+                                        setNewUserOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          newSelectedUserId === profile.user_id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <div className="flex flex-col">
+                                        <span>{name || "Без имени"}</span>
+                                        <span className="text-xs text-muted-foreground">{profile.email}</span>
+                                      </div>
+                                    </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell>
+                      <Select value={newSelectedRole} onValueChange={setNewSelectedRole}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_ROLES.map((role) => (
+                            <SelectItem key={role.value} value={role.value}>
+                              {role.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" onClick={handleAddRole} disabled={addingRole || !newSelectedUserId}>
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={cancelAddNew} disabled={addingRole}>
+                          <X className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+
                 {users.map((user) => (
                   <TableRow key={user.user_id}>
                     <TableCell className="font-medium">
@@ -231,6 +442,18 @@ const RolesManagementSection = () => {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          setUserToDelete(user);
+                          setDeleteConfirmOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -238,6 +461,25 @@ const RolesManagementSection = () => {
           </ScrollArea>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить роль?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить роль пользователя{" "}
+              <strong>{userToDelete?.email}</strong>? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRole} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? "Удаление..." : "Удалить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
