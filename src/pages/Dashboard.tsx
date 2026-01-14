@@ -232,7 +232,7 @@ const Dashboard = () => {
     discount: "",
     image_url: "",
     valid_until: "",
-    business_id: "",
+    category_id: "",
   });
 
   // News editing state
@@ -254,6 +254,9 @@ const Dashboard = () => {
   const [replyText, setReplyText] = useState<Record<number, string>>({});
   const [isSendingReply, setIsSendingReply] = useState(false);
   const { toast } = useToast();
+
+  // Categories state for promotions
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
   // Wallet state
   const [walletBalance, setWalletBalance] = useState(0);
@@ -334,6 +337,22 @@ const Dashboard = () => {
       loadProfile();
     }
   }, [user]);
+
+  // Load categories for promotions
+  useEffect(() => {
+    const loadCategories = async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("is_hidden", false)
+        .order("position", { ascending: true });
+
+      if (!error && data) {
+        setCategories(data);
+      }
+    };
+    loadCategories();
+  }, []);
 
   const handleMainCardChange = (cardId: string, checked: boolean) => {
     setMainCardId(checked ? cardId : null);
@@ -513,7 +532,7 @@ const Dashboard = () => {
           discount: promotion.discount,
           image_url: promotion.image_url || "",
           valid_until: promotion.valid_until ? promotion.valid_until.split("T")[0] : "",
-          business_id: promotion.business_id || "",
+          category_id: promotion.category_id || "",
         });
       }
     } else {
@@ -524,7 +543,7 @@ const Dashboard = () => {
         discount: "",
         image_url: "",
         valid_until: "",
-        business_id: "",
+        category_id: "",
       });
     }
     setPromotionUploadError(null);
@@ -1452,6 +1471,26 @@ const Dashboard = () => {
                     onChange={(e) => setPromotionFormData((prev) => ({ ...prev, valid_until: e.target.value }))}
                   />
                 </div>
+              </div>
+
+              {/* Category */}
+              <div className="space-y-2">
+                <Label>Отображать в категории</Label>
+                <Select
+                  value={promotionFormData.category_id}
+                  onValueChange={(value) => setPromotionFormData((prev) => ({ ...prev, category_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите категорию" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Tag, Building2, Loader2, Filter, X } from "lucide-react";
+import { Tag, Loader2, Filter, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -22,15 +22,8 @@ interface Promotion {
   image_url: string | null;
   valid_until: string | null;
   owner_id: string;
-  business_id: string | null;
-  donation: number;
-}
-
-interface Business {
-  id: string;
-  name: string;
-  category: string;
   category_id: string | null;
+  donation: number;
 }
 
 interface Category {
@@ -41,12 +34,11 @@ interface Category {
 const Promotions = () => {
   const navigate = useNavigate();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [businesses, setBusinesses] = useState<Record<string, Business>>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  // Fetch promotions, businesses and categories
+  // Fetch promotions and categories
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -60,14 +52,6 @@ const Promotions = () => {
 
         if (promoError) throw promoError;
 
-        // Fetch all published businesses for linking
-        const { data: bizData, error: bizError } = await supabase
-          .from("businesses")
-          .select("id, name, category, category_id")
-          .eq("status", "published");
-
-        if (bizError) throw bizError;
-
         // Fetch categories
         const { data: catData, error: catError } = await supabase
           .from("categories")
@@ -77,14 +61,7 @@ const Promotions = () => {
 
         if (catError) throw catError;
 
-        // Create businesses lookup map
-        const bizMap: Record<string, Business> = {};
-        bizData?.forEach((b) => {
-          bizMap[b.id] = b;
-        });
-
         setPromotions(promoData || []);
-        setBusinesses(bizMap);
         setCategories(catData || []);
       } catch (error) {
         console.error("Error fetching promotions:", error);
@@ -96,30 +73,16 @@ const Promotions = () => {
     fetchData();
   }, []);
 
-  // Filter promotions by category
+  // Filter promotions by category from promotion's category_id
   const filteredPromotions = useMemo(() => {
     if (selectedCategory === "all") return promotions;
 
-    return promotions.filter((promo) => {
-      if (!promo.business_id) return false;
-      const business = businesses[promo.business_id];
-      return business?.category_id === selectedCategory;
-    });
-  }, [promotions, businesses, selectedCategory]);
+    return promotions.filter((promo) => promo.category_id === selectedCategory);
+  }, [promotions, selectedCategory]);
 
-  // Get business name for promotion
-  const getBusinessName = (promo: Promotion): string => {
-    if (promo.business_id && businesses[promo.business_id]) {
-      return businesses[promo.business_id].name;
-    }
-    return "Производитель";
-  };
-
-  // Handle click on promotion - navigate to business page
+  // Handle click on promotion - navigate to producer profile
   const handlePromoClick = (promo: Promotion) => {
-    if (promo.business_id) {
-      navigate(`/business/${promo.business_id}`);
-    }
+    navigate(`/producer/${promo.owner_id}`);
   };
 
   // Format date
@@ -130,6 +93,13 @@ const Promotions = () => {
     } catch {
       return dateStr;
     }
+  };
+
+  // Get category name
+  const getCategoryName = (categoryId: string | null): string => {
+    if (!categoryId) return "";
+    const cat = categories.find((c) => c.id === categoryId);
+    return cat?.name || "";
   };
 
   return (
@@ -227,12 +197,11 @@ const Promotions = () => {
                         {promo.description}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-primary">
-                        {getBusinessName(promo)}
-                      </span>
-                    </div>
+                    {promo.category_id && (
+                      <p className="text-xs text-primary mt-1">
+                        {getCategoryName(promo.category_id)}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-2">
                       Действует до {formatDate(promo.valid_until)}
                     </p>
