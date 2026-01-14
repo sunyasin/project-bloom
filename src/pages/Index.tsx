@@ -44,23 +44,6 @@ const categoryImages: Record<string, string> = {
 
 const DEFAULT_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop";
 
-// ============= Mock API для подписки на новости =============
-
-// Данные текущего пользователя
-const mockAPICurrentUser = {
-  id: "1",
-  email: "ivan@example.com",
-};
-
-// Имитация подписки на новости (POST /api/newsletter/subscribe)
-const mockAPISubscribeNewsletter = async (email: string) => {
-  console.log(`[mockAPI] POST /api/newsletter/subscribe`, { email });
-  // Имитация задержки сети
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { success: true, message: "Подписка оформлена" };
-};
-
-// ============= End Mock API =============
 
 const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400&h=300&fit=crop";
 
@@ -79,7 +62,7 @@ const Index = () => {
   const [newsLoading, setNewsLoading] = useState(true);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
-  const [subscribeEmail, setSubscribeEmail] = useState(mockAPICurrentUser.email);
+  const [subscribeEmail, setSubscribeEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
@@ -421,22 +404,42 @@ const Index = () => {
           </DialogHeader>
           {selectedPromotion && (
             <div className="space-y-4">
-              <div className="aspect-video rounded-lg overflow-hidden">
-                <img
-                  src={selectedPromotion.image_url || DEFAULT_PROMO_IMAGE}
-                  alt={selectedPromotion.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-foreground">{selectedPromotion.description || ""}</p>
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{selectedPromotion.discount}</span>
+              {selectedPromotion.image_url && (
+                <div className="aspect-video rounded-lg overflow-hidden">
+                  <img
+                    src={selectedPromotion.image_url}
+                    alt={selectedPromotion.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="space-y-3">
+                {selectedPromotion.description && (
+                  <p className="text-foreground">{selectedPromotion.description}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
+                    {selectedPromotion.discount}
+                  </span>
                   {selectedPromotion.valid_until && (
-                    <span>До {new Date(selectedPromotion.valid_until).toLocaleDateString('ru-RU')}</span>
+                    <span className="text-muted-foreground">
+                      Действует до {new Date(selectedPromotion.valid_until).toLocaleDateString('ru-RU')}
+                    </span>
                   )}
                 </div>
+                {selectedPromotion.donation > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Донат: {selectedPromotion.donation} ₽
+                  </p>
+                )}
               </div>
+              <DialogFooter>
+                <Button asChild className="w-full sm:w-auto">
+                  <Link to={`/business/${selectedPromotion.business_id}`}>
+                    Перейти к визитке
+                  </Link>
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
@@ -471,13 +474,23 @@ const Index = () => {
               onClick={async () => {
                 setIsSubscribing(true);
                 try {
-                  await mockAPISubscribeNewsletter(subscribeEmail);
+                  // Upsert subscription with send_common = true
+                  const { error } = await supabase
+                    .from("newsletter_subscriptions")
+                    .upsert(
+                      { email: subscribeEmail, send_common: true, enabled: true },
+                      { onConflict: "email" }
+                    );
+
+                  if (error) throw error;
+
                   toast({
                     title: "Успешно!",
                     description: "Вы подписаны на новости",
                   });
                   setIsSubscribeDialogOpen(false);
                 } catch (error) {
+                  console.error("Error subscribing:", error);
                   toast({
                     title: "Ошибка",
                     description: "Не удалось оформить подписку",
