@@ -8,7 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 interface PromotionDisplay {
   id: string;
   title: string;
-  ownerId: string;
+  businessId: string;
   validUntil: string | null;
 }
 
@@ -25,7 +25,7 @@ export const RightSidebar = () => {
           id,
           title,
           valid_until,
-          owner_id
+          business_id
         `)
         .eq("is_active", true)
         .order("donation", { ascending: false })
@@ -41,7 +41,7 @@ export const RightSidebar = () => {
         const mapped: PromotionDisplay[] = data.map(p => ({
           id: p.id,
           title: p.title,
-          ownerId: p.owner_id,
+          businessId: p.business_id,
           validUntil: p.valid_until 
             ? format(new Date(p.valid_until), "d MMMM", { locale: ru })
             : null,
@@ -56,7 +56,7 @@ export const RightSidebar = () => {
   }, []);
 
   const handlePromoClick = (promo: PromotionDisplay) => {
-    navigate(`/producer/${promo.ownerId}`);
+    navigate(`/business/${promo.businessId}`);
   };
 
   return (

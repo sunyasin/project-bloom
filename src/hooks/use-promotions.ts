@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface Promotion {
   id: string;
   owner_id: string;
-  category_id: string | null;
+  business_id: string;
   title: string;
   description: string | null;
   discount: string;
@@ -23,7 +23,7 @@ export interface PromotionFormData {
   discount: string;
   image_url: string;
   valid_until: string;
-  category_id: string;
+  business_id: string;
 }
 
 export function usePromotions(userId: string | null) {
@@ -76,7 +76,7 @@ export function usePromotions(userId: string | null) {
           discount: formData.discount,
           image_url: formData.image_url || null,
           valid_until: formData.valid_until || null,
-          category_id: formData.category_id || null,
+          business_id: formData.business_id,
         })
         .select()
         .single();
@@ -110,7 +110,7 @@ export function usePromotions(userId: string | null) {
           discount: formData.discount,
           image_url: formData.image_url || null,
           valid_until: formData.valid_until || null,
-          category_id: formData.category_id || null,
+          business_id: formData.business_id,
         })
         .eq("id", id)
         .select()

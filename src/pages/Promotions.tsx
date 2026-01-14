@@ -22,8 +22,14 @@ interface Promotion {
   image_url: string | null;
   valid_until: string | null;
   owner_id: string;
-  category_id: string | null;
+  business_id: string;
   donation: number;
+}
+
+interface Business {
+  id: string;
+  name: string;
+  category_id: string | null;
 }
 
 interface Category {
@@ -34,11 +40,12 @@ interface Category {
 const Promotions = () => {
   const navigate = useNavigate();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  // Fetch promotions and categories
+  // Fetch promotions, businesses and categories
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -52,17 +59,40 @@ const Promotions = () => {
 
         if (promoError) throw promoError;
 
-        // Fetch categories
-        const { data: catData, error: catError } = await supabase
-          .from("categories")
-          .select("id, name")
-          .eq("is_hidden", false)
-          .order("position", { ascending: true });
+        // Get unique business IDs from promotions
+        const businessIds = [...new Set((promoData || []).map((p: Promotion) => p.business_id))];
 
-        if (catError) throw catError;
+        // Fetch businesses for these promotions
+        let businessData: Business[] = [];
+        if (businessIds.length > 0) {
+          const { data: bizData, error: bizError } = await supabase
+            .from("businesses")
+            .select("id, name, category_id")
+            .in("id", businessIds);
+
+          if (bizError) throw bizError;
+          businessData = bizData || [];
+        }
+
+        // Get unique category IDs from businesses
+        const categoryIds = [...new Set(businessData.filter(b => b.category_id).map(b => b.category_id as string))];
+
+        // Fetch categories for filter
+        let catData: Category[] = [];
+        if (categoryIds.length > 0) {
+          const { data: categoriesResult, error: catError } = await supabase
+            .from("categories")
+            .select("id, name")
+            .in("id", categoryIds)
+            .order("position", { ascending: true });
+
+          if (catError) throw catError;
+          catData = categoriesResult || [];
+        }
 
         setPromotions(promoData || []);
-        setCategories(catData || []);
+        setBusinesses(businessData);
+        setCategories(catData);
       } catch (error) {
         console.error("Error fetching promotions:", error);
       } finally {
@@ -73,16 +103,28 @@ const Promotions = () => {
     fetchData();
   }, []);
 
-  // Filter promotions by category from promotion's category_id
+  // Create business lookup map
+  const businessMap = useMemo(() => {
+    const map: Record<string, Business> = {};
+    businesses.forEach((b) => {
+      map[b.id] = b;
+    });
+    return map;
+  }, [businesses]);
+
+  // Filter promotions by category of their linked business
   const filteredPromotions = useMemo(() => {
     if (selectedCategory === "all") return promotions;
 
-    return promotions.filter((promo) => promo.category_id === selectedCategory);
-  }, [promotions, selectedCategory]);
+    return promotions.filter((promo) => {
+      const business = businessMap[promo.business_id];
+      return business?.category_id === selectedCategory;
+    });
+  }, [promotions, selectedCategory, businessMap]);
 
-  // Handle click on promotion - navigate to producer profile
+  // Handle click on promotion - navigate to business page
   const handlePromoClick = (promo: Promotion) => {
-    navigate(`/producer/${promo.owner_id}`);
+    navigate(`/business/${promo.business_id}`);
   };
 
   // Format date
@@ -95,11 +137,17 @@ const Promotions = () => {
     }
   };
 
-  // Get category name
-  const getCategoryName = (categoryId: string | null): string => {
-    if (!categoryId) return "";
-    const cat = categories.find((c) => c.id === categoryId);
+  // Get category name from business
+  const getCategoryName = (businessId: string): string => {
+    const business = businessMap[businessId];
+    if (!business?.category_id) return "";
+    const cat = categories.find((c) => c.id === business.category_id);
     return cat?.name || "";
+  };
+
+  // Get business name
+  const getBusinessName = (businessId: string): string => {
+    return businessMap[businessId]?.name || "";
   };
 
   return (
@@ -197,11 +245,10 @@ const Promotions = () => {
                         {promo.description}
                       </p>
                     )}
-                    {promo.category_id && (
-                      <p className="text-xs text-primary mt-1">
-                        {getCategoryName(promo.category_id)}
-                      </p>
-                    )}
+                    <p className="text-xs text-primary mt-1">
+                      {getBusinessName(promo.business_id)}
+                      {getCategoryName(promo.business_id) && ` • ${getCategoryName(promo.business_id)}`}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       Действует до {formatDate(promo.valid_until)}
                     </p>

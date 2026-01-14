@@ -404,7 +404,7 @@ export type Database = {
       }
       promotions: {
         Row: {
-          category_id: string | null
+          business_id: string
           created_at: string
           description: string | null
           discount: string
@@ -418,7 +418,7 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
-          category_id?: string | null
+          business_id: string
           created_at?: string
           description?: string | null
           discount: string
@@ -432,7 +432,7 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
-          category_id?: string | null
+          business_id?: string
           created_at?: string
           description?: string | null
           discount?: string
@@ -447,10 +447,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "promotions_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "promotions_business_id_fkey"
+            columns: ["business_id"]
             isOneToOne: false
-            referencedRelation: "categories"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
