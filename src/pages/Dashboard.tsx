@@ -269,6 +269,7 @@ const Dashboard = () => {
   const [transferring, setTransferring] = useState(false);
 
   // Hash decode state
+  const [hashDialogOpen, setHashDialogOpen] = useState(false);
   const [hashInput, setHashInput] = useState("");
   const [decodedResult, setDecodedResult] = useState<string | null>(null);
   const [hashError, setHashError] = useState("");
@@ -1757,7 +1758,22 @@ const Dashboard = () => {
           <DialogHeader>
             <DialogTitle>Кошелёк</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Баланс: {walletBalance} долей</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Баланс: {walletBalance} долей</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setHashInput("");
+                setDecodedResult(null);
+                setHashError("");
+                setHashDialogOpen(true);
+              }}
+            >
+              <Key className="h-4 w-4 mr-1" />
+              Проверить хэш
+            </Button>
+          </div>
 
           <div className="space-y-4 mt-4">
             <div className="space-y-2">
@@ -1793,36 +1809,50 @@ const Dashboard = () => {
             <Button onClick={handleTransfer} className="w-full" disabled={transferring}>
               {transferring ? "Отправка..." : "Отправить"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-            {/* Hash Check Section */}
-            <div className="border-t pt-4 mt-4 space-y-3">
-              <Label className="flex items-center gap-2">
-                <Key className="h-4 w-4" />
-                Проверка хешей
-              </Label>
+      {/* Hash Decode Dialog */}
+      <Dialog open={hashDialogOpen} onOpenChange={setHashDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Проверка и декодирование хешей
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Хеш для декодирования</Label>
               <Textarea
                 value={hashInput}
                 onChange={(e) => setHashInput(e.target.value)}
                 placeholder="Вставьте hex-хеш из таблицы coins..."
-                rows={2}
-                className="font-mono text-xs"
+                rows={3}
+                className="font-mono text-sm"
               />
-              {hashError && <p className="text-sm text-destructive">{hashError}</p>}
-              {decodedResult && (
-                <div className="space-y-1">
-                  <div className="p-2 bg-muted rounded-lg font-mono text-xs break-all">
-                    {decodedResult}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Формат: ДАТА_СУММА_баланс_пользователя_общий_баланс_UUID
-                  </p>
-                </div>
-              )}
-              <Button variant="outline" onClick={handleDecodeHash} className="w-full" disabled={decoding}>
-                <Search className="h-4 w-4 mr-2" />
-                {decoding ? "Декодирование..." : "Декодировать"}
-              </Button>
             </div>
+
+            {hashError && <p className="text-sm text-destructive">{hashError}</p>}
+
+            {decodedResult && (
+              <div className="space-y-2">
+                <Label>Результат декодирования:</Label>
+                <div className="p-3 bg-muted rounded-lg font-mono text-sm break-all">
+                  {decodedResult}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Формат: ДАТА_СУММА_баланс_пользователя_общий_баланс_UUID
+                </p>
+              </div>
+            )}
+
+            <Button onClick={handleDecodeHash} className="w-full" disabled={decoding}>
+              <Search className="h-4 w-4 mr-2" />
+              {decoding ? "Декодирование..." : "Декодировать"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
