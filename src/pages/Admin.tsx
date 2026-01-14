@@ -51,6 +51,191 @@ const adminMenu: AdminMenuItem[] = [
   { label: "Настройки", icon: Settings, roles: ["super_admin"] },
 ];
 
+// Available roles for assignment
+const AVAILABLE_ROLES = [
+  { value: "visitor", label: "Посетитель" },
+  { value: "client", label: "Клиент" },
+  { value: "moderator", label: "Модератор" },
+  { value: "news_editor", label: "Редактор новостей" },
+  { value: "super_admin", label: "Суперадмин" },
+] as const;
+
+// Roles Management Section Component
+const RolesManagementSection = () => {
+  const { toast } = useToast();
+  
+  interface UserWithRoleData {
+    user_id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    role: string;
+    role_id: string;
+  }
+  
+  const [users, setUsers] = useState<UserWithRoleData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  const loadUsersWithRoles = async () => {
+    setLoading(true);
+    
+    // Get all user_roles with profile info
+    const { data: rolesData, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("id, user_id, role");
+    
+    if (rolesError) {
+      console.error("Error loading roles:", rolesError);
+      setLoading(false);
+      return;
+    }
+
+    // Get profiles for names
+    const { data: profilesData } = await supabase
+      .from("profiles")
+      .select("user_id, email, first_name, last_name");
+
+    // Merge data
+    const merged = rolesData.map((role) => {
+      const profile = profilesData?.find((p) => p.user_id === role.user_id);
+      return {
+        user_id: role.user_id,
+        email: profile?.email || "—",
+        first_name: profile?.first_name || null,
+        last_name: profile?.last_name || null,
+        role: role.role,
+        role_id: role.id,
+      };
+    });
+
+    setUsers(merged);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadUsersWithRoles();
+  }, []);
+
+  const handleRoleChange = async (userId: string, roleId: string, newRole: string) => {
+    setUpdating(userId);
+    
+    const { error } = await supabase
+      .from("user_roles")
+      .update({ role: newRole as "visitor" | "client" | "moderator" | "news_editor" | "super_admin" })
+      .eq("id", roleId);
+
+    if (error) {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Роль обновлена",
+        description: `Новая роль: ${AVAILABLE_ROLES.find(r => r.value === newRole)?.label}`,
+      });
+      // Update local state
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.user_id === userId ? { ...u, role: newRole } : u
+        )
+      );
+    }
+    
+    setUpdating(null);
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case "super_admin":
+        return "bg-red-500/10 text-red-700 border-red-500/20";
+      case "moderator":
+        return "bg-blue-500/10 text-blue-700 border-blue-500/20";
+      case "news_editor":
+        return "bg-purple-500/10 text-purple-700 border-purple-500/20";
+      case "client":
+        return "bg-green-500/10 text-green-700 border-green-500/20";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="content-card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Управление ролями пользователей</h2>
+          <Button variant="outline" size="sm" onClick={loadUsersWithRoles} disabled={loading}>
+            <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+            Обновить
+          </Button>
+        </div>
+
+        {loading ? (
+          <p className="text-muted-foreground text-center py-8">Загрузка...</p>
+        ) : users.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">Нет пользователей</p>
+        ) : (
+          <ScrollArea className="h-[500px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Пользователь</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Текущая роль</TableHead>
+                  <TableHead className="w-[200px]">Изменить роль</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.user_id}>
+                    <TableCell className="font-medium">
+                      {user.first_name || user.last_name
+                        ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+                        : "Без имени"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {user.email}
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn(
+                        "px-2 py-1 rounded-md text-xs font-medium border",
+                        getRoleBadgeColor(user.role)
+                      )}>
+                        {AVAILABLE_ROLES.find(r => r.value === user.role)?.label || user.role}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={user.role}
+                        onValueChange={(value) => handleRoleChange(user.user_id, user.role_id, value)}
+                        disabled={updating === user.user_id}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_ROLES.map((role) => (
+                            <SelectItem key={role.value} value={role.value}>
+                              {role.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Coin Exchange Section Component
 const CoinExchangeSection = () => {
   const { toast } = useToast();
@@ -499,6 +684,8 @@ const AdminContent = () => {
     switch (activeSection) {
       case "Коины":
         return <CoinExchangeSection />;
+      case "Роли и права":
+        return <RolesManagementSection />;
       default:
         return (
           <div className="content-card">
