@@ -112,15 +112,15 @@ interface MessageWithSender {
 }
 
 // Message types for filtering
-type MessageTypeFilter = 'all' | 'admin_status' | 'from_admin' | 'chat' | 'exchange' | 'income';
+type MessageTypeFilter = "all" | "admin_status" | "from_admin" | "chat" | "exchange" | "income";
 
 const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
-  all: 'Все',
-  admin_status: 'Системные',
-  from_admin: 'От модератора',
-  chat: 'Чат',
-  exchange: 'Обмен',
-  income: 'Кошелёк',
+  all: "Все",
+  admin_status: "Системные",
+  from_admin: "От модератора",
+  chat: "Чат",
+  exchange: "Обмен",
+  income: "Кошелёк",
 };
 
 // ============= End Messages types =============
@@ -271,9 +271,11 @@ const Dashboard = () => {
   const [expandedMessageId, setExpandedMessageId] = useState<number | null>(null);
   const [replyText, setReplyText] = useState<Record<number, string>>({});
   const [isSendingReply, setIsSendingReply] = useState(false);
-  const [messageTypeFilter, setMessageTypeFilter] = useState<MessageTypeFilter>('all');
+  const [messageTypeFilter, setMessageTypeFilter] = useState<MessageTypeFilter>("all");
   const [replyingToMessageId, setReplyingToMessageId] = useState<number | null>(null);
-  const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<{ type: 'single' | 'chain'; ids: number[] } | null>(null);
+  const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<{ type: "single" | "chain"; ids: number[] } | null>(
+    null,
+  );
   const [deletingMessages, setDeletingMessages] = useState(false);
   const { toast } = useToast();
 
@@ -301,7 +303,7 @@ const Dashboard = () => {
   // Transaction history state
   interface TransactionHistoryItem {
     id: string;
-    type: 'transfer_out' | 'transfer_in' | 'coin_exchange';
+    type: "transfer_out" | "transfer_in" | "coin_exchange";
     amount: number;
     date: string;
     counterparty?: string;
@@ -595,7 +597,7 @@ const Dashboard = () => {
       });
       return;
     }
-    
+
     if (editingPromotionId) {
       await updatePromotion(editingPromotionId, promotionFormData);
     } else {
@@ -610,7 +612,7 @@ const Dashboard = () => {
 
   const handlePromotionFileUpload = async (file: File) => {
     if (!user) return;
-    
+
     setPromotionUploadError(null);
     const validation = validateImage(file);
     if (!validation.valid) {
@@ -713,25 +715,25 @@ const Dashboard = () => {
 
   const loadMessages = async () => {
     if (!user?.id) return;
-    
+
     setMessagesLoading(true);
-    
+
     // Fetch all messages where current user is sender or recipient
     const { data: messagesData, error } = await supabase
       .from("messages")
       .select("*")
       .or(`to_id.eq.${user.id},from_id.eq.${user.id}`)
       .order("created_at", { ascending: true });
-    
+
     if (error) {
       console.error("Error loading messages:", error);
       setMessagesLoading(false);
       return;
     }
-    
+
     // Get unique user IDs (both senders and receivers)
-    const userIds = [...new Set((messagesData || []).flatMap(m => [m.from_id, m.to_id]))];
-    
+    const userIds = [...new Set((messagesData || []).flatMap((m) => [m.from_id, m.to_id]))];
+
     // Fetch user profiles
     let profilesMap: Record<string, { name: string; email: string }> = {};
     if (userIds.length > 0) {
@@ -739,33 +741,36 @@ const Dashboard = () => {
         .from("profiles")
         .select("user_id, first_name, last_name, email")
         .in("user_id", userIds);
-      
+
       if (profiles) {
-        profilesMap = profiles.reduce((acc, p) => {
-          acc[p.user_id] = {
-            name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
-            email: p.email || "",
-          };
-          return acc;
-        }, {} as Record<string, { name: string; email: string }>);
+        profilesMap = profiles.reduce(
+          (acc, p) => {
+            acc[p.user_id] = {
+              name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
+              email: p.email || "",
+            };
+            return acc;
+          },
+          {} as Record<string, { name: string; email: string }>,
+        );
       }
     }
-    
+
     // Merge messages with sender info
-    const messagesWithSender: MessageWithSender[] = (messagesData || []).map(m => ({
+    const messagesWithSender: MessageWithSender[] = (messagesData || []).map((m) => ({
       ...m,
       senderName: profilesMap[m.from_id]?.name || "Неизвестный",
       senderEmail: profilesMap[m.from_id]?.email || "",
       reply_to: m.reply_to || null,
     }));
-    
+
     setMessages(messagesWithSender);
     setMessagesLoading(false);
   };
 
   const handleOpenMessagesDialog = async () => {
     setIsMessagesDialogOpen(true);
-    setMessageTypeFilter('all');
+    setMessageTypeFilter("all");
     await loadMessages();
   };
 
@@ -782,10 +787,10 @@ const Dashboard = () => {
     if (!text?.trim() || !user?.id) return;
 
     setIsSendingReply(true);
-    
+
     // Determine recipient - if replying to my own message, send to the partner
     const recipientId = message.from_id === user.id ? message.to_id : message.from_id;
-    
+
     // Send reply with reply_to reference
     const { error } = await supabase.from("messages").insert({
       from_id: user.id,
@@ -794,7 +799,7 @@ const Dashboard = () => {
       type: "chat" as const,
       reply_to: message.id,
     });
-    
+
     if (error) {
       toast({
         title: "Ошибка",
@@ -811,23 +816,23 @@ const Dashboard = () => {
       // Reload messages to show the new reply
       await loadMessages();
     }
-    
+
     setIsSendingReply(false);
   };
 
   // Delete message(s) - marks as 'deleted' type instead of actual deletion
   const handleDeleteMessages = async () => {
     if (!deleteMessageConfirm || deleteMessageConfirm.ids.length === 0) return;
-    
+
     setDeletingMessages(true);
-    
+
     try {
       // Update messages to 'deleted' type (soft delete)
       const { error } = await supabase
         .from("messages")
         .update({ type: "deleted" as const })
         .in("id", deleteMessageConfirm.ids);
-      
+
       if (error) {
         toast({
           title: "Ошибка",
@@ -837,9 +842,10 @@ const Dashboard = () => {
       } else {
         toast({
           title: "Удалено",
-          description: deleteMessageConfirm.type === 'chain' 
-            ? `Удалена цепочка из ${deleteMessageConfirm.ids.length} сообщений`
-            : "Сообщение удалено",
+          description:
+            deleteMessageConfirm.type === "chain"
+              ? `Удалена цепочка из ${deleteMessageConfirm.ids.length} сообщений`
+              : "Сообщение удалено",
         });
         await loadMessages();
       }
@@ -854,53 +860,50 @@ const Dashboard = () => {
   // Group messages into reply chains within conversation threads
   const getConversationThreads = () => {
     if (!user?.id) return [];
-    
+
     // Filter out deleted messages first, then apply type filter
-    const nonDeletedMessages = messages.filter(m => m.type !== 'deleted');
-    const filteredMessages = messageTypeFilter === 'all' 
-      ? nonDeletedMessages 
-      : nonDeletedMessages.filter(m => m.type === messageTypeFilter);
-    
+    const nonDeletedMessages = messages.filter((m) => m.type !== "deleted");
+    const filteredMessages =
+      messageTypeFilter === "all" ? nonDeletedMessages : nonDeletedMessages.filter((m) => m.type === messageTypeFilter);
+
     // Group by conversation partner
     const conversationMap = new Map<string, MessageWithSender[]>();
-    
-    filteredMessages.forEach(msg => {
+
+    filteredMessages.forEach((msg) => {
       // Determine the conversation partner (the other person)
       const partnerId = msg.from_id === user.id ? msg.to_id : msg.from_id;
-      
+
       if (!conversationMap.has(partnerId)) {
         conversationMap.set(partnerId, []);
       }
       conversationMap.get(partnerId)!.push(msg);
     });
-    
+
     // Convert to array and sort by latest message
     return Array.from(conversationMap.entries())
       .map(([partnerId, msgs]) => {
-        const sortedMsgs = msgs.sort((a, b) => 
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
+        const sortedMsgs = msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         const latestMsg = sortedMsgs[sortedMsgs.length - 1];
-        const partnerProfile = msgs.find(m => m.from_id === partnerId);
-        
+        const partnerProfile = msgs.find((m) => m.from_id === partnerId);
+
         // Build reply chains - group messages by their thread root
-        const messageById = new Map(sortedMsgs.map(m => [m.id, m]));
+        const messageById = new Map(sortedMsgs.map((m) => [m.id, m]));
         const chains: MessageWithSender[][] = [];
         const assignedToChain = new Set<number>();
-        
+
         // Find root messages (no reply_to or reply_to not in this conversation)
-        const rootMessages = sortedMsgs.filter(m => !m.reply_to || !messageById.has(m.reply_to));
-        
+        const rootMessages = sortedMsgs.filter((m) => !m.reply_to || !messageById.has(m.reply_to));
+
         // Build chain for each root
-        rootMessages.forEach(root => {
+        rootMessages.forEach((root) => {
           if (assignedToChain.has(root.id)) return;
-          
+
           const chain: MessageWithSender[] = [root];
           assignedToChain.add(root.id);
-          
+
           // Find all replies recursively
           const findReplies = (parentId: number) => {
-            sortedMsgs.forEach(m => {
+            sortedMsgs.forEach((m) => {
               if (m.reply_to === parentId && !assignedToChain.has(m.id)) {
                 chain.push(m);
                 assignedToChain.add(m.id);
@@ -908,43 +911,41 @@ const Dashboard = () => {
               }
             });
           };
-          
+
           findReplies(root.id);
           // Sort chain by time
           chain.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
           chains.push(chain);
         });
-        
+
         // Add any orphaned messages
-        sortedMsgs.forEach(m => {
+        sortedMsgs.forEach((m) => {
           if (!assignedToChain.has(m.id)) {
             chains.push([m]);
           }
         });
-        
+
         // Sort chains by latest message in each
         chains.sort((a, b) => {
           const aLatest = a[a.length - 1];
           const bLatest = b[b.length - 1];
           return new Date(bLatest.created_at).getTime() - new Date(aLatest.created_at).getTime();
         });
-        
+
         return {
           partnerId,
-          partnerName: partnerProfile?.senderName || 'Неизвестный',
-          partnerEmail: partnerProfile?.senderEmail || '',
+          partnerName: partnerProfile?.senderName || "Неизвестный",
+          partnerEmail: partnerProfile?.senderEmail || "",
           messages: sortedMsgs,
           chains,
           latestMessage: latestMsg,
         };
       })
-      .sort((a, b) => 
-        new Date(b.latestMessage.created_at).getTime() - new Date(a.latestMessage.created_at).getTime()
-      );
+      .sort((a, b) => new Date(b.latestMessage.created_at).getTime() - new Date(a.latestMessage.created_at).getTime());
   };
 
   const conversationThreads = getConversationThreads();
-  const unreadCount = messages.filter(m => m.to_id === user?.id).length;
+  const unreadCount = messages.filter((m) => m.to_id === user?.id).length;
 
   // Wallet handlers
   const openWalletDialog = async () => {
@@ -1006,52 +1007,52 @@ const Dashboard = () => {
       return;
     }
 
-    // Record transaction in transactions table (transferData contains the hash)
+    // Record transaction in transactions table
     await supabase.from("transactions").insert({
       from_id: profileId,
       to_id: selectedRecipient,
       amount: amount,
-      hash: hashResult || '',
+      hash: hashResult,
     });
 
     // Update local balance
     const newSenderBalance = walletBalance - amount;
     setWalletBalance(newSenderBalance);
-    
+
     // Get recipient name for notifications
-    const recipientInfo = allUsers.find(u => u.id === selectedRecipient);
-    const recipientName = recipientInfo?.name || 'Получатель';
-    const senderName = formData.name || 'Отправитель';
+    const recipientInfo = allUsers.find((u) => u.id === selectedRecipient);
+    const recipientName = recipientInfo?.name || "Получатель";
+    const senderName = formData.name || "Отправитель";
     const now = new Date();
-    const dateTimeStr = now.toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    const dateTimeStr = now.toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-    
+
     // Get recipient's user_id for message
     const { data: recipientProfile } = await supabase
       .from("profiles")
       .select("user_id")
       .eq("id", selectedRecipient)
       .single();
-    
+
     if (recipientProfile && user?.id) {
       // Message to recipient
-      const recipientMessage = `💰 Входящий перевод\nОт: ${senderName}\nДата: ${dateTimeStr}\nСумма: +${amount} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ''}`;
-      
+      const recipientMessage = `💰 Входящий перевод\nОт: ${senderName}\nДата: ${dateTimeStr}\nСумма: +${amount} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ""}`;
+
       await supabase.from("messages").insert({
         from_id: user.id,
         to_id: recipientProfile.user_id,
         message: recipientMessage,
         type: "wallet" as const,
       });
-      
+
       // Message to sender (self-notification)
-      const senderMessage = `💸 Исходящий перевод\nКому: ${recipientName}\nДата: ${dateTimeStr}\nСумма: -${amount} долей\nБаланс: ${newSenderBalance} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ''}`;
-      
+      const senderMessage = `💸 Исходящий перевод\nКому: ${recipientName}\nДата: ${dateTimeStr}\nСумма: -${amount} долей\nБаланс: ${newSenderBalance} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ""}\nHash: ${hashResult}`;
+
       await supabase.from("messages").insert({
         from_id: user.id,
         to_id: user.id,
@@ -1059,7 +1060,7 @@ const Dashboard = () => {
         type: "wallet" as const,
       });
     }
-    
+
     setWalletDialogOpen(false);
     toast({
       title: "Перевод выполнен",
@@ -1117,9 +1118,9 @@ const Dashboard = () => {
 
       if (!transfersError && transfers) {
         // Get profile names for counterparties
-        const counterpartyIds = transfers.map(t => t.from_id === profileId ? t.to_id : t.from_id);
+        const counterpartyIds = transfers.map((t) => (t.from_id === profileId ? t.to_id : t.from_id));
         const uniqueIds = [...new Set(counterpartyIds)];
-        
+
         let profileMap = new Map<string, string>();
         if (uniqueIds.length > 0) {
           const { data: profiles } = await supabase
@@ -1127,17 +1128,19 @@ const Dashboard = () => {
             .select("id, first_name, last_name")
             .in("id", uniqueIds);
 
-          profileMap = new Map(profiles?.map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Неизвестный']) || []);
+          profileMap = new Map(
+            profiles?.map((p) => [p.id, `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Неизвестный"]) || [],
+          );
         }
 
-        transfers.forEach(t => {
+        transfers.forEach((t) => {
           const isOutgoing = t.from_id === profileId;
           items.push({
             id: t.id,
-            type: isOutgoing ? 'transfer_out' : 'transfer_in',
+            type: isOutgoing ? "transfer_out" : "transfer_in",
             amount: t.amount,
             date: t.when,
-            counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id) || 'Неизвестный',
+            counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id) || "Неизвестный",
           });
         });
       }
@@ -1151,10 +1154,10 @@ const Dashboard = () => {
         .limit(50);
 
       if (!coinsError && coins) {
-        coins.forEach(c => {
+        coins.forEach((c) => {
           items.push({
             id: c.id,
-            type: 'coin_exchange',
+            type: "coin_exchange",
             amount: c.amount,
             date: c.when,
             balance_after: c.profile_balance,
@@ -1194,7 +1197,7 @@ const Dashboard = () => {
               <h1 className="text-xl font-bold text-foreground">{formData.name}</h1>
               <p className="text-muted-foreground">{formData.email}</p>
               <span className="inline-block mt-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
-                {user?.role || 'visitor'}
+                {user?.role || "visitor"}
               </span>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -1987,20 +1990,25 @@ const Dashboard = () => {
             ) : (
               conversationThreads.map((thread) => {
                 const isExpanded = expandedMessageId === thread.messages[0]?.id;
-                const latestPreview = thread.latestMessage.message.length > 60 
-                  ? thread.latestMessage.message.slice(0, 60) + "..." 
-                  : thread.latestMessage.message;
-                
+                const latestPreview =
+                  thread.latestMessage.message.length > 60
+                    ? thread.latestMessage.message.slice(0, 60) + "..."
+                    : thread.latestMessage.message;
+
                 const getTypeBadge = (type: string) => {
                   switch (type) {
                     case "exchange":
                       return <span className="text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded">Обмен</span>;
                     case "admin_status":
-                      return <span className="text-xs bg-yellow-500/10 text-yellow-700 px-2 py-0.5 rounded">Системное</span>;
+                      return (
+                        <span className="text-xs bg-yellow-500/10 text-yellow-700 px-2 py-0.5 rounded">Системное</span>
+                      );
                     case "from_admin":
                       return <span className="text-xs bg-red-500/10 text-red-700 px-2 py-0.5 rounded">Модератор</span>;
                     case "income":
-                      return <span className="text-xs bg-green-500/10 text-green-700 px-2 py-0.5 rounded">Кошелёк</span>;
+                      return (
+                        <span className="text-xs bg-green-500/10 text-green-700 px-2 py-0.5 rounded">Кошелёк</span>
+                      );
                     case "chat":
                       return <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Чат</span>;
                     default:
@@ -2030,9 +2038,7 @@ const Dashboard = () => {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           {getTypeBadge(thread.latestMessage.type)}
-                          <span className="text-xs text-muted-foreground">
-                            {thread.messages.length} сообщ.
-                          </span>
+                          <span className="text-xs text-muted-foreground">{thread.messages.length} сообщ.</span>
                         </div>
                         {!isExpanded && <p className="text-sm text-muted-foreground truncate mt-1">{latestPreview}</p>}
                       </div>
@@ -2052,160 +2058,164 @@ const Dashboard = () => {
                         <div className="max-h-80 overflow-y-auto p-3 space-y-4">
                           {thread.chains.map((chain, chainIndex) => {
                             // Check if user can delete any message in this chain (only own messages)
-                            const myMessagesInChain = chain.filter(m => m.from_id === user?.id);
+                            const myMessagesInChain = chain.filter((m) => m.from_id === user?.id);
                             const canDeleteChain = myMessagesInChain.length > 0;
-                            
+
                             return (
-                            <div key={chainIndex} className="space-y-2">
-                              {/* Chain header for multi-message chains */}
-                              {chain.length > 1 && (
-                                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                                  <div className="flex items-center gap-2">
-                                    <CornerDownRight className="h-3 w-3" />
-                                    <span>Цепочка из {chain.length} сообщений</span>
-                                  </div>
-                                  {canDeleteChain && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteMessageConfirm({
-                                          type: 'chain',
-                                          ids: myMessagesInChain.map(m => m.id),
-                                        });
-                                      }}
-                                      className="p-1 rounded hover:bg-destructive/10 text-destructive/70 hover:text-destructive transition-colors"
-                                      title={`Удалить мои сообщения в цепочке (${myMessagesInChain.length})`}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                              
-                              {chain.map((msg, msgIndex) => {
-                                const isFromMe = msg.from_id === user?.id;
-                                const isReplyTarget = replyingToMessageId === msg.id;
-                                const parentMessage = msg.reply_to ? thread.messages.find(m => m.id === msg.reply_to) : null;
-                                
-                                return (
-                                  <div key={msg.id} className="space-y-1">
-                                    {/* Show reply reference if exists */}
-                                    {parentMessage && msgIndex > 0 && (
-                                      <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} px-2`}>
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground max-w-[60%]">
-                                          <CornerDownRight className="h-3 w-3 shrink-0" />
-                                          <span className="truncate">
-                                            В ответ на: "{parentMessage.message.slice(0, 30)}..."
-                                          </span>
-                                        </div>
-                                      </div>
-                                    )}
-                                    
-                                    <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} group`}>
-                                      <div
-                                        className={`max-w-[80%] rounded-lg p-2 relative ${
-                                          isFromMe 
-                                            ? 'bg-primary text-primary-foreground' 
-                                            : 'bg-muted'
-                                        }`}
+                              <div key={chainIndex} className="space-y-2">
+                                {/* Chain header for multi-message chains */}
+                                {chain.length > 1 && (
+                                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-2">
+                                      <CornerDownRight className="h-3 w-3" />
+                                      <span>Цепочка из {chain.length} сообщений</span>
+                                    </div>
+                                    {canDeleteChain && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteMessageConfirm({
+                                            type: "chain",
+                                            ids: myMessagesInChain.map((m) => m.id),
+                                          });
+                                        }}
+                                        className="p-1 rounded hover:bg-destructive/10 text-destructive/70 hover:text-destructive transition-colors"
+                                        title={`Удалить мои сообщения в цепочке (${myMessagesInChain.length})`}
                                       >
-                                        <div className="flex items-center gap-2 mb-1">
-                                          {getTypeBadge(msg.type)}
-                                          <span className={`text-xs ${isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                            {new Date(msg.created_at).toLocaleString("ru-RU", {
-                                              day: '2-digit',
-                                              month: '2-digit',
-                                              hour: '2-digit',
-                                              minute: '2-digit'
-                                            })}
-                                          </span>
-                                          {/* Reply button */}
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setReplyingToMessageId(isReplyTarget ? null : msg.id);
-                                            }}
-                                            className={`p-1 rounded hover:bg-black/10 transition-colors ${
-                                              isFromMe ? 'text-primary-foreground/70 hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                                            } ${isReplyTarget ? 'bg-black/10' : ''}`}
-                                            title="Ответить на это сообщение"
-                                          >
-                                            <Reply className="h-3 w-3" />
-                                          </button>
-                                          {/* Delete button - only for own messages */}
-                                          {isFromMe && (
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+
+                                {chain.map((msg, msgIndex) => {
+                                  const isFromMe = msg.from_id === user?.id;
+                                  const isReplyTarget = replyingToMessageId === msg.id;
+                                  const parentMessage = msg.reply_to
+                                    ? thread.messages.find((m) => m.id === msg.reply_to)
+                                    : null;
+
+                                  return (
+                                    <div key={msg.id} className="space-y-1">
+                                      {/* Show reply reference if exists */}
+                                      {parentMessage && msgIndex > 0 && (
+                                        <div className={`flex ${isFromMe ? "justify-end" : "justify-start"} px-2`}>
+                                          <div className="flex items-center gap-1 text-xs text-muted-foreground max-w-[60%]">
+                                            <CornerDownRight className="h-3 w-3 shrink-0" />
+                                            <span className="truncate">
+                                              В ответ на: "{parentMessage.message.slice(0, 30)}..."
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      <div className={`flex ${isFromMe ? "justify-end" : "justify-start"} group`}>
+                                        <div
+                                          className={`max-w-[80%] rounded-lg p-2 relative ${
+                                            isFromMe ? "bg-primary text-primary-foreground" : "bg-muted"
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2 mb-1">
+                                            {getTypeBadge(msg.type)}
+                                            <span
+                                              className={`text-xs ${isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                                            >
+                                              {new Date(msg.created_at).toLocaleString("ru-RU", {
+                                                day: "2-digit",
+                                                month: "2-digit",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                              })}
+                                            </span>
+                                            {/* Reply button */}
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                setDeleteMessageConfirm({
-                                                  type: 'single',
-                                                  ids: [msg.id],
-                                                });
+                                                setReplyingToMessageId(isReplyTarget ? null : msg.id);
                                               }}
-                                              className="p-1 rounded hover:bg-destructive/20 text-primary-foreground/50 hover:text-destructive transition-colors"
-                                              title="Удалить сообщение"
+                                              className={`p-1 rounded hover:bg-black/10 transition-colors ${
+                                                isFromMe
+                                                  ? "text-primary-foreground/70 hover:text-primary-foreground"
+                                                  : "text-muted-foreground hover:text-foreground"
+                                              } ${isReplyTarget ? "bg-black/10" : ""}`}
+                                              title="Ответить на это сообщение"
                                             >
-                                              <Trash2 className="h-3 w-3" />
+                                              <Reply className="h-3 w-3" />
                                             </button>
-                                          )}
-                                        </div>
-                                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Inline reply input for this specific message */}
-                                    {isReplyTarget && (
-                                      <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
-                                        <div className="max-w-[80%] w-full space-y-1">
-                                          <div className="flex items-center gap-1 text-xs text-muted-foreground px-2">
-                                            <Reply className="h-3 w-3" />
-                                            <span>Ответ на сообщение</span>
+                                            {/* Delete button - only for own messages */}
+                                            {isFromMe && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setDeleteMessageConfirm({
+                                                    type: "single",
+                                                    ids: [msg.id],
+                                                  });
+                                                }}
+                                                className="p-1 rounded hover:bg-destructive/20 text-primary-foreground/50 hover:text-destructive transition-colors"
+                                                title="Удалить сообщение"
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </button>
+                                            )}
                                           </div>
-                                          <div className="flex gap-2">
-                                            <Input
-                                              placeholder="Введите ответ..."
-                                              value={replyText[msg.id] || ""}
-                                              onChange={(e) =>
-                                                setReplyText((prev) => ({
-                                                  ...prev,
-                                                  [msg.id]: e.target.value,
-                                                }))
-                                              }
-                                              className="flex-1 h-8 text-sm"
-                                              autoFocus
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                  e.preventDefault();
-                                                  if (replyText[msg.id]?.trim()) {
-                                                    handleSendReply(msg);
+                                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Inline reply input for this specific message */}
+                                      {isReplyTarget && (
+                                        <div className={`flex ${isFromMe ? "justify-end" : "justify-start"}`}>
+                                          <div className="max-w-[80%] w-full space-y-1">
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+                                              <Reply className="h-3 w-3" />
+                                              <span>Ответ на сообщение</span>
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Input
+                                                placeholder="Введите ответ..."
+                                                value={replyText[msg.id] || ""}
+                                                onChange={(e) =>
+                                                  setReplyText((prev) => ({
+                                                    ...prev,
+                                                    [msg.id]: e.target.value,
+                                                  }))
+                                                }
+                                                className="flex-1 h-8 text-sm"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter" && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    if (replyText[msg.id]?.trim()) {
+                                                      handleSendReply(msg);
+                                                    }
                                                   }
-                                                }
-                                                if (e.key === 'Escape') {
-                                                  setReplyingToMessageId(null);
-                                                }
-                                              }}
-                                            />
-                                            <Button
-                                              size="sm"
-                                              className="h-8"
-                                              onClick={() => handleSendReply(msg)}
-                                              disabled={isSendingReply || !replyText[msg.id]?.trim()}
-                                            >
-                                              <Send className="h-3 w-3" />
-                                            </Button>
+                                                  if (e.key === "Escape") {
+                                                    setReplyingToMessageId(null);
+                                                  }
+                                                }}
+                                              />
+                                              <Button
+                                                size="sm"
+                                                className="h-8"
+                                                onClick={() => handleSendReply(msg)}
+                                                disabled={isSendingReply || !replyText[msg.id]?.trim()}
+                                              >
+                                                <Send className="h-3 w-3" />
+                                              </Button>
+                                            </div>
                                           </div>
                                         </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                              
-                              {/* Separator between chains */}
-                              {chainIndex < thread.chains.length - 1 && (
-                                <div className="border-t border-dashed border-border/50 my-3" />
-                              )}
-                            </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Separator between chains */}
+                                {chainIndex < thread.chains.length - 1 && (
+                                  <div className="border-t border-dashed border-border/50 my-3" />
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -2230,23 +2240,17 @@ const Dashboard = () => {
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
-              {deleteMessageConfirm?.type === 'chain' 
+              {deleteMessageConfirm?.type === "chain"
                 ? `Вы уверены, что хотите удалить ${deleteMessageConfirm.ids.length} сообщений из этой цепочки?`
-                : 'Вы уверены, что хотите удалить это сообщение?'}
+                : "Вы уверены, что хотите удалить это сообщение?"}
             </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Это действие нельзя отменить.
-            </p>
+            <p className="text-xs text-muted-foreground mt-2">Это действие нельзя отменить.</p>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDeleteMessageConfirm(null)} disabled={deletingMessages}>
               Отмена
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteMessages}
-              disabled={deletingMessages}
-            >
+            <Button variant="destructive" onClick={handleDeleteMessages} disabled={deletingMessages}>
               {deletingMessages ? "Удаление..." : "Удалить"}
             </Button>
           </DialogFooter>
@@ -2262,11 +2266,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Баланс: {walletBalance} долей</p>
             <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={openTransactionsDialog}
-              >
+              <Button variant="ghost" size="sm" onClick={openTransactionsDialog}>
                 <History className="h-4 w-4 mr-1" />
                 Транзакции
               </Button>
@@ -2358,45 +2358,49 @@ const Dashboard = () => {
 
             {hashError && <p className="text-sm text-destructive">{hashError}</p>}
 
-            {decodedResult && (() => {
-              // Parse format: DD.MM.YYYY_HH24:MI:SS.MS_AMOUNT_USER_BALANCE_TOTAL_BALANCE_UUID
-              const parts = decodedResult.split("_");
-              const dateTime = parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0] || "";
-              const amount = parts[2] || "";
-              const userBalance = parts[3] || "";
-              const totalBalance = parts[4] || "";
-              const uuid = parts.slice(5).join("_") || "";
+            {decodedResult &&
+              (() => {
+                // Parse format: DD.MM.YYYY_HH24:MI:SS.MS_AMOUNT_USER_BALANCE_TOTAL_BALANCE_UUID
+                const parts = decodedResult.split("_");
+                const dateTime = parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0] || "";
+                const amount = parts[2] || "";
+                const userBalance = parts[3] || "";
+                const totalBalance = parts[4] || "";
+                const uuid = parts.slice(5).join("_") || "";
 
-              return (
-                <div className="space-y-3">
-                  <Label>Результат декодирования:</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                      <span className="text-sm text-muted-foreground">Дата и время:</span>
-                      <span className="font-mono text-sm font-medium">{dateTime}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                      <span className="text-sm text-muted-foreground">Сумма:</span>
-                      <span className={`font-mono text-sm font-medium ${parseInt(amount) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                        {parseInt(amount) >= 0 ? '+' : ''}{amount}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                      <span className="text-sm text-muted-foreground">Баланс пользователя:</span>
-                      <span className="font-mono text-sm font-medium">{userBalance}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                      <span className="text-sm text-muted-foreground">Общий баланс:</span>
-                      <span className="font-mono text-sm font-medium">{totalBalance}</span>
-                    </div>
-                    <div className="p-2 bg-muted rounded-lg">
-                      <span className="text-sm text-muted-foreground block mb-1">UUID пользователя:</span>
-                      <span className="font-mono text-xs break-all">{uuid}</span>
+                return (
+                  <div className="space-y-3">
+                    <Label>Результат декодирования:</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                        <span className="text-sm text-muted-foreground">Дата и время:</span>
+                        <span className="font-mono text-sm font-medium">{dateTime}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                        <span className="text-sm text-muted-foreground">Сумма:</span>
+                        <span
+                          className={`font-mono text-sm font-medium ${parseInt(amount) >= 0 ? "text-green-600" : "text-destructive"}`}
+                        >
+                          {parseInt(amount) >= 0 ? "+" : ""}
+                          {amount}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                        <span className="text-sm text-muted-foreground">Баланс пользователя:</span>
+                        <span className="font-mono text-sm font-medium">{userBalance}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                        <span className="text-sm text-muted-foreground">Общий баланс:</span>
+                        <span className="font-mono text-sm font-medium">{totalBalance}</span>
+                      </div>
+                      <div className="p-2 bg-muted rounded-lg">
+                        <span className="text-sm text-muted-foreground block mb-1">UUID пользователя:</span>
+                        <span className="font-mono text-xs break-all">{uuid}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
 
             <Button onClick={handleDecodeHash} className="w-full" disabled={decoding}>
               <Search className="h-4 w-4 mr-2" />
@@ -2427,18 +2431,20 @@ const Dashboard = () => {
                   key={item.id}
                   className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                 >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    item.type === 'transfer_out' 
-                      ? 'bg-destructive/10 text-destructive' 
-                      : item.type === 'transfer_in'
-                        ? 'bg-green-500/10 text-green-600'
-                        : item.amount > 0
-                          ? 'bg-green-500/10 text-green-600'
-                          : 'bg-destructive/10 text-destructive'
-                  }`}>
-                    {item.type === 'transfer_out' ? (
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      item.type === "transfer_out"
+                        ? "bg-destructive/10 text-destructive"
+                        : item.type === "transfer_in"
+                          ? "bg-green-500/10 text-green-600"
+                          : item.amount > 0
+                            ? "bg-green-500/10 text-green-600"
+                            : "bg-destructive/10 text-destructive"
+                    }`}
+                  >
+                    {item.type === "transfer_out" ? (
                       <ArrowUpRight className="h-4 w-4" />
-                    ) : item.type === 'transfer_in' ? (
+                    ) : item.type === "transfer_in" ? (
                       <ArrowDownLeft className="h-4 w-4" />
                     ) : item.amount > 0 ? (
                       <ArrowDownLeft className="h-4 w-4" />
@@ -2448,33 +2454,31 @@ const Dashboard = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {item.type === 'transfer_out' && `Перевод → ${item.counterparty}`}
-                      {item.type === 'transfer_in' && `Получено от ${item.counterparty}`}
-                      {item.type === 'coin_exchange' && (item.amount > 0 ? 'Пополнение' : 'Списание')}
+                      {item.type === "transfer_out" && `Перевод → ${item.counterparty}`}
+                      {item.type === "transfer_in" && `Получено от ${item.counterparty}`}
+                      {item.type === "coin_exchange" && (item.amount > 0 ? "Пополнение" : "Списание")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(item.date).toLocaleString('ru-RU', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
+                      {new Date(item.date).toLocaleString("ru-RU", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-semibold ${
-                      (item.type === 'transfer_out' || item.amount < 0)
-                        ? 'text-destructive'
-                        : 'text-green-600'
-                    }`}>
-                      {item.type === 'transfer_out' ? '-' : item.amount > 0 ? '+' : ''}
-                      {item.type === 'transfer_out' ? item.amount : item.amount}
+                    <p
+                      className={`text-sm font-semibold ${
+                        item.type === "transfer_out" || item.amount < 0 ? "text-destructive" : "text-green-600"
+                      }`}
+                    >
+                      {item.type === "transfer_out" ? "-" : item.amount > 0 ? "+" : ""}
+                      {item.type === "transfer_out" ? item.amount : item.amount}
                     </p>
                     {item.balance_after !== undefined && (
-                      <p className="text-xs text-muted-foreground">
-                        Баланс: {item.balance_after}
-                      </p>
+                      <p className="text-xs text-muted-foreground">Баланс: {item.balance_after}</p>
                     )}
                   </div>
                 </div>
