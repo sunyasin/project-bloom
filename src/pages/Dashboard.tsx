@@ -20,6 +20,8 @@ import {
   Eye,
   EyeOff,
   Wallet,
+  Key,
+  Search,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -343,7 +345,12 @@ const Dashboard = () => {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
 
-  // Profile data from Supabase
+  // Hash decode state
+  const [hashDialogOpen, setHashDialogOpen] = useState(false);
+  const [hashInput, setHashInput] = useState("");
+  const [decodedResult, setDecodedResult] = useState<string | null>(null);
+  const [hashError, setHashError] = useState("");
+  const [decoding, setDecoding] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   const [formData, setFormData] = useState<ProfileFormData>({
@@ -818,6 +825,41 @@ const Dashboard = () => {
     });
     setTransferring(false);
   };
+
+  // Hash decode handler
+  const handleDecodeHash = async () => {
+    if (!hashInput.trim()) {
+      setHashError("Введите хеш для декодирования");
+      return;
+    }
+
+    setHashError("");
+    setDecodedResult(null);
+    setDecoding(true);
+
+    try {
+      const { data, error } = await supabase.rpc("decode_coin_hash", {
+        p_hash_text: hashInput.trim(),
+      });
+
+      if (error) {
+        setHashError(error.message);
+      } else {
+        setDecodedResult(data);
+      }
+    } catch (err) {
+      setHashError("Ошибка декодирования");
+    } finally {
+      setDecoding(false);
+    }
+  };
+
+  const openHashDialog = () => {
+    setHashInput("");
+    setDecodedResult(null);
+    setHashError("");
+    setHashDialogOpen(true);
+  };
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -838,10 +880,14 @@ const Dashboard = () => {
                 Клиент
               </span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={openWalletDialog}>
                 <Wallet className="h-4 w-4 mr-1" />
                 Кошелёк ({walletBalance})
+              </Button>
+              <Button variant="outline" size="sm" onClick={openHashDialog}>
+                <Key className="h-4 w-4 mr-1" />
+                Проверка хешей
               </Button>
               <Button variant="outline" size="sm" onClick={() => setIsMessagesDialogOpen(true)}>
                 <MessageCircle className="h-4 w-4 mr-1" />
@@ -1701,6 +1747,50 @@ const Dashboard = () => {
 
             <Button onClick={handleTransfer} className="w-full" disabled={transferring}>
               {transferring ? "Отправка..." : "Отправить"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hash Decode Dialog */}
+      <Dialog open={hashDialogOpen} onOpenChange={setHashDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Проверка и декодирование хешей
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Хеш для декодирования</Label>
+              <Textarea
+                value={hashInput}
+                onChange={(e) => setHashInput(e.target.value)}
+                placeholder="Вставьте hex-хеш из таблицы coins..."
+                rows={3}
+                className="font-mono text-sm"
+              />
+            </div>
+
+            {hashError && <p className="text-sm text-destructive">{hashError}</p>}
+
+            {decodedResult && (
+              <div className="space-y-2">
+                <Label>Результат декодирования:</Label>
+                <div className="p-3 bg-muted rounded-lg font-mono text-sm break-all">
+                  {decodedResult}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Формат: ДАТА_СУММА_баланс_пользователя_общий_баланс_UUID
+                </p>
+              </div>
+            )}
+
+            <Button onClick={handleDecodeHash} className="w-full" disabled={decoding}>
+              <Search className="h-4 w-4 mr-2" />
+              {decoding ? "Декодирование..." : "Декодировать"}
             </Button>
           </div>
         </DialogContent>
