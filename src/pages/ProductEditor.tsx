@@ -745,16 +745,6 @@ const ProductEditor = () => {
                 </div>
               )}
             </div>
-
-            {/* URL Input */}
-            <div className="flex gap-2 mt-3">
-              <Input
-                value={productData.image}
-                onChange={(e) => updateField("image", e.target.value)}
-                placeholder="Или вставьте URL изображения"
-                className="flex-1"
-              />
-            </div>
           </div>
 
           {/* Gallery Section */}
