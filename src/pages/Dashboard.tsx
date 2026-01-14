@@ -1493,11 +1493,13 @@ const Dashboard = () => {
                     <SelectValue placeholder="Выберите визитку" />
                   </SelectTrigger>
                   <SelectContent>
-                    {businesses.map((biz) => (
-                      <SelectItem key={biz.id} value={biz.id}>
-                        {biz.name}
-                      </SelectItem>
-                    ))}
+                    {businesses
+                      .filter((biz) => biz.status === "published")
+                      .map((biz) => (
+                        <SelectItem key={biz.id} value={biz.id}>
+                          {biz.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
