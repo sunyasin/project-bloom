@@ -1,7 +1,11 @@
 Supabase last migration applied 12/01/26 (-- Drop and recreate exchange_type enum with new values)
 
 TODO 
-
+---after BIG update issues:
+2 popup окна после коика на товаре в категории
+убрать глаз из dashboard - теперь есть модератор
+tiptap не епчатает пробелы
+- для цифрового бартера добавить поле цены
 
 ----- РУКАМИ
 - на /dashboard - в плашке с именем пользователя отображай реальную роль из таблицы user_roles, на английском как в ENUM
@@ -88,6 +92,94 @@ Published businesses expose the 'owner_id' field publicly, allowing anyone to ma
 на странице бизнеса реализовать: 1) добавить адрес доставки при заказе
 
 =======DONE
+
+
+
+====== проблема с пробелами в TipTap
+
+Анализ проблемы
+Проблема с пробелами в TipTap редакторе имеет несколько возможных причин:
+
+1. Конфликт с cmdk (Command Menu)
+Библиотека cmdk используется для выбора категории в Popover. Она известна тем, что перехватывает клавиатурные события, включая пробелы, когда открыта. Однако если Popover закрыт (categoryOpen = false), это не должно быть проблемой.
+
+2. Отсутствие onMouseDown={(e) => e.preventDefault()} в BusinessCardEditor
+В BusinessCardEditor.tsx (строки 63-84) компонент ToolbarButton не содержит onMouseDown={(e) => e.preventDefault()}, в то время как в ProductEditor.tsx (строки 97-108) он есть. Это может вызывать потерю фокуса при клике на кнопки тулбара.
+
+3. Проблема с глобальными keyboard listeners
+Возможно, где-то есть глобальный обработчик, который перехватывает пробелы.
+
+Plan
+План исправления проблемы с пробелами в TipTap
+Проблема
+Пробелы не вводятся в TipTap редакторе на странице редактирования товара.
+
+Диагностика
+В ProductEditor.tsx компонент ToolbarButton уже имеет onMouseDown={(e) => e.preventDefault()} — это правильно
+В BusinessCardEditor.tsx этот обработчик отсутствует — нужно добавить для консистентности
+Потенциальный конфликт с библиотекой cmdk (Command Menu), которая может перехватывать клавиатурные события
+Решение
+1. Добавить shouldFilter={false} и loop в Command компонент
+В ProductEditor.tsx изменить компонент Command для выбора категории:
+
+
+// Было:
+<Command>
+  <CommandInput placeholder="Поиск категории..." />
+
+// Станет:
+<Command shouldFilter={false} loop>
+  <CommandInput 
+    placeholder="Поиск категории..." 
+    onKeyDown={(e) => {
+      // Предотвращаем перехват пробелов и других клавиш
+      if (e.key === " ") {
+        e.stopPropagation();
+      }
+    }}
+  />
+2. Добавить onMouseDown в ToolbarButton в BusinessCardEditor.tsx
+
+// Было (строка 74-83):
+const ToolbarButton = ({ onClick, isActive, disabled, children }) => (
+  <Button
+    type="button"
+    variant={isActive ? "secondary" : "ghost"}
+    size="icon"
+    className="h-8 w-8"
+    onClick={onClick}
+    disabled={disabled}
+  >
+    {children}
+  </Button>
+);
+
+// Станет:
+const ToolbarButton = ({ onClick, isActive, disabled, children }) => (
+  <Button
+    type="button"
+    variant={isActive ? "secondary" : "ghost"}
+    size="icon"
+    className="h-8 w-8"
+    onClick={onClick}
+    onMouseDown={(e) => e.preventDefault()} // Предотвращает потерю фокуса
+    disabled={disabled}
+  >
+    {children}
+  </Button>
+);
+3. Убедиться, что Popover закрывается корректно
+В обоих редакторах проверить, что после выбора категории Popover закрывается и не оставляет активных keyboard listeners.
+
+Файлы для изменения
+Файл	Изменения
+src/pages/ProductEditor.tsx	Добавить обработчик onKeyDown в CommandInput для предотвращения перехвата пробелов
+src/pages/BusinessCardEditor.tsx	Добавить onMouseDown={(e) => e.preventDefault()} в ToolbarButton
+Результат
+После этих изменений пробелы будут корректно вводиться в TipTap редакторе, а кнопки тулбара не будут вызывать потерю фокуса.
+
+
+
 
 
 
