@@ -84,7 +84,7 @@ export interface Product {
 export interface Promotion {
   id: string;
   owner_id: string;
-  category_id: string | null;
+  business_id: string;
   title: string;
   description: string | null;
   discount: string;

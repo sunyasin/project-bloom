@@ -232,7 +232,7 @@ const Dashboard = () => {
     discount: "",
     image_url: "",
     valid_until: "",
-    category_id: "",
+    business_id: "",
   });
 
   // News editing state
@@ -532,7 +532,7 @@ const Dashboard = () => {
           discount: promotion.discount,
           image_url: promotion.image_url || "",
           valid_until: promotion.valid_until ? promotion.valid_until.split("T")[0] : "",
-          category_id: promotion.category_id || "",
+          business_id: promotion.business_id || "",
         });
       }
     } else {
@@ -543,7 +543,7 @@ const Dashboard = () => {
         discount: "",
         image_url: "",
         valid_until: "",
-        category_id: "",
+        business_id: "",
       });
     }
     setPromotionUploadError(null);
@@ -1473,20 +1473,20 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Category */}
+              {/* Business (визитка) */}
               <div className="space-y-2">
-                <Label>Отображать в категории</Label>
+                <Label>Визитка (обязательно)</Label>
                 <Select
-                  value={promotionFormData.category_id}
-                  onValueChange={(value) => setPromotionFormData((prev) => ({ ...prev, category_id: value }))}
+                  value={promotionFormData.business_id}
+                  onValueChange={(value) => setPromotionFormData((prev) => ({ ...prev, business_id: value }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите категорию" />
+                    <SelectValue placeholder="Выберите визитку" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
+                    {businesses.map((biz) => (
+                      <SelectItem key={biz.id} value={biz.id}>
+                        {biz.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
