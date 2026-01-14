@@ -470,6 +470,7 @@ export type Database = {
         Row: {
           amount: number
           from_id: string
+          hash: string
           id: string
           to_id: string
           when: string
@@ -477,6 +478,7 @@ export type Database = {
         Insert: {
           amount: number
           from_id: string
+          hash: string
           id?: string
           to_id: string
           when?: string
@@ -484,6 +486,7 @@ export type Database = {
         Update: {
           amount?: number
           from_id?: string
+          hash?: string
           id?: string
           to_id?: string
           when?: string
