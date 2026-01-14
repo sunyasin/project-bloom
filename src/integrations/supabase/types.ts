@@ -469,6 +469,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      coin_exchange: {
+        Args: { is_r2c: boolean; p_initiator: string; p_sum: number }
+        Returns: string
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
