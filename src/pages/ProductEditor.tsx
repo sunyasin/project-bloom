@@ -272,6 +272,26 @@ const ProductEditor = () => {
     }
   };
 
+  // Helper to extract file path from Supabase Storage URL
+  const extractStoragePath = (url: string): string | null => {
+    if (!url) return null;
+    const match = url.match(/\/product-images\/(.+)$/);
+    return match ? match[1] : null;
+  };
+
+  // Delete image from Storage
+  const deleteImageFromStorage = async (imageUrl: string) => {
+    const filePath = extractStoragePath(imageUrl);
+    if (filePath) {
+      const { error } = await supabase.storage
+        .from("product-images")
+        .remove([filePath]);
+      if (error) {
+        console.error("Error deleting old image:", error);
+      }
+    }
+  };
+
   const uploadImage = async (file: File) => {
     const validation = validateProductImage(file);
     if (!validation.valid) {
@@ -294,6 +314,11 @@ const ProductEditor = () => {
           variant: "destructive",
         });
         return;
+      }
+
+      // Delete old image if exists
+      if (productData.image) {
+        await deleteImageFromStorage(productData.image);
       }
 
       // Generate unique filename
@@ -340,6 +365,9 @@ const ProductEditor = () => {
 
   const handleDeleteImage = async () => {
     if (productData.image) {
+      // Delete from Storage
+      await deleteImageFromStorage(productData.image);
+      
       updateField("image", "");
       toast({
         title: "Удалено",
