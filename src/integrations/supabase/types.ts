@@ -408,6 +408,7 @@ export type Database = {
           created_at: string
           description: string | null
           discount: string
+          donation: number
           id: string
           image_url: string | null
           is_active: boolean
@@ -421,6 +422,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           discount: string
+          donation?: number
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -434,6 +436,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           discount?: string
+          donation?: number
           id?: string
           image_url?: string | null
           is_active?: boolean
