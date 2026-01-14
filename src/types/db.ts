@@ -68,11 +68,13 @@ export interface Product {
   producer_id: string;
   name: string;
   description: string | null;
+  content: string | null;
   price: number | null;
   unit: string | null;
   image_url: string | null;
   category_id: string | null;
   is_available: boolean;
+  sale_type: 'sell_only' | 'barter_goods' | 'barter_coin';
   created_at: string;
   updated_at: string;
 }

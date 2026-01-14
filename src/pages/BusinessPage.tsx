@@ -101,6 +101,10 @@ const BusinessPage = () => {
 
   // Sale type filter
   const [saleTypeFilter, setSaleTypeFilter] = useState<ProductSaleType>("all");
+
+  // Product detail dialog
+  const [productDetailOpen, setProductDetailOpen] = useState(false);
+  const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   useEffect(() => {
     const fetchBusinessData = async () => {
       if (!id) {
@@ -531,9 +535,15 @@ const BusinessPage = () => {
                       />
                       <span className="text-xs text-muted-foreground">Выбрать</span>
                     </div>
-                    <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted">
+                    <button 
+                      onClick={() => {
+                        setSelectedProductDetail(product);
+                        setProductDetailOpen(true);
+                      }}
+                      className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted cursor-pointer hover:opacity-90 transition-opacity w-full"
+                    >
                       <img src={product.image_url || ""} alt={product.name} className="w-full h-full object-cover" />
-                    </div>
+                    </button>
                     <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
                     <p className="text-sm text-primary font-semibold">
                       {product.price || 0} ₽/{product.unit || "шт"}
@@ -898,6 +908,108 @@ const BusinessPage = () => {
               {isSendingContact ? "Отправка..." : "Отправить"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Detail Dialog */}
+      <Dialog open={productDetailOpen} onOpenChange={setProductDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedProductDetail?.name || "Товар"}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedProductDetail && (
+            <div className="space-y-4">
+              {/* Product Image */}
+              {selectedProductDetail.image_url && (
+                <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                  <img 
+                    src={selectedProductDetail.image_url} 
+                    alt={selectedProductDetail.name} 
+                    className="w-full h-full object-cover" 
+                  />
+                </div>
+              )}
+
+              {/* Price and Unit */}
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-primary">
+                  {selectedProductDetail.price || 0} ₽
+                </span>
+                <span className="text-muted-foreground">
+                  / {selectedProductDetail.unit || "шт"}
+                </span>
+              </div>
+
+              {/* Sale Type Badge */}
+              <div>
+                {(selectedProductDetail as any).sale_type === "barter_goods" && (
+                  <span className="inline-block text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-1 rounded">
+                    Бартер товар-товар
+                  </span>
+                )}
+                {(selectedProductDetail as any).sale_type === "barter_coin" && (
+                  <span className="inline-block text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded">
+                    Бартер цифровой
+                  </span>
+                )}
+                {((selectedProductDetail as any).sale_type === "sell_only" || !(selectedProductDetail as any).sale_type) && (
+                  <span className="inline-block text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded">
+                    Только продажа
+                  </span>
+                )}
+              </div>
+
+              {/* Short Description */}
+              {selectedProductDetail.description && (
+                <div>
+                  <h3 className="font-medium text-foreground mb-1">Описание</h3>
+                  <p className="text-muted-foreground">{selectedProductDetail.description}</p>
+                </div>
+              )}
+
+              {/* Detailed Content */}
+              {selectedProductDetail.content && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="font-medium text-foreground mb-2">Подробнее</h3>
+                  <div 
+                    className="prose prose-sm max-w-none text-muted-foreground"
+                    dangerouslySetInnerHTML={{ __html: selectedProductDetail.content }}
+                  />
+                </div>
+              )}
+
+              {/* Producer Info */}
+              <div className="border-t border-border pt-4 text-sm text-muted-foreground">
+                <p>Производитель: {business?.name}</p>
+                {ownerProfile?.phone && <p>Телефон: {ownerProfile.phone}</p>}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => {
+                    handleProductSelect(
+                      {
+                        id: selectedProductDetail.id,
+                        name: selectedProductDetail.name,
+                        price: selectedProductDetail.price || 0,
+                        image: selectedProductDetail.image_url || "",
+                      },
+                      !isSelected(selectedProductDetail.id)
+                    );
+                  }}
+                  variant={isSelected(selectedProductDetail.id) ? "secondary" : "default"}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  {isSelected(selectedProductDetail.id) ? "Убрать из заказа" : "Добавить в заказ"}
+                </Button>
+                <Button variant="outline" onClick={() => setProductDetailOpen(false)}>
+                  Закрыть
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </MainLayout>
