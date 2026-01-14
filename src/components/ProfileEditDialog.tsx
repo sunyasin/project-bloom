@@ -192,7 +192,8 @@ export const ProfileEditDialog = ({
 
     setSaving(true);
 
-    const updateData = {
+    const profileData = {
+      user_id: user.id,
       email: formData.email.trim(),
       phone: formData.phone.trim(),
       first_name: formData.first_name.trim(),
@@ -204,12 +205,13 @@ export const ProfileEditDialog = ({
       logo_url: formData.logo_url.trim() || null,
     };
 
+    // Use upsert to handle both new and existing profiles
     const { error } = await supabase
       .from("profiles")
-      .update(updateData)
-      .eq("user_id", user.id);
+      .upsert(profileData, { onConflict: "user_id" });
 
     if (error) {
+      console.error("Profile save error:", error);
       toast({
         title: "Ошибка сохранения",
         description: error.message,
