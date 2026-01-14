@@ -14,6 +14,11 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -27,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type AdminRole = "super_admin";
 
@@ -246,6 +252,9 @@ const CoinExchangeSection = () => {
   const [loading, setLoading] = useState(false);
   const [resultHash, setResultHash] = useState<string | null>(null);
 
+  // Journal dialog
+  const [showJournal, setShowJournal] = useState(false);
+
   // Coins history
   interface CoinRecord {
     id: string;
@@ -259,6 +268,19 @@ const CoinExchangeSection = () => {
   }
   const [coins, setCoins] = useState<CoinRecord[]>([]);
   const [coinsLoading, setCoinsLoading] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Filters
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [filterUserId, setFilterUserId] = useState<string>("");
+  const [amountOperator, setAmountOperator] = useState<string>("");
+  const [amountValue, setAmountValue] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(false);
 
   // Verification state
   type VerificationStatus = "pending" | "valid" | "invalid" | "error";
@@ -291,14 +313,53 @@ const CoinExchangeSection = () => {
 
   const loadCoins = async () => {
     setCoinsLoading(true);
-    const { data } = await supabase
-      .from("coins")
-      .select("*")
-      .order("when", { ascending: false })
-      .limit(100);
     
-    if (data) {
-      setCoins(data as CoinRecord[]);
+    let query = supabase
+      .from("coins")
+      .select("*", { count: "exact" });
+    
+    // Apply filters
+    if (dateFrom) {
+      query = query.gte("when", new Date(dateFrom).toISOString());
+    }
+    if (dateTo) {
+      const endDate = new Date(dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      query = query.lte("when", endDate.toISOString());
+    }
+    if (filterUserId) {
+      // Find profile id by user_id
+      const profile = profiles.find((p) => p.user_id === filterUserId);
+      if (profile) {
+        query = query.eq("who", profile.id);
+      }
+    }
+    if (amountOperator && amountValue) {
+      const numValue = parseInt(amountValue, 10);
+      if (!isNaN(numValue)) {
+        switch (amountOperator) {
+          case ">": query = query.gt("amount", numValue); break;
+          case "<": query = query.lt("amount", numValue); break;
+          case "=": query = query.eq("amount", numValue); break;
+          case ">=": query = query.gte("amount", numValue); break;
+          case "<=": query = query.lte("amount", numValue); break;
+        }
+      }
+    }
+    
+    // Pagination
+    const from = (currentPage - 1) * pageSize;
+    const to = from + pageSize - 1;
+    
+    const { data, count, error } = await query
+      .order("when", { ascending: false })
+      .range(from, to);
+    
+    if (error) {
+      console.error("Error loading coins:", error);
+    } else {
+      setCoins((data || []) as CoinRecord[]);
+      setTotalCount(count || 0);
     }
     setCoinsLoading(false);
   };
@@ -410,8 +471,29 @@ const CoinExchangeSection = () => {
 
   useEffect(() => {
     loadProfiles();
-    loadCoins();
   }, []);
+
+  // Load coins when journal opens or filters/pagination change
+  useEffect(() => {
+    if (showJournal) {
+      loadCoins();
+    }
+  }, [showJournal, currentPage, profiles]);
+
+  const applyFilters = () => {
+    setCurrentPage(1);
+    loadCoins();
+  };
+
+  const resetFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setFilterUserId("");
+    setAmountOperator("");
+    setAmountValue("");
+    setCurrentPage(1);
+    setTimeout(() => loadCoins(), 0);
+  };
 
   const handleExchange = async () => {
     if (!selectedUserId) {
@@ -459,7 +541,9 @@ const CoinExchangeSection = () => {
             }))
           );
         }
-        loadCoins();
+        if (showJournal) {
+          loadCoins();
+        }
       }
     } catch (err) {
       toast({ title: "Ошибка", description: "Не удалось выполнить операцию", variant: "destructive" });
@@ -469,11 +553,18 @@ const CoinExchangeSection = () => {
   };
 
   const selectedProfile = profiles.find((p) => p.user_id === selectedUserId);
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="space-y-6">
       <div className="content-card">
-        <h2 className="text-lg font-semibold mb-4">Обмен рублей ↔ коинов</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Обмен рублей ↔ коинов</h2>
+          <Button variant="outline" onClick={() => setShowJournal(true)}>
+            <BookOpen className="h-4 w-4 mr-2" />
+            Журнал
+          </Button>
+        </div>
         
         <div className="space-y-4 max-w-md">
           {/* User selector */}
@@ -541,130 +632,262 @@ const CoinExchangeSection = () => {
         </div>
       </div>
 
-      {/* Coins History Table */}
-      <div className="content-card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">История операций с коинами</h2>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={verifyChain} 
-              disabled={verifying || coinsLoading}
-            >
-              <ShieldCheck className={cn("h-4 w-4 mr-1", verifying && "animate-pulse")} />
-              {verifying ? "Проверка..." : "Верифицировать"}
-            </Button>
+      {/* Journal Dialog */}
+      <Dialog open={showJournal} onOpenChange={setShowJournal}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Журнал операций с коинами
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Toolbar */}
+          <div className="flex items-center justify-between gap-2 py-2 border-b">
+            <div className="flex gap-2">
+              <Button
+                variant={showFilters ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-1" />
+                Фильтры
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={verifyChain} 
+                disabled={verifying || coinsLoading}
+              >
+                <ShieldCheck className={cn("h-4 w-4 mr-1", verifying && "animate-pulse")} />
+                {verifying ? "Проверка..." : "Верифицировать"}
+              </Button>
+            </div>
             <Button variant="outline" size="sm" onClick={loadCoins} disabled={coinsLoading}>
               <RefreshCw className={cn("h-4 w-4 mr-1", coinsLoading && "animate-spin")} />
               Обновить
             </Button>
           </div>
-        </div>
 
-        {/* Verification Summary */}
-        {verificationSummary && (
-          <div className={cn(
-            "p-3 rounded-lg mb-4 flex items-center gap-4",
-            verificationSummary.invalid === 0 && verificationSummary.errors === 0
-              ? "bg-green-500/10 border border-green-500/20"
-              : "bg-red-500/10 border border-red-500/20"
-          )}>
-            {verificationSummary.invalid === 0 && verificationSummary.errors === 0 ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-red-600" />
-            )}
-            <div className="flex-1">
-              <p className="font-medium">
-                {verificationSummary.invalid === 0 && verificationSummary.errors === 0
-                  ? "Цепочка верифицирована успешно"
-                  : "Обнаружены проблемы в цепочке"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Всего: {verificationSummary.total} | 
-                Валидных: <span className="text-green-600">{verificationSummary.valid}</span> | 
-                Невалидных: <span className="text-red-600">{verificationSummary.invalid}</span> | 
-                Ошибок: <span className="text-orange-600">{verificationSummary.errors}</span>
-              </p>
+          {/* Filters Panel */}
+          {showFilters && (
+            <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Date From */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Дата от</Label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                {/* Date To */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Дата до</Label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                {/* User Filter */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Пользователь</Label>
+                  <Select value={filterUserId} onValueChange={setFilterUserId}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Все" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Все</SelectItem>
+                      {profiles.map((p) => (
+                        <SelectItem key={p.user_id} value={p.user_id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Amount Filter */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Сумма</Label>
+                  <div className="flex gap-1">
+                    <Select value={amountOperator} onValueChange={setAmountOperator}>
+                      <SelectTrigger className="h-9 w-20">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">—</SelectItem>
+                        <SelectItem value=">">&gt;</SelectItem>
+                        <SelectItem value="<">&lt;</SelectItem>
+                        <SelectItem value="=">=</SelectItem>
+                        <SelectItem value=">=">&ge;</SelectItem>
+                        <SelectItem value="<=">&le;</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      value={amountValue}
+                      onChange={(e) => setAmountValue(e.target.value)}
+                      placeholder="0"
+                      className="h-9 flex-1"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={applyFilters}>
+                  Применить
+                </Button>
+                <Button size="sm" variant="outline" onClick={resetFilters}>
+                  <X className="h-4 w-4 mr-1" />
+                  Сбросить
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {coinsLoading ? (
-          <p className="text-muted-foreground text-center py-8">Загрузка...</p>
-        ) : coins.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">Нет записей</p>
-        ) : (
-          <ScrollArea className="h-[400px]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">Статус</TableHead>
-                  <TableHead className="w-[140px]">Дата</TableHead>
-                  <TableHead>Пользователь</TableHead>
-                  <TableHead className="text-right">Сумма</TableHead>
-                  <TableHead className="text-right">Баланс</TableHead>
-                  <TableHead className="text-right">Общий</TableHead>
-                  <TableHead className="w-[200px]">Хеш</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {coins.map((coin) => {
-                  const profile = profiles.find((p) => p.id === coin.who);
-                  const verification = verificationResults[coin.id];
-                  
-                  return (
-                    <TableRow key={coin.id} className={cn(
-                      verification?.status === "invalid" && "bg-red-500/5",
-                      verification?.status === "error" && "bg-orange-500/5"
-                    )}>
-                      <TableCell>
-                        {verification ? (
-                          <div title={verification.error || verification.decoded || ""}>
-                            {verification.status === "valid" && (
-                              <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            )}
-                            {verification.status === "invalid" && (
-                              <XCircle className="h-4 w-4 text-red-600" />
-                            )}
-                            {verification.status === "error" && (
-                              <AlertCircle className="h-4 w-4 text-orange-600" />
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {new Date(coin.when).toLocaleString("ru-RU")}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {profile?.name || coin.who.slice(0, 8) + "..."}
-                      </TableCell>
-                      <TableCell className={cn(
-                        "text-right font-medium",
-                        coin.amount > 0 ? "text-green-600" : "text-red-600"
-                      )}>
-                        {coin.amount > 0 ? "+" : ""}{coin.amount}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
-                        {coin.profile_balance}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
-                        {coin.total_balance}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs truncate max-w-[200px]" title={coin.hash}>
-                        {coin.hash.slice(0, 20)}...
-                      </TableCell>
+          {/* Verification Summary */}
+          {verificationSummary && (
+            <div className={cn(
+              "p-3 rounded-lg flex items-center gap-4",
+              verificationSummary.invalid === 0 && verificationSummary.errors === 0
+                ? "bg-green-500/10 border border-green-500/20"
+                : "bg-red-500/10 border border-red-500/20"
+            )}>
+              {verificationSummary.invalid === 0 && verificationSummary.errors === 0 ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              )}
+              <div className="flex-1">
+                <p className="font-medium text-sm">
+                  {verificationSummary.invalid === 0 && verificationSummary.errors === 0
+                    ? "Цепочка верифицирована успешно"
+                    : "Обнаружены проблемы в цепочке"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Всего: {verificationSummary.total} | 
+                  Валидных: <span className="text-green-600">{verificationSummary.valid}</span> | 
+                  Невалидных: <span className="text-red-600">{verificationSummary.invalid}</span> | 
+                  Ошибок: <span className="text-orange-600">{verificationSummary.errors}</span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="flex-1 overflow-hidden">
+            {coinsLoading ? (
+              <p className="text-muted-foreground text-center py-8">Загрузка...</p>
+            ) : coins.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Нет записей</p>
+            ) : (
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]">Статус</TableHead>
+                      <TableHead className="w-[140px]">Дата</TableHead>
+                      <TableHead>Пользователь</TableHead>
+                      <TableHead className="text-right">Сумма</TableHead>
+                      <TableHead className="text-right">Баланс</TableHead>
+                      <TableHead className="text-right">Общий</TableHead>
+                      <TableHead className="w-[200px]">Хеш</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        )}
-      </div>
+                  </TableHeader>
+                  <TableBody>
+                    {coins.map((coin) => {
+                      const profile = profiles.find((p) => p.id === coin.who);
+                      const verification = verificationResults[coin.id];
+                      
+                      return (
+                        <TableRow key={coin.id} className={cn(
+                          verification?.status === "invalid" && "bg-red-500/5",
+                          verification?.status === "error" && "bg-orange-500/5"
+                        )}>
+                          <TableCell>
+                            {verification ? (
+                              <div title={verification.error || verification.decoded || ""}>
+                                {verification.status === "valid" && (
+                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                )}
+                                {verification.status === "invalid" && (
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                )}
+                                {verification.status === "error" && (
+                                  <AlertCircle className="h-4 w-4 text-orange-600" />
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {new Date(coin.when).toLocaleString("ru-RU")}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {profile?.name || coin.who.slice(0, 8) + "..."}
+                          </TableCell>
+                          <TableCell className={cn(
+                            "text-right font-medium",
+                            coin.amount > 0 ? "text-green-600" : "text-red-600"
+                          )}>
+                            {coin.amount > 0 ? "+" : ""}{coin.amount}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {coin.profile_balance}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {coin.total_balance}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs truncate max-w-[200px]" title={coin.hash}>
+                            {coin.hash.slice(0, 20)}...
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                Показано {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} из {totalCount}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || coinsLoading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Назад
+                </Button>
+                <span className="text-sm px-2">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || coinsLoading}
+                >
+                  Вперёд
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
