@@ -273,6 +273,8 @@ const Dashboard = () => {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [messageTypeFilter, setMessageTypeFilter] = useState<MessageTypeFilter>('all');
   const [replyingToMessageId, setReplyingToMessageId] = useState<number | null>(null);
+  const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<{ type: 'single' | 'chain'; ids: number[] } | null>(null);
+  const [deletingMessages, setDeletingMessages] = useState(false);
   const { toast } = useToast();
 
   // Categories state for promotions
@@ -810,6 +812,42 @@ const Dashboard = () => {
     }
     
     setIsSendingReply(false);
+  };
+
+  // Delete message(s) - marks as 'deleted' type instead of actual deletion
+  const handleDeleteMessages = async () => {
+    if (!deleteMessageConfirm || deleteMessageConfirm.ids.length === 0) return;
+    
+    setDeletingMessages(true);
+    
+    try {
+      // Update messages to 'deleted' type (soft delete)
+      const { error } = await supabase
+        .from("messages")
+        .update({ type: "deleted" as const })
+        .in("id", deleteMessageConfirm.ids);
+      
+      if (error) {
+        toast({
+          title: "Ошибка",
+          description: "Не удалось удалить сообщение(я)",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Удалено",
+          description: deleteMessageConfirm.type === 'chain' 
+            ? `Удалена цепочка из ${deleteMessageConfirm.ids.length} сообщений`
+            : "Сообщение удалено",
+        });
+        await loadMessages();
+      }
+    } catch (err) {
+      console.error("Error deleting messages:", err);
+    } finally {
+      setDeletingMessages(false);
+      setDeleteMessageConfirm(null);
+    }
   };
 
   // Group messages into reply chains within conversation threads
@@ -1953,13 +1991,35 @@ const Dashboard = () => {
                       <div className="border-t border-border">
                         {/* Messages scroll area - organized by chains */}
                         <div className="max-h-80 overflow-y-auto p-3 space-y-4">
-                          {thread.chains.map((chain, chainIndex) => (
+                          {thread.chains.map((chain, chainIndex) => {
+                            // Check if user can delete any message in this chain (only own messages)
+                            const myMessagesInChain = chain.filter(m => m.from_id === user?.id);
+                            const canDeleteChain = myMessagesInChain.length > 0;
+                            
+                            return (
                             <div key={chainIndex} className="space-y-2">
                               {/* Chain header for multi-message chains */}
                               {chain.length > 1 && (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <CornerDownRight className="h-3 w-3" />
-                                  <span>Цепочка из {chain.length} сообщений</span>
+                                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-2">
+                                    <CornerDownRight className="h-3 w-3" />
+                                    <span>Цепочка из {chain.length} сообщений</span>
+                                  </div>
+                                  {canDeleteChain && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteMessageConfirm({
+                                          type: 'chain',
+                                          ids: myMessagesInChain.map(m => m.id),
+                                        });
+                                      }}
+                                      className="p-1 rounded hover:bg-destructive/10 text-destructive/70 hover:text-destructive transition-colors"
+                                      title={`Удалить мои сообщения в цепочке (${myMessagesInChain.length})`}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                               
@@ -2013,6 +2073,22 @@ const Dashboard = () => {
                                           >
                                             <Reply className="h-3 w-3" />
                                           </button>
+                                          {/* Delete button - only for own messages */}
+                                          {isFromMe && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setDeleteMessageConfirm({
+                                                  type: 'single',
+                                                  ids: [msg.id],
+                                                });
+                                              }}
+                                              className="p-1 rounded hover:bg-destructive/20 text-primary-foreground/50 hover:text-destructive transition-colors"
+                                              title="Удалить сообщение"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </button>
+                                          )}
                                         </div>
                                         <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
                                       </div>
@@ -2071,7 +2147,8 @@ const Dashboard = () => {
                                 <div className="border-t border-dashed border-border/50 my-3" />
                               )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -2080,6 +2157,40 @@ const Dashboard = () => {
               })
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Message Confirmation Dialog */}
+      <Dialog open={!!deleteMessageConfirm} onOpenChange={(open) => !open && setDeleteMessageConfirm(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Подтверждение удаления
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              {deleteMessageConfirm?.type === 'chain' 
+                ? `Вы уверены, что хотите удалить ${deleteMessageConfirm.ids.length} сообщений из этой цепочки?`
+                : 'Вы уверены, что хотите удалить это сообщение?'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Это действие нельзя отменить.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteMessageConfirm(null)} disabled={deletingMessages}>
+              Отмена
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteMessages}
+              disabled={deletingMessages}
+            >
+              {deletingMessages ? "Удаление..." : "Удалить"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
