@@ -242,7 +242,7 @@ const BusinessPage = () => {
     }
   };
 
-  const handleDigitalExchange = () => {
+  const handleDigitalExchange = async () => {
     if (selectedProducts.length === 0) return;
     
     const now = new Date();
@@ -262,6 +262,17 @@ const BusinessPage = () => {
     
     const message = `Предлагаю обмен.\n${productsList}\nНа сумму ${totalSum} ₽.\n${dateStr}.\nОт кого: ${currentUserName || "Аноним"}.`;
     
+    // Save message to database
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && business?.owner_id) {
+      await supabase.from("messages").insert({
+        from_id: user.id,
+        to_id: business.owner_id,
+        message,
+        type: "exchange" as const,
+      });
+    }
+    
     setExchangeMessage(message);
     setDigitalExchangeDialogOpen(false);
     setExchangeMessageSent(true);
@@ -280,7 +291,7 @@ const BusinessPage = () => {
     setGoodsExchangeDialogOpen(true);
   };
 
-  const handleGoodsExchange = () => {
+  const handleGoodsExchange = async () => {
     const producerProductsList = selectedProducts
       .filter(p => producerProductQuantities[p.id] > 0)
       .map(p => `${p.name} (${producerProductQuantities[p.id]} шт)`)
@@ -295,6 +306,17 @@ const BusinessPage = () => {
 Выбраны ваши товары: ${producerProductsList || "не выбраны"}
 Предлагаю обмен на: ${userProductsList || "не выбраны"}
 Сообщение: ${exchangeComment || "без сообщения"}`;
+    
+    // Save message to database
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && business?.owner_id) {
+      await supabase.from("messages").insert({
+        from_id: user.id,
+        to_id: business.owner_id,
+        message,
+        type: "exchange" as const,
+      });
+    }
     
     setExchangeMessage(message);
     setGoodsExchangeDialogOpen(false);
