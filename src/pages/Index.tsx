@@ -421,22 +421,42 @@ const Index = () => {
           </DialogHeader>
           {selectedPromotion && (
             <div className="space-y-4">
-              <div className="aspect-video rounded-lg overflow-hidden">
-                <img
-                  src={selectedPromotion.image_url || DEFAULT_PROMO_IMAGE}
-                  alt={selectedPromotion.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-foreground">{selectedPromotion.description || ""}</p>
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{selectedPromotion.discount}</span>
+              {selectedPromotion.image_url && (
+                <div className="aspect-video rounded-lg overflow-hidden">
+                  <img
+                    src={selectedPromotion.image_url}
+                    alt={selectedPromotion.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="space-y-3">
+                {selectedPromotion.description && (
+                  <p className="text-foreground">{selectedPromotion.description}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
+                    {selectedPromotion.discount}
+                  </span>
                   {selectedPromotion.valid_until && (
-                    <span>До {new Date(selectedPromotion.valid_until).toLocaleDateString('ru-RU')}</span>
+                    <span className="text-muted-foreground">
+                      Действует до {new Date(selectedPromotion.valid_until).toLocaleDateString('ru-RU')}
+                    </span>
                   )}
                 </div>
+                {selectedPromotion.donation > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Донат: {selectedPromotion.donation} ₽
+                  </p>
+                )}
               </div>
+              <DialogFooter>
+                <Button asChild className="w-full sm:w-auto">
+                  <Link to={`/business/${selectedPromotion.business_id}`}>
+                    Перейти к визитке
+                  </Link>
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
