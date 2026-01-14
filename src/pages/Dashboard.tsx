@@ -488,7 +488,8 @@ const Dashboard = () => {
 
     setFormErrors({});
 
-    const updateData = {
+    const profileData = {
+      user_id: user.id,
       first_name,
       last_name,
       email: formData.email.trim() || null,
@@ -500,7 +501,7 @@ const Dashboard = () => {
       logo_url: formData.avatar.trim() || null,
     };
 
-    const { error } = await supabase.from("profiles").update(updateData).eq("user_id", user.id);
+    const { error } = await supabase.from("profiles").upsert(profileData, { onConflict: "user_id" });
 
     if (error) {
       toast({
