@@ -34,11 +34,14 @@ const mockAPISendOrder = async (order: { products: SelectedProduct[]; phone: str
   return { success: true, orderId: `ORD-${Date.now()}` };
 };
 
+type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin' | 'all';
+
 interface ProductDisplay {
   id: string;
   name: string;
   image: string;
   price: string;
+  saleType: string;
 }
 
 interface SelectedProduct extends ProductDisplay {
@@ -194,6 +197,7 @@ const CategoryPage = () => {
   
   const initialCity = searchParams.get("city") || "Все города";
   const [cityFilter, setCityFilter] = useState(initialCity);
+  const [saleTypeFilter, setSaleTypeFilter] = useState<ProductSaleType>("all");
 
   // Загрузка данных из БД
   useEffect(() => {
@@ -313,6 +317,7 @@ const CategoryPage = () => {
               name: p.name,
               image: p.image_url || "/placeholder.svg",
               price: p.price ? `${p.price} ₽${p.unit ? `/${p.unit}` : ""}` : "Цена по запросу",
+              saleType: (p as any).sale_type || "sell_only",
             });
           });
         }
@@ -377,9 +382,18 @@ const CategoryPage = () => {
     }
   };
 
-  const filteredBusinesses = cityFilter === "Все города" 
-    ? businesses 
-    : businesses.filter(b => b.city === cityFilter);
+  // Фильтруем товары по типу продажи, затем визитки по городу
+  const businessesWithFilteredProducts = businesses.map(b => ({
+    ...b,
+    products: saleTypeFilter === "all" 
+      ? b.products 
+      : b.products.filter(p => p.saleType === saleTypeFilter)
+  }));
+
+  const filteredBusinesses = (cityFilter === "Все города" 
+    ? businessesWithFilteredProducts 
+    : businessesWithFilteredProducts.filter(b => b.city === cityFilter)
+  ).filter(b => b.products.length > 0 || saleTypeFilter === "all");
 
   if (loading) {
     return (
@@ -404,11 +418,11 @@ const CategoryPage = () => {
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="w-48 bg-background">
-                <SelectValue placeholder="Выберите город" />
+              <SelectTrigger className="w-40 bg-background">
+                <SelectValue placeholder="Город" />
               </SelectTrigger>
               <SelectContent className="bg-background border border-border shadow-lg z-50">
                 {cities.map((city) => (
@@ -416,6 +430,17 @@ const CategoryPage = () => {
                     {city}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={saleTypeFilter} onValueChange={(v) => setSaleTypeFilter(v as ProductSaleType)}>
+              <SelectTrigger className="w-44 bg-background">
+                <SelectValue placeholder="Тип продажи" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border shadow-lg z-50">
+                <SelectItem value="all">Все типы</SelectItem>
+                <SelectItem value="sell_only">Только продажа</SelectItem>
+                <SelectItem value="barter_goods">Бартер товар-товар</SelectItem>
+                <SelectItem value="barter_coin">Бартер цифровой</SelectItem>
               </SelectContent>
             </Select>
           </div>
