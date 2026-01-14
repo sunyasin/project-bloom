@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Promotion, Category } from "@/types/db";
 import type { NewsItem } from "@/hooks/use-news";
+import type { User } from "@supabase/supabase-js";
 
 // Category image mapping
 const categoryImages: Record<string, string> = {
@@ -80,7 +81,27 @@ const Index = () => {
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState(mockAPICurrentUser.email);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
+
+  // Check auth state
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+      if (session?.user?.email) {
+        setSubscribeEmail(session.user.email);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+      if (session?.user?.email) {
+        setSubscribeEmail(session.user.email);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Load promotions from database
   useEffect(() => {
@@ -383,6 +404,8 @@ const Index = () => {
             variant="outline" 
             onClick={() => setIsSubscribeDialogOpen(true)}
             className="gap-2"
+            disabled={!currentUser}
+            title={!currentUser ? "Войдите, чтобы подписаться" : undefined}
           >
             <Mail className="h-4 w-4" />
             Подписка на новости
