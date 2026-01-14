@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,32 +10,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useProducts } from "@/hooks/use-products";
 import { supabase } from "@/integrations/supabase/client";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
-import Link from "@tiptap/extension-link";
-import TextAlign from "@tiptap/extension-text-align";
-import ImageExtension from "@tiptap/extension-image";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 import { cn } from "@/lib/utils";
 import {
-  Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Image,
-  Link as LinkIcon,
   Save,
   ArrowLeft,
   Eye,
-  List,
-  ListOrdered,
-  Heading1,
-  Heading2,
-  Undo,
-  Redo,
-  Quote,
   Upload,
   X,
   Inbox,
@@ -82,30 +63,6 @@ const mockAPIProductPreviewData = {
   phone: "+7 (999) 123-45-67",
 };
 
-// Toolbar Button Component
-const ToolbarButton = ({
-  onClick,
-  isActive = false,
-  disabled = false,
-  children,
-}: {
-  onClick: () => void;
-  isActive?: boolean;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) => (
-  <Button
-    type="button"
-    variant={isActive ? "secondary" : "ghost"}
-    size="icon"
-    className="h-8 w-8"
-    onClick={onClick}
-    onMouseDown={(e) => e.preventDefault()}
-    disabled={disabled}
-  >
-    {children}
-  </Button>
-);
 
 const ProductEditor = () => {
   const { id } = useParams();
@@ -146,39 +103,126 @@ const ProductEditor = () => {
     loadCategories();
   }, []);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
-      }),
-      Underline,
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: "text-primary underline",
-        },
-      }),
-      TextAlign.configure({
-        types: ["heading", "paragraph"],
-      }),
-      ImageExtension.configure({
-        HTMLAttributes: {
-          class: "max-w-full rounded-lg",
-        },
-      }),
+  const quillRef = useRef<ReactQuill>(null);
+  const [isEditorDragging, setIsEditorDragging] = useState(false);
+
+  // Quill modules config
+  const quillModules = useMemo(() => ({
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ["bold", "italic", "underline", "strike"],
+      [{ align: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      ["blockquote"],
+      ["link", "image"],
+      ["clean"],
     ],
-    content: productData.content,
-    onUpdate: ({ editor }) => {
-      setProductData((prev) => ({ ...prev, content: editor.getHTML() }));
-    },
-    editorProps: {
-      attributes: {
-        class: "prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4",
-      },
-    },
-  });
+  }), []);
+
+  const quillFormats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "align",
+    "list",
+    "blockquote",
+    "link",
+    "image",
+  ];
+
+  const handleContentChange = (value: string) => {
+    setProductData((prev) => ({ ...prev, content: value }));
+  };
+
+  // Upload image for editor drag-and-drop
+  const uploadEditorImage = async (file: File): Promise<string | null> => {
+    const validation = validateProductImage(file);
+    if (!validation.valid) {
+      toast({
+        title: "Ошибка",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${session.user.id}/editor-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Editor image upload error:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить изображение",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  // Handle drag-and-drop for Quill editor
+  const handleEditorDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditorDragging(true);
+  };
+
+  const handleEditorDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditorDragging(false);
+  };
+
+  const handleEditorDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditorDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      const url = await uploadEditorImage(file);
+      if (url && quillRef.current) {
+        const quill = quillRef.current.getEditor();
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, "image", url);
+        quill.setSelection(range.index + 1);
+        toast({
+          title: "Загружено",
+          description: "Изображение добавлено в редактор",
+        });
+      }
+    } else if (file) {
+      toast({
+        title: "Ошибка",
+        description: "Перетащите файл изображения",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Загрузка данных товара при редактировании
   useEffect(() => {
@@ -200,9 +244,6 @@ const ProductEditor = () => {
               saleType: (data as any).sale_type || "sell_only",
             });
             setProductId(data.id);
-            if (editor && data.content) {
-              editor.commands.setContent(data.content);
-            }
           } else {
             toast({
               title: "Ошибка",
@@ -226,13 +267,7 @@ const ProductEditor = () => {
     };
 
     loadProductData();
-  }, [id, editor, navigate, toast, getProduct]);
-
-  useEffect(() => {
-    if (editor && productData.content && !isNew && !isDataLoading) {
-      editor.commands.setContent(productData.content);
-    }
-  }, [editor, productData.content, isNew, isDataLoading]);
+  }, [id, navigate, toast, getProduct]);
 
   const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
     setProductData((prev) => ({ ...prev, [field]: value }));
@@ -500,30 +535,7 @@ const ProductEditor = () => {
     }
   };
 
-  const addImage = useCallback(() => {
-    const url = prompt("Введите URL изображения:");
-    if (url && editor) {
-      editor.chain().focus().setImage({ src: url }).run();
-    }
-  }, [editor]);
-
-  const setLink = useCallback(() => {
-    if (!editor) return;
-
-    const previousUrl = editor.getAttributes("link").href;
-    const url = prompt("Введите URL ссылки:", previousUrl);
-
-    if (url === null) return;
-
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  }, [editor]);
-
-  if (!editor || isDataLoading) {
+  if (isDataLoading) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -811,107 +823,31 @@ const ProductEditor = () => {
           </div>
         </div>
 
-        {/* TipTap WYSIWYG Editor */}
+        {/* Quill WYSIWYG Editor */}
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Подробное описание</h2>
+          <p className="text-sm text-muted-foreground">
+            Перетащите изображения прямо в редактор для быстрой загрузки
+          </p>
 
-          {/* Toolbar */}
-          <div className="flex flex-wrap gap-1 p-2 bg-muted rounded-lg border border-border">
-            <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
-              <Undo className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
-              <Redo className="h-4 w-4" />
-            </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              isActive={editor.isActive("heading", { level: 1 })}
-            >
-              <Heading1 className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              isActive={editor.isActive("heading", { level: 2 })}
-            >
-              <Heading2 className="h-4 w-4" />
-            </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
-            <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive("bold")}>
-              <Bold className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              isActive={editor.isActive("italic")}
-            >
-              <Italic className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
-              isActive={editor.isActive("underline")}
-            >
-              <UnderlineIcon className="h-4 w-4" />
-            </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
-            <ToolbarButton
-              onClick={() => editor.chain().focus().setTextAlign("left").run()}
-              isActive={editor.isActive({ textAlign: "left" })}
-            >
-              <AlignLeft className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().setTextAlign("center").run()}
-              isActive={editor.isActive({ textAlign: "center" })}
-            >
-              <AlignCenter className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().setTextAlign("right").run()}
-              isActive={editor.isActive({ textAlign: "right" })}
-            >
-              <AlignRight className="h-4 w-4" />
-            </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-              isActive={editor.isActive("bulletList")}
-            >
-              <List className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              isActive={editor.isActive("orderedList")}
-            >
-              <ListOrdered className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              isActive={editor.isActive("blockquote")}
-            >
-              <Quote className="h-4 w-4" />
-            </ToolbarButton>
-
-            <div className="w-px bg-border mx-1 h-8" />
-
-            <ToolbarButton onClick={setLink} isActive={editor.isActive("link")}>
-              <LinkIcon className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton onClick={addImage}>
-              <Image className="h-4 w-4" />
-            </ToolbarButton>
-          </div>
-
-          {/* Editor Content */}
-          <div className="border border-border rounded-lg bg-background min-h-[200px]">
-            <EditorContent editor={editor} />
+          <div
+            className={cn(
+              "quill-editor-wrapper rounded-lg border transition-all",
+              isEditorDragging ? "border-primary bg-primary/5" : "border-border"
+            )}
+            onDragOver={handleEditorDragOver}
+            onDragLeave={handleEditorDragLeave}
+            onDrop={handleEditorDrop}
+          >
+            <ReactQuill
+              ref={quillRef}
+              theme="snow"
+              value={productData.content}
+              onChange={handleContentChange}
+              modules={quillModules}
+              formats={quillFormats}
+              placeholder="Подробное описание товара..."
+            />
           </div>
         </div>
       </div>
@@ -945,12 +881,12 @@ const ProductEditor = () => {
               <p>Телефон: {mockAPIProductPreviewData.phone}</p>
             </div>
 
-            {editor?.getHTML() && (
+            {productData.content && (
               <div className="border-t border-border pt-4">
                 <div
                   className="prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{
-                    __html: editor.getHTML(),
+                    __html: productData.content,
                   }}
                 />
               </div>

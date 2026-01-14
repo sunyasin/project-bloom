@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +76,8 @@ const BusinessCardEditor = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [isEditorDragging, setIsEditorDragging] = useState(false);
+  const quillRef = useRef<ReactQuill>(null);
 
   // Quill modules configuration
   const quillModules = useMemo(() => ({
@@ -383,6 +385,94 @@ const BusinessCardEditor = () => {
     }
   };
 
+  // Upload image for editor drag-and-drop
+  const uploadEditorImage = async (file: File): Promise<string | null> => {
+    const validation = validateImage(file);
+    if (!validation.valid) {
+      toast({
+        title: "Ошибка",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/editor-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Editor image upload error:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить изображение",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  // Handle drag-and-drop for Quill editor
+  const handleEditorDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditorDragging(true);
+  };
+
+  const handleEditorDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditorDragging(false);
+  };
+
+  const handleEditorDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditorDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      const url = await uploadEditorImage(file);
+      if (url && quillRef.current) {
+        const quill = quillRef.current.getEditor();
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, "image", url);
+        quill.setSelection(range.index + 1);
+        toast({
+          title: "Загружено",
+          description: "Изображение добавлено в редактор",
+        });
+      }
+    } else if (file) {
+      toast({
+        title: "Ошибка",
+        description: "Перетащите файл изображения",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isDataLoading) {
     return (
       <MainLayout>
@@ -594,9 +684,21 @@ const BusinessCardEditor = () => {
         {/* Редактор контента - Quill */}
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Содержимое</h2>
+          <p className="text-sm text-muted-foreground">
+            Перетащите изображения прямо в редактор для быстрой загрузки
+          </p>
           
-          <div className="quill-editor-wrapper">
+          <div 
+            className={cn(
+              "quill-editor-wrapper rounded-lg border transition-all",
+              isEditorDragging ? "border-primary bg-primary/5" : "border-border"
+            )}
+            onDragOver={handleEditorDragOver}
+            onDragLeave={handleEditorDragLeave}
+            onDrop={handleEditorDrop}
+          >
             <ReactQuill
+              ref={quillRef}
               theme="snow"
               value={cardData.content}
               onChange={handleContentChange}
