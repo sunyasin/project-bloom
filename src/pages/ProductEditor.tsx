@@ -56,6 +56,7 @@ interface ProductFormData {
   price: number;
   unit: string;
   image: string;
+  galleryUrls: string[];
   content: string;
   categoryId: string;
   saleType: ProductSaleType;
@@ -119,6 +120,7 @@ const ProductEditor = () => {
     price: 0,
     unit: "шт",
     image: "",
+    galleryUrls: [],
     content: "",
     categoryId: "",
     saleType: "sell_only",
@@ -192,6 +194,7 @@ const ProductEditor = () => {
               price: data.price || 0,
               unit: data.unit || "шт",
               image: data.image_url || "",
+              galleryUrls: (data as any).gallery_urls || [],
               content: data.content || "",
               categoryId: data.category_id || "",
               saleType: (data as any).sale_type || "sell_only",
@@ -253,6 +256,7 @@ const ProductEditor = () => {
         price: productData.price,
         unit: productData.unit,
         image_url: productData.image,
+        gallery_urls: productData.galleryUrls,
         category_id: productData.categoryId || null,
         content: productData.content,
         sale_type: productData.saleType,
@@ -380,6 +384,88 @@ const ProductEditor = () => {
         description: "Изображение удалено",
       });
     }
+  };
+
+  // Gallery upload function
+  const uploadGalleryImage = async (file: File) => {
+    const validation = validateProductImage(file);
+    if (!validation.valid) {
+      toast({
+        title: "Ошибка",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${session.user.id}/gallery-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      setProductData(prev => ({
+        ...prev,
+        galleryUrls: [...prev.galleryUrls, publicUrl]
+      }));
+
+      toast({
+        title: "Загружено",
+        description: "Изображение добавлено в галерею",
+      });
+    } catch (error) {
+      console.error("Gallery upload error:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить изображение",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      for (const file of Array.from(files)) {
+        await uploadGalleryImage(file);
+      }
+    }
+  };
+
+  const handleDeleteGalleryImage = async (index: number) => {
+    const imageUrl = productData.galleryUrls[index];
+    await deleteImageFromStorage(imageUrl);
+    
+    setProductData(prev => ({
+      ...prev,
+      galleryUrls: prev.galleryUrls.filter((_, i) => i !== index)
+    }));
+    
+    toast({
+      title: "Удалено",
+      description: "Изображение удалено из галереи",
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -669,6 +755,56 @@ const ProductEditor = () => {
                 className="flex-1"
               />
             </div>
+          </div>
+
+          {/* Gallery Section */}
+          <div className="mt-4">
+            <label className="text-sm text-muted-foreground mb-2 block">
+              Галерея изображений ({productData.galleryUrls.length} фото)
+            </label>
+            
+            {/* Gallery Grid */}
+            {productData.galleryUrls.length > 0 && (
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-3">
+                {productData.galleryUrls.map((url, index) => (
+                  <div key={index} className="relative group aspect-square">
+                    <img 
+                      src={url} 
+                      alt={`Галерея ${index + 1}`} 
+                      className="w-full h-full object-cover rounded-lg border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGalleryImage(index)}
+                      className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Add to Gallery */}
+            <label className="cursor-pointer inline-block">
+              <input 
+                type="file" 
+                accept="image/*" 
+                multiple 
+                className="hidden" 
+                onChange={handleGalleryUpload}
+                disabled={isUploading}
+              />
+              <Button type="button" variant="outline" size="sm" asChild disabled={isUploading}>
+                <span>
+                  <Upload className="h-4 w-4 mr-1" />
+                  {isUploading ? "Загрузка..." : "Добавить в галерею"}
+                </span>
+              </Button>
+            </label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Можно выбрать несколько файлов
+            </p>
           </div>
         </div>
 

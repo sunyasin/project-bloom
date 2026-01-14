@@ -264,6 +264,7 @@ export type Database = {
           content: string | null
           created_at: string
           description: string | null
+          gallery_urls: string[] | null
           id: string
           image_url: string | null
           is_available: boolean
@@ -279,6 +280,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           description?: string | null
+          gallery_urls?: string[] | null
           id?: string
           image_url?: string | null
           is_available?: boolean
@@ -294,6 +296,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           description?: string | null
+          gallery_urls?: string[] | null
           id?: string
           image_url?: string | null
           is_available?: boolean
