@@ -34,7 +34,7 @@ export function useBusinesses() {
         .from("businesses")
         .select("*")
         .eq("owner_id", user.id)
-        .eq("status", "published")
+        .neq("status", "deleted")
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
