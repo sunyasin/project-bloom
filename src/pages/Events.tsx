@@ -1,19 +1,31 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Calendar, MapPin, Clock, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Calendar as CalendarIcon, Loader2, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { NewsItem } from "@/hooks/use-news";
+import type { DateRange } from "react-day-picker";
 
 const Events = () => {
   const [events, setEvents] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<NewsItem | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -37,6 +49,25 @@ const Events = () => {
     fetchEvents();
   }, []);
 
+  // Filter events by date range
+  const filteredEvents = useMemo(() => {
+    if (!dateRange?.from) return events;
+
+    return events.filter((event) => {
+      if (!event.event_date) return false;
+      const eventDate = new Date(event.event_date);
+      const from = dateRange.from!;
+      const to = dateRange.to || dateRange.from!;
+
+      // Reset hours for comparison
+      eventDate.setHours(0, 0, 0, 0);
+      from.setHours(0, 0, 0, 0);
+      to.setHours(23, 59, 59, 999);
+
+      return eventDate >= from && eventDate <= to;
+    });
+  }, [events, dateRange]);
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Дата не указана";
     return new Date(dateString).toLocaleDateString("ru-RU", {
@@ -55,6 +86,10 @@ const Events = () => {
     };
   };
 
+  const clearFilter = () => {
+    setDateRange(undefined);
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -65,18 +100,77 @@ const Events = () => {
           </p>
         </div>
 
+        {/* Date Range Filter */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "justify-start text-left font-normal",
+                  !dateRange?.from && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "d MMM", { locale: ru })} —{" "}
+                      {format(dateRange.to, "d MMM yyyy", { locale: ru })}
+                    </>
+                  ) : (
+                    format(dateRange.from, "d MMMM yyyy", { locale: ru })
+                  )
+                ) : (
+                  <span>Выберите даты</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                locale={ru}
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {dateRange?.from && (
+            <Button variant="ghost" size="sm" onClick={clearFilter}>
+              <X className="h-4 w-4 mr-1" />
+              Сбросить
+            </Button>
+          )}
+
+          <span className="text-sm text-muted-foreground">
+            Найдено: {filteredEvents.length} из {events.length}
+          </span>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : events.length === 0 ? (
+        ) : filteredEvents.length === 0 ? (
           <div className="content-card text-center py-12">
-            <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Предстоящих событий нет</p>
+            <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">
+              {dateRange?.from ? "Событий в выбранном диапазоне нет" : "Предстоящих событий нет"}
+            </p>
+            {dateRange?.from && (
+              <Button variant="link" onClick={clearFilter} className="mt-2">
+                Сбросить фильтр
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            {events.map((event) => {
+            {filteredEvents.map((event) => {
               const shortDate = formatShortDate(event.event_date);
               return (
                 <article
@@ -108,7 +202,7 @@ const Events = () => {
                       <h3 className="font-medium text-foreground mt-1">{event.title}</h3>
                       <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
+                          <CalendarIcon className="h-4 w-4" />
                           {formatDate(event.event_date)}
                         </span>
                       </div>
@@ -144,7 +238,7 @@ const Events = () => {
                 </div>
               )}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
                 <span>{formatDate(selectedEvent.event_date)}</span>
               </div>
               {selectedEvent.content && (
