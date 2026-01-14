@@ -546,6 +546,7 @@ const BusinessPage = () => {
                     <div className="flex items-start gap-2 mb-2">
                       <Checkbox
                         checked={selected}
+                        disabled={!currentUser}
                         onCheckedChange={(checked) =>
                           handleProductSelect(
                             {
@@ -554,13 +555,15 @@ const BusinessPage = () => {
                               price: product.price || 0,
                               image:
                                 product.image_url ||
-                                "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop",
+                                "https://images.unsplash.com/photo-472354-b33ff0c44a43?w=200&h=200&fit=crop",
                             },
                             checked as boolean,
                           )
                         }
                       />
-                      <span className="text-xs text-muted-foreground">Выбрать</span>
+                      <span className={`text-xs ${!currentUser ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                        {!currentUser ? 'Войдите' : 'Выбрать'}
+                      </span>
                     </div>
                     <button 
                       onClick={() => {
