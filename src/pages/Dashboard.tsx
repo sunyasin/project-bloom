@@ -286,6 +286,7 @@ const Dashboard = () => {
   const [allUsers, setAllUsers] = useState<{ id: string; name: string }[]>([]);
   const [selectedRecipient, setSelectedRecipient] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
+  const [transferMessage, setTransferMessage] = useState("");
   const [transferError, setTransferError] = useState("");
   const [profileId, setProfileId] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
@@ -948,6 +949,7 @@ const Dashboard = () => {
   // Wallet handlers
   const openWalletDialog = async () => {
     setTransferAmount("");
+    setTransferMessage("");
     setSelectedRecipient("");
     setTransferError("");
 
@@ -1004,11 +1006,55 @@ const Dashboard = () => {
     }
 
     // Update local balance
-    setWalletBalance((prev) => prev - amount);
+    const newBalance = walletBalance - amount;
+    setWalletBalance(newBalance);
+    
+    // Get recipient name for notifications
+    const recipientInfo = allUsers.find(u => u.id === selectedRecipient);
+    const recipientName = recipientInfo?.name || 'Получатель';
+    const senderName = formData.name || 'Отправитель';
+    const now = new Date();
+    const dateTimeStr = now.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    // Get recipient's user_id for message
+    const { data: recipientProfile } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("id", selectedRecipient)
+      .single();
+    
+    if (recipientProfile && user?.id) {
+      // Message to recipient
+      const recipientMessage = `💰 Входящий перевод\nОт: ${senderName}\nДата: ${dateTimeStr}\nСумма: +${amount} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ''}`;
+      
+      await supabase.from("messages").insert({
+        from_id: user.id,
+        to_id: recipientProfile.user_id,
+        message: recipientMessage,
+        type: "income" as const,
+      });
+      
+      // Message to sender (self-notification)
+      const senderMessage = `💸 Исходящий перевод\nКому: ${recipientName}\nДата: ${dateTimeStr}\nСумма: -${amount} долей\nБаланс: ${newBalance} долей${transferMessage ? `\nСообщение: ${transferMessage}` : ''}`;
+      
+      await supabase.from("messages").insert({
+        from_id: user.id,
+        to_id: user.id,
+        message: senderMessage,
+        type: "income" as const,
+      });
+    }
+    
     setWalletDialogOpen(false);
     toast({
       title: "Перевод выполнен",
-      description: `Переведено ${amount} на счёт получателя`,
+      description: `Переведено ${amount} долей → ${recipientName}`,
     });
     setTransferring(false);
   };
@@ -2254,6 +2300,16 @@ const Dashboard = () => {
                 value={transferAmount}
                 onChange={(e) => setTransferAmount(e.target.value)}
                 placeholder="Введите сумму"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Сообщение (необязательно):</Label>
+              <Input
+                value={transferMessage}
+                onChange={(e) => setTransferMessage(e.target.value)}
+                placeholder="Комментарий к переводу"
+                maxLength={200}
               />
             </div>
 
