@@ -423,10 +423,16 @@ const ProductEditor = () => {
         .from("product-images")
         .getPublicUrl(fileName);
 
-      setProductData(prev => ({
-        ...prev,
-        galleryUrls: [...prev.galleryUrls, publicUrl]
-      }));
+      setProductData(prev => {
+        const newGallery = [...prev.galleryUrls, publicUrl];
+        // If main image is empty, use first gallery image
+        const newImage = !prev.image && newGallery.length > 0 ? newGallery[0] : prev.image;
+        return {
+          ...prev,
+          image: newImage,
+          galleryUrls: newGallery
+        };
+      });
 
       toast({
         title: "Загружено",
