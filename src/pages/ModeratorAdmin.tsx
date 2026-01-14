@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -29,6 +30,7 @@ interface BusinessWithOwner extends Business {
 
 const ModeratorContent = () => {
   const { toast } = useToast();
+  const { user: currentUser } = useCurrentUserWithRole();
   const [businesses, setBusinesses] = useState<BusinessWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithOwner | null>(null);
@@ -86,6 +88,26 @@ const ModeratorContent = () => {
     loadBusinesses();
   }, []);
 
+  // Send notification to business owner
+  const sendNotification = async (
+    ownerId: string, 
+    message: string, 
+    type: "admin_status" | "from_admin" = "admin_status"
+  ) => {
+    if (!currentUser?.id || !ownerId) return;
+
+    try {
+      await supabase.from("messages").insert({
+        from_id: currentUser.id,
+        to_id: ownerId,
+        message,
+        type,
+      });
+    } catch (err) {
+      console.error("Error sending notification:", err);
+    }
+  };
+
   const handlePublish = async (business: BusinessWithOwner) => {
     setProcessing(true);
     
@@ -97,6 +119,14 @@ const ModeratorContent = () => {
     if (error) {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     } else {
+      // Send notification to owner
+      if (business.owner_id) {
+        await sendNotification(
+          business.owner_id,
+          `✅ Ваша визитка "${business.name}" успешно прошла модерацию и опубликована!`
+        );
+      }
+      
       toast({ title: "Успешно", description: `Визитка "${business.name}" опубликована` });
       setPreviewOpen(false);
       setSelectedBusiness(null);
@@ -131,6 +161,14 @@ const ModeratorContent = () => {
     if (error) {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     } else {
+      // Send notification to owner with comment
+      if (selectedBusiness.owner_id) {
+        await sendNotification(
+          selectedBusiness.owner_id,
+          `⚠️ Ваша визитка "${selectedBusiness.name}" отправлена на доработку.\n\nКомментарий модератора:\n${rejectComment}`
+        );
+      }
+      
       toast({ title: "Отправлено на доработку", description: `Визитка "${selectedBusiness.name}" возвращена владельцу` });
       setRejectDialogOpen(false);
       setPreviewOpen(false);
