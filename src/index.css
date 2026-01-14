@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Quill Editor Styles */
+.quill-editor-wrapper .ql-container {
+  min-height: 300px;
+  font-size: 14px;
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+}
+
+.quill-editor-wrapper .ql-toolbar {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  background: hsl(var(--muted) / 0.5);
+}
+
+.quill-editor-wrapper .ql-editor {
+  min-height: 300px;
+}
+
+.quill-editor-wrapper .ql-editor.ql-blank::before {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {

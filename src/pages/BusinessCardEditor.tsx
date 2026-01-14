@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,32 +8,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
-import Link from "@tiptap/extension-link";
-import TextAlign from "@tiptap/extension-text-align";
-import ImageExtension from "@tiptap/extension-image";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 import { supabase } from "@/integrations/supabase/client";
 import { 
-  Bold, 
-  Italic, 
-  Underline as UnderlineIcon, 
-  AlignLeft, 
-  AlignCenter, 
-  AlignRight,
-  Image,
-  Link as LinkIcon,
   Save,
   ArrowLeft,
   Eye,
-  List,
-  ListOrdered,
-  Heading1,
-  Heading2,
-  Undo,
-  Redo,
-  Quote,
   Upload,
   X,
   ImagePlus,
@@ -58,31 +39,6 @@ interface BusinessCardData {
   city: string;
   location: string;
 }
-
-// Toolbar Button Component
-const ToolbarButton = ({ 
-  onClick, 
-  isActive = false, 
-  disabled = false,
-  children 
-}: { 
-  onClick: () => void; 
-  isActive?: boolean; 
-  disabled?: boolean;
-  children: React.ReactNode;
-}) => (
-  <Button
-    type="button"
-    variant={isActive ? "secondary" : "ghost"}
-    size="icon"
-    className="h-8 w-8"
-    onClick={onClick}
-    onMouseDown={(e) => e.preventDefault()}
-    disabled={disabled}
-  >
-    {children}
-  </Button>
-);
 
 // Валидация файла изображения
 const validateImage = (file: File): { valid: boolean; error?: string } => {
@@ -121,6 +77,28 @@ const BusinessCardEditor = () => {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
+  // Quill modules configuration
+  const quillModules = useMemo(() => ({
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'align': [] }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['blockquote'],
+      ['link', 'image'],
+      ['clean'],
+    ],
+  }), []);
+
+  const quillFormats = useMemo(() => [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'align',
+    'list', 'bullet',
+    'blockquote',
+    'link', 'image',
+  ], []);
+
   // Загрузка категорий и профиля пользователя
   useEffect(() => {
     const loadInitialData = async () => {
@@ -157,40 +135,6 @@ const BusinessCardEditor = () => {
     };
     loadInitialData();
   }, [isNew]);
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
-      }),
-      Underline,
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: "text-primary underline",
-        },
-      }),
-      TextAlign.configure({
-        types: ["heading", "paragraph"],
-      }),
-      ImageExtension.configure({
-        HTMLAttributes: {
-          class: "max-w-full rounded-lg",
-        },
-      }),
-    ],
-    content: cardData.content,
-    onUpdate: ({ editor }) => {
-      setCardData((prev) => ({ ...prev, content: editor.getHTML() }));
-    },
-    editorProps: {
-      attributes: {
-        class: "prose prose-sm max-w-none focus:outline-none min-h-[300px] p-4",
-      },
-    },
-  });
 
   // Загрузка данных визитки при редактировании
   useEffect(() => {
@@ -230,9 +174,6 @@ const BusinessCardEditor = () => {
               location: data.location || profile?.address || "",
             };
             setCardData(loaded);
-            if (editor && loaded.content) {
-              editor.commands.setContent(loaded.content);
-            }
           } else {
             toast({
               title: "Ошибка",
@@ -256,18 +197,15 @@ const BusinessCardEditor = () => {
     };
 
     loadCardData();
-  }, [id, isNew, editor, navigate, toast]);
-
-  // Обновляем редактор когда данные загружены
-  useEffect(() => {
-    if (editor && cardData.content && !isNew && !isDataLoading) {
-      editor.commands.setContent(cardData.content);
-    }
-  }, [editor, cardData.content, isNew, isDataLoading]);
+  }, [id, isNew, navigate, toast]);
 
   const updateField = <K extends keyof BusinessCardData>(field: K, value: BusinessCardData[K]) => {
     setCardData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleContentChange = useCallback((value: string) => {
+    setCardData((prev) => ({ ...prev, content: value }));
+  }, []);
 
   const handleSave = async () => {
     if (!cardData.title.trim()) {
@@ -445,30 +383,7 @@ const BusinessCardEditor = () => {
     }
   };
 
-  const addImage = useCallback(() => {
-    const url = prompt("Введите URL изображения:");
-    if (url && editor) {
-      editor.chain().focus().setImage({ src: url }).run();
-    }
-  }, [editor]);
-
-  const setLink = useCallback(() => {
-    if (!editor) return;
-    
-    const previousUrl = editor.getAttributes("link").href;
-    const url = prompt("Введите URL ссылки:", previousUrl);
-
-    if (url === null) return;
-
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  }, [editor]);
-
-  if (!editor || isDataLoading) {
+  if (isDataLoading) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -676,116 +591,19 @@ const BusinessCardEditor = () => {
           )}
         </div>
 
-        {/* Редактор контента */}
+        {/* Редактор контента - Quill */}
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Содержимое</h2>
           
-          {/* Toolbar */}
-          <div className="flex flex-wrap gap-1 p-2 bg-muted/50 rounded-lg border">
-            <ToolbarButton
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
-            >
-              <Undo className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
-            >
-              <Redo className="h-4 w-4" />
-            </ToolbarButton>
-            
-            <div className="w-px h-8 bg-border mx-1" />
-            
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              isActive={editor.isActive("heading", { level: 1 })}
-            >
-              <Heading1 className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              isActive={editor.isActive("heading", { level: 2 })}
-            >
-              <Heading2 className="h-4 w-4" />
-            </ToolbarButton>
-            
-            <div className="w-px h-8 bg-border mx-1" />
-            
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              isActive={editor.isActive("bold")}
-            >
-              <Bold className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              isActive={editor.isActive("italic")}
-            >
-              <Italic className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
-              isActive={editor.isActive("underline")}
-            >
-              <UnderlineIcon className="h-4 w-4" />
-            </ToolbarButton>
-            
-            <div className="w-px h-8 bg-border mx-1" />
-            
-            <ToolbarButton
-              onClick={() => editor.chain().focus().setTextAlign("left").run()}
-              isActive={editor.isActive({ textAlign: "left" })}
-            >
-              <AlignLeft className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().setTextAlign("center").run()}
-              isActive={editor.isActive({ textAlign: "center" })}
-            >
-              <AlignCenter className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().setTextAlign("right").run()}
-              isActive={editor.isActive({ textAlign: "right" })}
-            >
-              <AlignRight className="h-4 w-4" />
-            </ToolbarButton>
-            
-            <div className="w-px h-8 bg-border mx-1" />
-            
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-              isActive={editor.isActive("bulletList")}
-            >
-              <List className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              isActive={editor.isActive("orderedList")}
-            >
-              <ListOrdered className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              isActive={editor.isActive("blockquote")}
-            >
-              <Quote className="h-4 w-4" />
-            </ToolbarButton>
-            
-            <div className="w-px h-8 bg-border mx-1" />
-            
-            <ToolbarButton onClick={setLink} isActive={editor.isActive("link")}>
-              <LinkIcon className="h-4 w-4" />
-            </ToolbarButton>
-            <ToolbarButton onClick={addImage}>
-              <Image className="h-4 w-4" />
-            </ToolbarButton>
-          </div>
-          
-          {/* Editor */}
-          <div className="border rounded-lg bg-background">
-            <EditorContent editor={editor} />
+          <div className="quill-editor-wrapper">
+            <ReactQuill
+              theme="snow"
+              value={cardData.content}
+              onChange={handleContentChange}
+              modules={quillModules}
+              formats={quillFormats}
+              placeholder="Введите содержимое визитки..."
+            />
           </div>
         </div>
       </div>
