@@ -38,7 +38,7 @@ import {
   Quote,
   Upload,
   X,
-  ImagePlus,
+  Inbox,
   Check,
   ChevronsUpDown,
 } from "lucide-react";
@@ -533,7 +533,7 @@ const ProductEditor = () => {
                     </div>
                   ) : (
                     <>
-                      <ImagePlus className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                      <Inbox className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                       <p className="text-sm text-muted-foreground mb-2">Перетащите изображение сюда или</p>
                       <label className="cursor-pointer">
                         <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
