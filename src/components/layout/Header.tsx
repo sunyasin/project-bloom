@@ -189,24 +189,24 @@ export const Header = () => {
             </>
           )}
           
-          {user && userWithRole?.role === "super_admin" && (
+          {user && userWithRole?.roles?.includes("super_admin") && (
             <Link to="/admin">
               <Button variant="outline" size="sm">
                 Админка
               </Button>
             </Link>
           )}
-          {user && userWithRole?.role === "moderator" && (
+          {user && !userWithRole?.roles?.includes("super_admin") && userWithRole?.roles?.includes("moderator") && (
             <Link to="/moderator">
               <Button variant="outline" size="sm">
-                Админка
+                Модерация
               </Button>
             </Link>
           )}
-          {user && userWithRole?.role === "news_editor" && (
+          {user && !userWithRole?.roles?.includes("super_admin") && userWithRole?.roles?.includes("news_editor") && (
             <Link to="/news-editor">
               <Button variant="outline" size="sm">
-                Админка
+                Редактор
               </Button>
             </Link>
           )}

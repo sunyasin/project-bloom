@@ -4,7 +4,7 @@ export type AppRole = 'visitor' | 'client' | 'moderator' | 'news_editor' | 'supe
 export interface UserWithRole {
   id: string;
   email: string;
-  role: AppRole | null;
+  roles: AppRole[];
 }
 
 // Role hierarchy for permission checks

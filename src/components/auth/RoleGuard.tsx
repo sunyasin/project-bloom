@@ -38,8 +38,8 @@ export function RoleGuard({
     );
   }
 
-  // Check if user has required role
-  const hasPermission = user?.role && allowedRoles.includes(user.role);
+  // Check if user has any of the required roles
+  const hasPermission = user?.roles?.some(role => allowedRoles.includes(role));
 
   if (!hasPermission) {
     return (
