@@ -1107,7 +1107,7 @@ const Dashboard = () => {
     }
   };
 
-  // Load transaction history (only from coins table)
+  // Load transaction history (only from coins table, with counterparty from transactions)
   const loadTransactionHistory = async () => {
     if (!profileId) return;
 
@@ -1115,7 +1115,7 @@ const Dashboard = () => {
     try {
       const { data: coins, error: coinsError } = await supabase
         .from("coins")
-        .select("id, amount, when, profile_balance")
+        .select("id, amount, when, profile_balance, hash")
         .eq("who", profileId)
         .order("when", { ascending: false })
         .limit(50);
@@ -1126,13 +1126,71 @@ const Dashboard = () => {
         return;
       }
 
-      const items: TransactionHistoryItem[] = (coins || []).map((c) => ({
-        id: c.id,
-        type: c.amount >= 0 ? "transfer_in" : "transfer_out",
-        amount: c.amount,
-        date: c.when,
-        balance_after: c.profile_balance,
-      }));
+      // Get hashes to find counterparties from transactions table
+      const hashes = (coins || []).map((c) => c.hash).filter(Boolean);
+      
+      let transactionMap = new Map<string, { from_id: string; to_id: string }>();
+      if (hashes.length > 0) {
+        const { data: transactions } = await supabase
+          .from("transactions")
+          .select("hash, from_id, to_id")
+          .in("hash", hashes);
+
+        if (transactions) {
+          transactions.forEach((t) => {
+            transactionMap.set(t.hash, { from_id: t.from_id, to_id: t.to_id });
+          });
+        }
+      }
+
+      // Get counterparty profile IDs
+      const counterpartyIds = new Set<string>();
+      (coins || []).forEach((c) => {
+        const tx = transactionMap.get(c.hash);
+        if (tx) {
+          const counterpartyId = c.amount < 0 ? tx.to_id : tx.from_id;
+          if (counterpartyId && counterpartyId !== profileId) {
+            counterpartyIds.add(counterpartyId);
+          }
+        }
+      });
+
+      // Fetch counterparty names
+      let profileMap = new Map<string, string>();
+      if (counterpartyIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", Array.from(counterpartyIds));
+
+        profileMap = new Map(
+          profiles?.map((p) => [
+            p.id,
+            `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Пользователь",
+          ]) || []
+        );
+      }
+
+      const items: TransactionHistoryItem[] = (coins || []).map((c) => {
+        const tx = transactionMap.get(c.hash);
+        let counterparty: string | undefined;
+        
+        if (tx) {
+          const counterpartyId = c.amount < 0 ? tx.to_id : tx.from_id;
+          if (counterpartyId && counterpartyId !== profileId) {
+            counterparty = profileMap.get(counterpartyId);
+          }
+        }
+
+        return {
+          id: c.id,
+          type: c.amount >= 0 ? "transfer_in" : "transfer_out",
+          amount: c.amount,
+          date: c.when,
+          balance_after: c.profile_balance,
+          counterparty,
+        };
+      });
 
       setTransactionHistory(items);
     } catch (err) {
