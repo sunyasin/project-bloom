@@ -27,6 +27,7 @@ import {
   ArrowDownLeft,
   Reply,
   CornerDownRight,
+  Repeat,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -37,6 +38,8 @@ import { useBusinesses } from "@/hooks/use-businesses";
 import { useProducts } from "@/hooks/use-products";
 import { usePromotions, Promotion, PromotionFormData } from "@/hooks/use-promotions";
 import { useNews, NewsFormData } from "@/hooks/use-news";
+import { useExchangeCount } from "@/hooks/use-exchange-count";
+import { ExchangeRequestsDialog } from "@/components/ExchangeRequestsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -313,6 +316,10 @@ const Dashboard = () => {
   const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+
+  // Exchange requests dialog state
+  const [exchangeRequestsDialogOpen, setExchangeRequestsDialogOpen] = useState(false);
+  const { count: exchangeCount } = useExchangeCount(profileId);
 
   const [formData, setFormData] = useState<ProfileFormData>({
     name: "",
@@ -1201,6 +1208,10 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => setExchangeRequestsDialogOpen(true)}>
+                <Repeat className="h-4 w-4 mr-1" />
+                Запросы на обмен{exchangeCount > 0 && ` (${exchangeCount})`}
+              </Button>
               <Button variant="outline" size="sm" onClick={openWalletDialog}>
                 <Wallet className="h-4 w-4 mr-1" />
                 Кошелёк ({walletBalance})
@@ -2494,6 +2505,13 @@ const Dashboard = () => {
         onOpenChange={setIsProfileDialogOpen}
         isNewUser={isNewUser}
         onSaveSuccess={handleProfileSaveSuccess}
+      />
+
+      {/* Exchange Requests Dialog */}
+      <ExchangeRequestsDialog
+        open={exchangeRequestsDialogOpen}
+        onOpenChange={setExchangeRequestsDialogOpen}
+        profileId={profileId}
       />
     </MainLayout>
   );

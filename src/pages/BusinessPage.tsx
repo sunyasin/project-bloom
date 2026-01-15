@@ -386,6 +386,70 @@ const BusinessPage = () => {
   };
 
   const handleGoodsExchange = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Ошибка",
+        description: "Войдите в аккаунт для обмена",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get buyer profile id
+    const { data: buyerProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+    
+    // Get provider profile id
+    const { data: providerProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", business?.owner_id)
+      .single();
+
+    if (!buyerProfile || !providerProfile) {
+      toast({
+        title: "Ошибка",
+        description: "Профили не найдены",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Form buyer_items (user's products)
+    const buyerItems = userProducts
+      .filter(p => userProductQuantities[p.id] > 0)
+      .map(p => ({ item_id: p.id, qty: userProductQuantities[p.id] }));
+
+    // Form provider_items (selected producer's products)
+    const providerItems = selectedProducts
+      .filter(p => producerProductQuantities[p.id] > 0)
+      .map(p => ({ item_id: p.id, qty: producerProductQuantities[p.id] }));
+
+    // Insert into exchange table
+    const { error: exchangeError } = await supabase.from("exchange").insert({
+      creator: buyerProfile.id,
+      provider: providerProfile.id,
+      type: "goods" as const,
+      status: "created" as const,
+      buyer_items: buyerItems,
+      provider_items: providerItems,
+      comment: exchangeComment || null,
+    });
+
+    if (exchangeError) {
+      console.error("Exchange insert error:", exchangeError);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать запрос на обмен",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const producerProductsList = selectedProducts
       .filter(p => producerProductQuantities[p.id] > 0)
       .map(p => `${p.name} (${producerProductQuantities[p.id]} шт)`)
@@ -402,8 +466,7 @@ const BusinessPage = () => {
 Сообщение: ${exchangeComment || "без сообщения"}`;
     
     // Save message to database
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && business?.owner_id) {
+    if (business?.owner_id) {
       await supabase.from("messages").insert({
         from_id: user.id,
         to_id: business.owner_id,
@@ -411,6 +474,11 @@ const BusinessPage = () => {
         type: "exchange" as const,
       });
     }
+    
+    toast({
+      title: "Запрос отправлен",
+      description: "Производитель получит уведомление о вашем запросе",
+    });
     
     setExchangeMessage(message);
     setGoodsExchangeDialogOpen(false);
