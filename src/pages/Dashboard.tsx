@@ -429,7 +429,7 @@ const Dashboard = () => {
     if (!user) return;
 
     // Validate required fields for client role
-    const isClient = user.role === "client";
+    const isClient = user.roles?.includes("client");
     const newErrors: Partial<Record<keyof ProfileFormData, string>> = {};
 
     // Parse name into first_name and last_name
@@ -1197,7 +1197,7 @@ const Dashboard = () => {
               <h1 className="text-xl font-bold text-foreground">{formData.name}</h1>
               <p className="text-muted-foreground">{formData.email}</p>
               <span className="inline-block mt-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
-                {user?.role || "visitor"}
+                {user?.roles?.[0] || "visitor"}
               </span>
             </div>
             <div className="flex gap-2 flex-wrap">

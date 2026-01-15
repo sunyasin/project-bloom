@@ -20,21 +20,22 @@ export function useCurrentUserWithRole(): UseCurrentUserWithRoleResult {
   useEffect(() => {
     let isMounted = true;
 
-    const fetchUserWithRole = async (userId: string, email: string) => {
+  const fetchUserWithRole = async (userId: string, email: string) => {
       try {
         const { data, error: roleError } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', userId)
-          .maybeSingle();
+          .eq('user_id', userId);
 
         if (roleError) throw roleError;
+
+        const roles = (data?.map(r => r.role as AppRole) || []);
 
         if (isMounted) {
           setUser({
             id: userId,
             email,
-            role: (data?.role as AppRole) || null,
+            roles,
           });
           setLoading(false);
         }
@@ -93,17 +94,18 @@ export async function getCurrentUserWithRole(): Promise<UserWithRole | null> {
   const { data, error } = await supabase
     .from('user_roles')
     .select('role')
-    .eq('user_id', session.user.id)
-    .maybeSingle();
+    .eq('user_id', session.user.id);
 
   if (error) {
     console.error('Error fetching user role:', error);
     return null;
   }
 
+  const roles = (data?.map(r => r.role as AppRole) || []);
+
   return {
     id: session.user.id,
     email: session.user.email || '',
-    role: (data?.role as AppRole) || null,
+    roles,
   };
 }

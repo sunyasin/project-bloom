@@ -83,8 +83,8 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
 
-  const isProducer = user?.role === "moderator" || user?.role === "news_editor" || user?.role === "super_admin";
-  const isClient = user?.role === "client";
+  const isProducer = user?.roles?.some(r => ["moderator", "news_editor", "super_admin"].includes(r));
+  const isClient = user?.roles?.includes("client");
 
   // Redirect if not logged in
   useEffect(() => {
