@@ -1,7 +1,9 @@
 Supabase last migration applied 15/01/26 (-- -- Delete all existing transactions)
 
 TODO 
+
 ---after BIG update issues:
+
 2 popup окна после коика на товаре в категории
 убрать глаз из dashboard - теперь есть модератор
 
@@ -25,6 +27,9 @@ TODO
 - модерация: если выбрано radio "доработать", то отправка меняет статус визитки на rejected (добавь)
 ----- РУКАМИ
 
+
+- в админку добавить регистрацию доната за акции  - запись числа в profiles.donate
+
 - Добавь RLS политики для таблиц coins и exchange, чтобы устранить предупреждения безопасности
 
 - на странице бизнеса реализовать:
@@ -39,33 +44,12 @@ TODO
 --- ERRORS
 
 =====  ошибки RLS  
-RLS Disabled in Public	
-SUPA_rls_disabled_in_public
-Supabase
-Detects cases where row level security (RLS) has not been enabled on tables in schemas exposed to PostgREST Remediation: https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public 
  
 Customer Contact Information Exposed to All Users	
 PUBLIC_USER_DATA
 LLM Database Check
 The 'profiles' table is readable by all authenticated users and contains sensitive personal data including email addresses, phone numbers, GPS coordinates, home addresses, and wallet balances. Any logged-in user can access every other user's contact details, location, and financial information. This could enable harassment, stalking, identity theft, or targeted scams. Restrict the SELECT policy to only allow users to view their own profile data (auth.uid() = user_id) and remove the 'Authenticated users can view all profiles' policy.
-
-Financial Transaction History Publicly Accessible	
-MISSING_RLS_PROTECTION
-LLM Database Check
-The 'coins' table has RLS disabled entirely, making all coin transaction records publicly readable without authentication. This table contains user wallet balances, transaction amounts, and financial history. Hackers could analyze spending patterns, identify high-value targets, or exploit the system. Enable RLS on this table and create policies that restrict access to users' own transaction records only.
-
-Warning
-Leaked Password Protection Disabled	
-SUPA_auth_leaked_password_protection
-Supabase
-Leaked password protection is currently disabled. Remediation: https://docs.lovable.dev/features/security#leaked-password-protection-disabled
-
-Warning
-Business Owner Identity Revealed in Public Listings	
-EXPOSED_SENSITIVE_DATA
-LLM Database Check
-Published businesses expose the 'owner_id' field publicly, allowing anyone to map businesses to specific user accounts. Combined with the profiles table exposure, attackers could identify business owners' personal contact information and locations. This creates risks of targeted harassment, competitive intelligence gathering, or social engineering attacks. Modify the public SELECT policy to exclude the owner_id field or use a database view that filters sensitive columns.
- =====  ошибки RLS  
+=====  ошибки RLS  
  
  
  
@@ -84,6 +68,7 @@ Published businesses expose the 'owner_id' field publicly, allowing anyone to ma
 
 
 ====== DONE
+- в админке - можно несколько ролей назначить одному юзерю
 на странице бизнеса реализовать: 1) добавить адрес доставки при заказе
 - на /dashboard - в плашке с именем пользователя отображай реальную роль из таблицы user_roles, на английском как в ENUM
 - после успешной отправки денег обновить wallet получателя.
@@ -98,88 +83,6 @@ tiptap не епчатает пробелы - заменен на Qill.js
 
 
 
-====== проблема с пробелами в TipTap
-
-Анализ проблемы
-Проблема с пробелами в TipTap редакторе имеет несколько возможных причин:
-
-1. Конфликт с cmdk (Command Menu)
-Библиотека cmdk используется для выбора категории в Popover. Она известна тем, что перехватывает клавиатурные события, включая пробелы, когда открыта. Однако если Popover закрыт (categoryOpen = false), это не должно быть проблемой.
-
-2. Отсутствие onMouseDown={(e) => e.preventDefault()} в BusinessCardEditor
-В BusinessCardEditor.tsx (строки 63-84) компонент ToolbarButton не содержит onMouseDown={(e) => e.preventDefault()}, в то время как в ProductEditor.tsx (строки 97-108) он есть. Это может вызывать потерю фокуса при клике на кнопки тулбара.
-
-3. Проблема с глобальными keyboard listeners
-Возможно, где-то есть глобальный обработчик, который перехватывает пробелы.
-
-Plan
-План исправления проблемы с пробелами в TipTap
-Проблема
-Пробелы не вводятся в TipTap редакторе на странице редактирования товара.
-
-Диагностика
-В ProductEditor.tsx компонент ToolbarButton уже имеет onMouseDown={(e) => e.preventDefault()} — это правильно
-В BusinessCardEditor.tsx этот обработчик отсутствует — нужно добавить для консистентности
-Потенциальный конфликт с библиотекой cmdk (Command Menu), которая может перехватывать клавиатурные события
-Решение
-1. Добавить shouldFilter={false} и loop в Command компонент
-В ProductEditor.tsx изменить компонент Command для выбора категории:
-
-
-// Было:
-<Command>
-  <CommandInput placeholder="Поиск категории..." />
-
-// Станет:
-<Command shouldFilter={false} loop>
-  <CommandInput 
-    placeholder="Поиск категории..." 
-    onKeyDown={(e) => {
-      // Предотвращаем перехват пробелов и других клавиш
-      if (e.key === " ") {
-        e.stopPropagation();
-      }
-    }}
-  />
-2. Добавить onMouseDown в ToolbarButton в BusinessCardEditor.tsx
-
-// Было (строка 74-83):
-const ToolbarButton = ({ onClick, isActive, disabled, children }) => (
-  <Button
-    type="button"
-    variant={isActive ? "secondary" : "ghost"}
-    size="icon"
-    className="h-8 w-8"
-    onClick={onClick}
-    disabled={disabled}
-  >
-    {children}
-  </Button>
-);
-
-// Станет:
-const ToolbarButton = ({ onClick, isActive, disabled, children }) => (
-  <Button
-    type="button"
-    variant={isActive ? "secondary" : "ghost"}
-    size="icon"
-    className="h-8 w-8"
-    onClick={onClick}
-    onMouseDown={(e) => e.preventDefault()} // Предотвращает потерю фокуса
-    disabled={disabled}
-  >
-    {children}
-  </Button>
-);
-3. Убедиться, что Popover закрывается корректно
-В обоих редакторах проверить, что после выбора категории Popover закрывается и не оставляет активных keyboard listeners.
-
-Файлы для изменения
-Файл	Изменения
-src/pages/ProductEditor.tsx	Добавить обработчик onKeyDown в CommandInput для предотвращения перехвата пробелов
-src/pages/BusinessCardEditor.tsx	Добавить onMouseDown={(e) => e.preventDefault()} в ToolbarButton
-Результат
-После этих изменений пробелы будут корректно вводиться в TipTap редакторе, а кнопки тулбара не будут вызывать потерю фокуса.
 
 
 
