@@ -2,22 +2,21 @@ import { useState, useEffect } from "react";
 import { 
   Building2, 
   Eye,
-  Check,
-  X,
   RefreshCw,
-  MessageSquare,
-  ExternalLink,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -35,8 +34,8 @@ const ModeratorContent = () => {
   const [loading, setLoading] = useState(true);
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithOwner | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [rejectComment, setRejectComment] = useState("");
+  const [decision, setDecision] = useState<"approve" | "revise">("approve");
+  const [reviseComment, setReviseComment] = useState("");
   const [processing, setProcessing] = useState(false);
 
   const loadBusinesses = async () => {
@@ -136,9 +135,9 @@ const ModeratorContent = () => {
     setProcessing(false);
   };
 
-  const handleReject = async () => {
+  const handleRevise = async () => {
     if (!selectedBusiness) return;
-    if (!rejectComment.trim()) {
+    if (!reviseComment.trim()) {
       toast({ title: "Ошибка", description: "Введите комментарий", variant: "destructive" });
       return;
     }
@@ -152,7 +151,7 @@ const ModeratorContent = () => {
         status: "draft",
         content_json: {
           ...(selectedBusiness.content_json as object || {}),
-          moderator_comment: rejectComment,
+          moderator_comment: reviseComment,
           rejected_at: new Date().toISOString(),
         }
       })
@@ -165,28 +164,41 @@ const ModeratorContent = () => {
       if (selectedBusiness.owner_id) {
         await sendNotification(
           selectedBusiness.owner_id,
-          `⚠️ Ваша визитка "${selectedBusiness.name}" отправлена на доработку.\n\nКомментарий модератора:\n${rejectComment}`
+          `⚠️ Ваша визитка "${selectedBusiness.name}" отправлена на доработку.\n\nКомментарий модератора:\n${reviseComment}`
         );
       }
       
       toast({ title: "Отправлено на доработку", description: `Визитка "${selectedBusiness.name}" возвращена владельцу` });
-      setRejectDialogOpen(false);
       setPreviewOpen(false);
       setSelectedBusiness(null);
-      setRejectComment("");
+      setReviseComment("");
+      setDecision("approve");
       loadBusinesses();
     }
     
     setProcessing(false);
   };
 
+  const handleSubmit = async () => {
+    if (!selectedBusiness) return;
+    
+    if (decision === "approve") {
+      await handlePublish(selectedBusiness);
+    } else {
+      await handleRevise();
+    }
+  };
+
   const openPreview = (business: BusinessWithOwner) => {
     setSelectedBusiness(business);
+    setDecision("approve");
+    setReviseComment("");
     setPreviewOpen(true);
   };
 
-  const openRejectDialog = () => {
-    setRejectDialogOpen(true);
+  const getContentHtml = (business: BusinessWithOwner): string => {
+    const content = business.content_json as { content?: string } | null;
+    return content?.content || "";
   };
 
   const getStatusBadge = (status: string | null) => {
@@ -309,119 +321,75 @@ const ModeratorContent = () => {
           
           {selectedBusiness && (
             <div className="space-y-4">
-              {/* Image */}
-              {getContentImage(selectedBusiness) && (
+              {/* Main Image */}
+              {getContentImage(selectedBusiness) ? (
                 <img 
                   src={getContentImage(selectedBusiness)!}
                   alt={selectedBusiness.name}
                   className="w-full h-48 object-cover rounded-lg"
                 />
+              ) : (
+                <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
+                  <Building2 className="h-12 w-12 text-muted-foreground" />
+                </div>
               )}
               
-              {/* Details */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Название</p>
-                  <p className="font-medium">{selectedBusiness.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Категория</p>
-                  <p className="font-medium">{selectedBusiness.category}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Город</p>
-                  <p className="font-medium">{selectedBusiness.city}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Адрес</p>
-                  <p className="font-medium">{selectedBusiness.location}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Владелец</p>
-                  <p className="font-medium">{selectedBusiness.ownerName || "—"}</p>
-                  <p className="text-sm text-muted-foreground">{selectedBusiness.ownerEmail}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Статус</p>
-                  {getStatusBadge(selectedBusiness.status)}
-                </div>
+              {/* Name + Category on one line */}
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-semibold">{selectedBusiness.name}</h3>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-muted-foreground">{selectedBusiness.category || "Без категории"}</span>
               </div>
 
-              {/* Content JSON preview */}
-              {selectedBusiness.content_json && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Дополнительные данные</p>
-                  <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-                    {JSON.stringify(selectedBusiness.content_json, null, 2)}
-                  </pre>
+              {/* HTML Content Preview */}
+              {getContentHtml(selectedBusiness) && (
+                <div className="border border-border rounded-lg p-4 bg-background">
+                  <p className="text-xs text-muted-foreground mb-2">Превью контента</p>
+                  <div 
+                    className="prose prose-sm max-w-none dark:prose-invert"
+                    dangerouslySetInnerHTML={{ __html: getContentHtml(selectedBusiness) }}
+                  />
                 </div>
               )}
 
-              {/* Link to page */}
-              <a 
-                href={`/business/${selectedBusiness.id}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Открыть страницу визитки
-              </a>
+              {/* Decision Radio */}
+              <div className="border-t border-border pt-4 space-y-4">
+                <RadioGroup 
+                  value={decision} 
+                  onValueChange={(val) => setDecision(val as "approve" | "revise")}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="approve" id="approve" />
+                    <Label htmlFor="approve" className="cursor-pointer">Одобрить</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="revise" id="revise" />
+                    <Label htmlFor="revise" className="cursor-pointer">Доработать</Label>
+                  </div>
+                </RadioGroup>
+
+                {/* Comment input for revise */}
+                {decision === "revise" && (
+                  <Input
+                    placeholder="Комментарий для владельца..."
+                    value={reviseComment}
+                    onChange={(e) => setReviseComment(e.target.value)}
+                  />
+                )}
+
+                {/* Submit button */}
+                <Button 
+                  onClick={handleSubmit}
+                  disabled={processing || (decision === "revise" && !reviseComment.trim())}
+                  className="w-full"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Отправить
+                </Button>
+              </div>
             </div>
           )}
-
-          <DialogFooter className="flex gap-2 mt-4">
-            <Button 
-              variant="outline" 
-              onClick={openRejectDialog}
-              disabled={processing}
-            >
-              <MessageSquare className="h-4 w-4 mr-1" />
-              На доработку
-            </Button>
-            <Button 
-              onClick={() => selectedBusiness && handlePublish(selectedBusiness)}
-              disabled={processing}
-            >
-              <Check className="h-4 w-4 mr-1" />
-              Опубликовать
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Отправить на доработку</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Укажите, что нужно исправить в визитке "{selectedBusiness?.name}"
-            </p>
-            <Textarea
-              placeholder="Комментарий для владельца..."
-              value={rejectComment}
-              onChange={(e) => setRejectComment(e.target.value)}
-              rows={4}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleReject}
-              disabled={processing || !rejectComment.trim()}
-            >
-              <X className="h-4 w-4 mr-1" />
-              На доработку
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
