@@ -67,6 +67,7 @@ const BusinessPage = () => {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderPhone, setOrderPhone] = useState("");
   const [orderAddress, setOrderAddress] = useState("");
+  const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Subscribe to producer news state
@@ -361,6 +362,16 @@ const BusinessPage = () => {
     setDigitalProductQuantities({});
   };
 
+  const handleOpenOrderDialog = () => {
+    if (selectedProducts.length === 0) return;
+    const initialQuantities: Record<string, number> = {};
+    selectedProducts.forEach(p => {
+      initialQuantities[p.id] = 1;
+    });
+    setOrderQuantities(initialQuantities);
+    setOrderDialogOpen(true);
+  };
+
   const handleOpenGoodsExchange = () => {
     if (selectedProducts.length === 0) return;
     // Initialize producer product quantities for selected products
@@ -559,7 +570,7 @@ const BusinessPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button disabled={selectedProducts.length === 0} onClick={() => setOrderDialogOpen(true)}>
+                <Button disabled={selectedProducts.length === 0} onClick={handleOpenOrderDialog}>
                   <ShoppingCart className="h-4 w-4 mr-2" />
                   Заказать
                   {selectedProducts.length > 0 && (
@@ -740,11 +751,21 @@ const BusinessPage = () => {
                       <p className="text-sm font-medium truncate">{product.name}</p>
                       <p className="text-xs text-primary">{product.price} ₽</p>
                     </div>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={orderQuantities[product.id] || 1}
+                      onChange={(e) => setOrderQuantities(prev => ({
+                        ...prev,
+                        [product.id]: Math.max(1, parseInt(e.target.value) || 1)
+                      }))}
+                      className="w-16 h-8 text-center"
+                    />
                   </div>
                 ))}
               </div>
               <p className="text-sm font-semibold text-right">
-                Итого: {selectedProducts.reduce((sum, p) => sum + p.price, 0)} ₽
+                Итого: {selectedProducts.reduce((sum, p) => sum + p.price * (orderQuantities[p.id] || 1), 0)} ₽
               </p>
             </div>
 
