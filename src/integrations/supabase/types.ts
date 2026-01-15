@@ -149,7 +149,7 @@ export type Database = {
           creator: string
           id: number
           provider: string
-          seller_items: Json
+          provider_items: Json
           status: Database["public"]["Enums"]["exchange_status"]
           type: Database["public"]["Enums"]["exchange_type"]
         }
@@ -160,7 +160,7 @@ export type Database = {
           creator: string
           id?: number
           provider: string
-          seller_items?: Json
+          provider_items?: Json
           status?: Database["public"]["Enums"]["exchange_status"]
           type?: Database["public"]["Enums"]["exchange_type"]
         }
@@ -171,7 +171,7 @@ export type Database = {
           creator?: string
           id?: number
           provider?: string
-          seller_items?: Json
+          provider_items?: Json
           status?: Database["public"]["Enums"]["exchange_status"]
           type?: Database["public"]["Enums"]["exchange_type"]
         }
