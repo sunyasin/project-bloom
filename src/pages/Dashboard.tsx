@@ -312,11 +312,13 @@ const Dashboard = () => {
     date: string;
     counterparty?: string;
     balance_after?: number;
+    hash?: string;
   }
   const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
   const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionViewMode, setTransactionViewMode] = useState<TransactionViewMode>("transfers");
+  const [selectedTransactionHash, setSelectedTransactionHash] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   // Exchange requests dialog state
@@ -1117,7 +1119,7 @@ const Dashboard = () => {
     try {
       const { data: transfers, error: transfersError } = await supabase
         .from("transactions")
-        .select("id, from_id, to_id, amount, when")
+        .select("id, from_id, to_id, amount, when, hash")
         .or(`from_id.eq.${profileId},to_id.eq.${profileId}`)
         .order("when", { ascending: false })
         .limit(50);
@@ -1157,6 +1159,7 @@ const Dashboard = () => {
           amount: t.amount,
           date: t.when,
           counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id),
+          hash: t.hash,
         };
       });
 
@@ -1176,7 +1179,7 @@ const Dashboard = () => {
     try {
       const { data: coins, error: coinsError } = await supabase
         .from("coins")
-        .select("id, amount, when, profile_balance")
+        .select("id, amount, when, profile_balance, hash")
         .eq("who", profileId)
         .order("when", { ascending: false })
         .limit(50);
@@ -1193,6 +1196,7 @@ const Dashboard = () => {
         amount: c.amount,
         date: c.when,
         balance_after: c.profile_balance,
+        hash: c.hash,
       }));
 
       setTransactionHistory(items);
@@ -2528,21 +2532,66 @@ const Dashboard = () => {
                       })}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p
-                      className={`text-sm font-semibold ${
-                        item.type === "transfer_out" || item.amount < 0 ? "text-destructive" : "text-green-600"
-                      }`}
-                    >
-                      {item.amount > 0 ? "+" : ""}{item.amount}
-                    </p>
-                    {item.balance_after !== undefined && (
-                      <p className="text-xs text-muted-foreground">Баланс: {item.balance_after}</p>
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <p
+                        className={`text-sm font-semibold ${
+                          item.type === "transfer_out" || item.amount < 0 ? "text-destructive" : "text-green-600"
+                        }`}
+                      >
+                        {item.amount > 0 ? "+" : ""}{item.amount}
+                      </p>
+                      {item.balance_after !== undefined && (
+                        <p className="text-xs text-muted-foreground">Баланс: {item.balance_after}</p>
+                      )}
+                    </div>
+                    {item.hash && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setSelectedTransactionHash(item.hash || null)}
+                        title="Показать hash"
+                      >
+                        <Key className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
                     )}
                   </div>
                 </div>
               ))
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hash View Dialog */}
+      <Dialog open={!!selectedTransactionHash} onOpenChange={() => setSelectedTransactionHash(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Hash операции
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Textarea
+              value={selectedTransactionHash || ""}
+              readOnly
+              className="font-mono text-xs h-32 resize-none"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                if (selectedTransactionHash) {
+                  navigator.clipboard.writeText(selectedTransactionHash);
+                  toast({ title: "Hash скопирован" });
+                }
+              }}
+            >
+              Копировать
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
