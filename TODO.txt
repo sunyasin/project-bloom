@@ -1,4 +1,6 @@
-Supabase last migration applied 15/01/26 (-- -- Delete all existing transactions)
+Supabase last migration applied 15/01/26 
+E:\work\project-bloom\supabase\migrations\20260115173551_ba8551d5-457a-4925-a2c6-6c7c2f32112d.sql
+(-- Add sum column for coin exchanges)
 
 TODO 
 
