@@ -151,6 +151,7 @@ export type Database = {
           provider: string
           provider_items: Json
           status: Database["public"]["Enums"]["exchange_status"]
+          sum: number | null
           type: Database["public"]["Enums"]["exchange_type"]
         }
         Insert: {
@@ -162,6 +163,7 @@ export type Database = {
           provider: string
           provider_items?: Json
           status?: Database["public"]["Enums"]["exchange_status"]
+          sum?: number | null
           type?: Database["public"]["Enums"]["exchange_type"]
         }
         Update: {
@@ -173,6 +175,7 @@ export type Database = {
           provider?: string
           provider_items?: Json
           status?: Database["public"]["Enums"]["exchange_status"]
+          sum?: number | null
           type?: Database["public"]["Enums"]["exchange_type"]
         }
         Relationships: [

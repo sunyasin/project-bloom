@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Archive, X, Handshake, Package } from "lucide-react";
+import { Loader2, Archive, X, Handshake, Package, Coins } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +45,7 @@ interface Exchange {
   provider_items: ExchangeItem[];
   comment: string | null;
   created_at: string;
+  sum: number;
   creatorName?: string;
   providerName?: string;
   isCreator: boolean;
@@ -92,6 +93,11 @@ export function ExchangeRequestsDialog({
   // Archive confirmation
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [archiveExchange, setArchiveExchange] = useState<Exchange | null>(null);
+
+  // Payment confirmation
+  const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
+  const [paymentExchange, setPaymentExchange] = useState<Exchange | null>(null);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   const fetchExchanges = async () => {
     if (!profileId) return;
@@ -310,6 +316,75 @@ export function ExchangeRequestsDialog({
     return data?.user_id || null;
   };
 
+  const handlePaymentClick = (exchange: Exchange) => {
+    setPaymentExchange(exchange);
+    setPaymentConfirmOpen(true);
+  };
+
+  const handlePaymentConfirm = async () => {
+    if (!paymentExchange || !profileId) return;
+
+    setPaymentProcessing(true);
+    try {
+      // Call transfer_coins RPC: from buyer (creator) to provider
+      const { data: hash, error: rpcError } = await supabase.rpc("transfer_coins", {
+        p_from_profile: paymentExchange.creator,
+        p_to_profile: paymentExchange.provider,
+        p_amount: paymentExchange.sum,
+      });
+
+      if (rpcError) throw rpcError;
+
+      // Record transaction
+      await supabase.from("transactions").insert({
+        from_id: paymentExchange.creator,
+        to_id: paymentExchange.provider,
+        amount: paymentExchange.sum,
+        hash: hash,
+      });
+
+      // Update exchange status to finished
+      await supabase
+        .from("exchange")
+        .update({ status: "finished" })
+        .eq("id", paymentExchange.id);
+
+      // Send notification messages
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const providerUserId = await getProfileUserId(paymentExchange.provider);
+        const providerItemsList = formatItems(paymentExchange.provider_items);
+
+        if (providerUserId) {
+          await supabase.from("messages").insert({
+            from_id: user.id,
+            to_id: providerUserId,
+            message: `💰 Оплата получена! ${paymentExchange.sum} долей за товары: ${providerItemsList}`,
+            type: "wallet" as const,
+          });
+        }
+      }
+
+      toast({
+        title: "Оплата выполнена",
+        description: `Переведено ${paymentExchange.sum} долей`,
+      });
+
+      setPaymentConfirmOpen(false);
+      setPaymentExchange(null);
+      fetchExchanges();
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      toast({
+        title: "Ошибка оплаты",
+        description: error?.message || "Не удалось выполнить перевод",
+        variant: "destructive",
+      });
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -394,6 +469,23 @@ export function ExchangeRequestsDialog({
                       </div>
                     )}
 
+                    {/* Payment button for coin exchanges when ok_meeting and user is creator */}
+                    {exchange.status === "ok_meeting" &&
+                      exchange.isCreator &&
+                      exchange.type === "coins" &&
+                      exchange.sum > 0 && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="h-8 px-3 gap-1"
+                          onClick={() => handlePaymentClick(exchange)}
+                          title="Оплатить"
+                        >
+                          <Coins className="h-4 w-4" />
+                          Оплатить
+                        </Button>
+                      )}
+
                     {(exchange.status === "ok_meeting" ||
                       exchange.status === "created") && (
                       <Button
@@ -419,10 +511,12 @@ export function ExchangeRequestsDialog({
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">
-                        Предложено:
+                        {exchange.type === "coins" ? "Сумма:" : "Предложено:"}
                       </p>
                       <p className="text-foreground">
-                        {formatItems(exchange.buyer_items) || "—"}
+                        {exchange.type === "coins" && exchange.sum > 0
+                          ? `${exchange.sum} долей`
+                          : formatItems(exchange.buyer_items) || "—"}
                       </p>
                     </div>
                   </div>
@@ -500,6 +594,29 @@ export function ExchangeRequestsDialog({
             <AlertDialogAction onClick={handleArchiveConfirm} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               В архив
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Payment confirmation */}
+      <AlertDialog open={paymentConfirmOpen} onOpenChange={setPaymentConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Coins className="h-5 w-5" />
+              Подтвердить оплату?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Будет выполнен перевод {paymentExchange?.sum || 0} долей продавцу.
+              После оплаты обмен будет отмечен как завершённый.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={paymentProcessing}>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePaymentConfirm} disabled={paymentProcessing}>
+              {paymentProcessing && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Оплатить {paymentExchange?.sum || 0} долей
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
