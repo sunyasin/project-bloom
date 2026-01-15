@@ -143,35 +143,35 @@ export type Database = {
       }
       exchange: {
         Row: {
-          amount: number
+          buyer_items: Json
           comment: string | null
           created_at: string
           creator: string
           id: number
-          product_ids: string[]
           provider: string
+          seller_items: Json
           status: Database["public"]["Enums"]["exchange_status"]
           type: Database["public"]["Enums"]["exchange_type"]
         }
         Insert: {
-          amount?: number
+          buyer_items?: Json
           comment?: string | null
           created_at?: string
           creator: string
           id?: number
-          product_ids?: string[]
           provider: string
+          seller_items?: Json
           status?: Database["public"]["Enums"]["exchange_status"]
           type?: Database["public"]["Enums"]["exchange_type"]
         }
         Update: {
-          amount?: number
+          buyer_items?: Json
           comment?: string | null
           created_at?: string
           creator?: string
           id?: number
-          product_ids?: string[]
           provider?: string
+          seller_items?: Json
           status?: Database["public"]["Enums"]["exchange_status"]
           type?: Database["public"]["Enums"]["exchange_type"]
         }
@@ -576,7 +576,7 @@ export type Database = {
         | "reject"
         | "pending"
         | "finished"
-      exchange_type: "goods-goods" | "goods-rub" | "goods-coin"
+      exchange_type: "goods" | "money" | "coins"
       message_type:
         | "admin_status"
         | "from_admin"
@@ -728,7 +728,7 @@ export const Constants = {
         "pending",
         "finished",
       ],
-      exchange_type: ["goods-goods", "goods-rub", "goods-coin"],
+      exchange_type: ["goods", "money", "coins"],
       message_type: [
         "admin_status",
         "from_admin",
