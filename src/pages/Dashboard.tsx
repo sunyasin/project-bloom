@@ -27,6 +27,7 @@ import {
   ArrowDownLeft,
   Reply,
   CornerDownRight,
+  Repeat,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -37,6 +38,8 @@ import { useBusinesses } from "@/hooks/use-businesses";
 import { useProducts } from "@/hooks/use-products";
 import { usePromotions, Promotion, PromotionFormData } from "@/hooks/use-promotions";
 import { useNews, NewsFormData } from "@/hooks/use-news";
+import { useExchangeCount } from "@/hooks/use-exchange-count";
+import { ExchangeRequestsDialog } from "@/components/ExchangeRequestsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -301,6 +304,7 @@ const Dashboard = () => {
   const [decoding, setDecoding] = useState(false);
 
   // Transaction history state
+  type TransactionViewMode = "transfers" | "exchanges";
   interface TransactionHistoryItem {
     id: string;
     type: "transfer_out" | "transfer_in" | "coin_exchange";
@@ -308,11 +312,18 @@ const Dashboard = () => {
     date: string;
     counterparty?: string;
     balance_after?: number;
+    hash?: string;
   }
   const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
   const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionViewMode, setTransactionViewMode] = useState<TransactionViewMode>("transfers");
+  const [selectedTransactionHash, setSelectedTransactionHash] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+
+  // Exchange requests dialog state
+  const [exchangeRequestsDialogOpen, setExchangeRequestsDialogOpen] = useState(false);
+  const { count: exchangeCount } = useExchangeCount(profileId);
 
   const [formData, setFormData] = useState<ProfileFormData>({
     name: "",
@@ -1100,84 +1111,119 @@ const Dashboard = () => {
     }
   };
 
-  // Load transaction history
-  const loadTransactionHistory = async () => {
+  // Load transfers from transactions table
+  const loadTransfers = async () => {
     if (!profileId) return;
 
     setTransactionsLoading(true);
     try {
-      const items: TransactionHistoryItem[] = [];
-
-      // Load transfers (from transactions table)
       const { data: transfers, error: transfersError } = await supabase
         .from("transactions")
-        .select("id, from_id, to_id, amount, when")
+        .select("id, from_id, to_id, amount, when, hash")
         .or(`from_id.eq.${profileId},to_id.eq.${profileId}`)
         .order("when", { ascending: false })
         .limit(50);
 
-      if (!transfersError && transfers) {
-        // Get profile names for counterparties
-        const counterpartyIds = transfers.map((t) => (t.from_id === profileId ? t.to_id : t.from_id));
-        const uniqueIds = [...new Set(counterpartyIds)];
-
-        let profileMap = new Map<string, string>();
-        if (uniqueIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, first_name, last_name")
-            .in("id", uniqueIds);
-
-          profileMap = new Map(
-            profiles?.map((p) => [p.id, `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Неизвестный"]) || [],
-          );
-        }
-
-        transfers.forEach((t) => {
-          const isOutgoing = t.from_id === profileId;
-          items.push({
-            id: t.id,
-            type: isOutgoing ? "transfer_out" : "transfer_in",
-            amount: t.amount,
-            date: t.when,
-            counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id) || "Неизвестный",
-          });
-        });
+      if (transfersError) {
+        console.error("Error loading transfers:", transfersError);
+        setTransactionHistory([]);
+        return;
       }
 
-      // Load coin exchanges (from coins table)
-      const { data: coins, error: coinsError } = await supabase
-        .from("coins")
-        .select("id, amount, when, profile_balance")
-        .eq("who", profileId)
-        .order("when", { ascending: false })
-        .limit(50);
+      // Get counterparty profile IDs
+      const counterpartyIds = (transfers || []).map((t) =>
+        t.from_id === profileId ? t.to_id : t.from_id
+      );
+      const uniqueIds = [...new Set(counterpartyIds)];
 
-      if (!coinsError && coins) {
-        coins.forEach((c) => {
-          items.push({
-            id: c.id,
-            type: "coin_exchange",
-            amount: c.amount,
-            date: c.when,
-            balance_after: c.profile_balance,
-          });
-        });
+      let profileMap = new Map<string, string>();
+      if (uniqueIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", uniqueIds);
+
+        profileMap = new Map(
+          profiles?.map((p) => [
+            p.id,
+            `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Пользователь",
+          ]) || []
+        );
       }
 
-      // Sort by date
-      items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const items: TransactionHistoryItem[] = (transfers || []).map((t) => {
+        const isOutgoing = t.from_id === profileId;
+        return {
+          id: t.id,
+          type: isOutgoing ? "transfer_out" : "transfer_in",
+          amount: t.amount,
+          date: t.when,
+          counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id),
+          hash: t.hash,
+        };
+      });
+
       setTransactionHistory(items);
     } catch (err) {
-      console.error("Error loading transactions:", err);
+      console.error("Error loading transfers:", err);
     } finally {
       setTransactionsLoading(false);
     }
   };
 
+  // Load exchanges from coins table
+  const loadExchanges = async () => {
+    if (!profileId) return;
+
+    setTransactionsLoading(true);
+    try {
+      const { data: coins, error: coinsError } = await supabase
+        .from("coins")
+        .select("id, amount, when, profile_balance, hash")
+        .eq("who", profileId)
+        .order("when", { ascending: false })
+        .limit(50);
+
+      if (coinsError) {
+        console.error("Error loading exchanges:", coinsError);
+        setTransactionHistory([]);
+        return;
+      }
+
+      const items: TransactionHistoryItem[] = (coins || []).map((c) => ({
+        id: c.id,
+        type: "coin_exchange" as const,
+        amount: c.amount,
+        date: c.when,
+        balance_after: c.profile_balance,
+        hash: c.hash,
+      }));
+
+      setTransactionHistory(items);
+    } catch (err) {
+      console.error("Error loading exchanges:", err);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
+  // Load transaction history based on view mode
+  const loadTransactionHistory = async (mode: TransactionViewMode) => {
+    if (mode === "transfers") {
+      await loadTransfers();
+    } else {
+      await loadExchanges();
+    }
+  };
+
   const openTransactionsDialog = () => {
     setTransactionsDialogOpen(true);
-    loadTransactionHistory();
+    loadTransactionHistory(transactionViewMode);
+  };
+
+  const handleTransactionViewModeChange = (mode: TransactionViewMode) => {
+    setTransactionViewMode(mode);
+    loadTransactionHistory(mode);
   };
 
   return (
@@ -1201,6 +1247,10 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => setExchangeRequestsDialogOpen(true)}>
+                <Repeat className="h-4 w-4 mr-1" />
+                Запросы на обмен{exchangeCount > 0 && ` (${exchangeCount})`}
+              </Button>
               <Button variant="outline" size="sm" onClick={openWalletDialog}>
                 <Wallet className="h-4 w-4 mr-1" />
                 Кошелёк ({walletBalance})
@@ -2420,11 +2470,33 @@ const Dashboard = () => {
             </DialogTitle>
           </DialogHeader>
 
+          {/* View Mode Toggle */}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg">
+            <Button
+              variant={transactionViewMode === "transfers" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => handleTransactionViewModeChange("transfers")}
+            >
+              Переводы
+            </Button>
+            <Button
+              variant={transactionViewMode === "exchanges" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => handleTransactionViewModeChange("exchanges")}
+            >
+              Обмены
+            </Button>
+          </div>
+
           <div className="flex-1 overflow-y-auto space-y-2">
             {transactionsLoading ? (
               <p className="text-sm text-muted-foreground text-center py-4">Загрузка...</p>
             ) : transactionHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Транзакций пока нет</p>
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {transactionViewMode === "transfers" ? "Переводов пока нет" : "Обменов пока нет"}
+              </p>
             ) : (
               transactionHistory.map((item) => (
                 <div
@@ -2433,29 +2505,21 @@ const Dashboard = () => {
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      item.type === "transfer_out"
+                      item.type === "transfer_out" || item.amount < 0
                         ? "bg-destructive/10 text-destructive"
-                        : item.type === "transfer_in"
-                          ? "bg-green-500/10 text-green-600"
-                          : item.amount > 0
-                            ? "bg-green-500/10 text-green-600"
-                            : "bg-destructive/10 text-destructive"
+                        : "bg-green-500/10 text-green-600"
                     }`}
                   >
-                    {item.type === "transfer_out" ? (
+                    {item.type === "transfer_out" || item.amount < 0 ? (
                       <ArrowUpRight className="h-4 w-4" />
-                    ) : item.type === "transfer_in" ? (
-                      <ArrowDownLeft className="h-4 w-4" />
-                    ) : item.amount > 0 ? (
-                      <ArrowDownLeft className="h-4 w-4" />
                     ) : (
-                      <ArrowUpRight className="h-4 w-4" />
+                      <ArrowDownLeft className="h-4 w-4" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {item.type === "transfer_out" && `Перевод → ${item.counterparty}`}
-                      {item.type === "transfer_in" && `Получено от ${item.counterparty}`}
+                      {item.type === "transfer_out" && `Перевод → ${item.counterparty || "Пользователь"}`}
+                      {item.type === "transfer_in" && `Получено от ${item.counterparty || "Пользователь"}`}
                       {item.type === "coin_exchange" && (item.amount > 0 ? "Пополнение" : "Списание")}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -2468,22 +2532,66 @@ const Dashboard = () => {
                       })}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p
-                      className={`text-sm font-semibold ${
-                        item.type === "transfer_out" || item.amount < 0 ? "text-destructive" : "text-green-600"
-                      }`}
-                    >
-                      {item.type === "transfer_out" ? "-" : item.amount > 0 ? "+" : ""}
-                      {item.type === "transfer_out" ? item.amount : item.amount}
-                    </p>
-                    {item.balance_after !== undefined && (
-                      <p className="text-xs text-muted-foreground">Баланс: {item.balance_after}</p>
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <p
+                        className={`text-sm font-semibold ${
+                          item.type === "transfer_out" || item.amount < 0 ? "text-destructive" : "text-green-600"
+                        }`}
+                      >
+                        {item.amount > 0 ? "+" : ""}{item.amount}
+                      </p>
+                      {item.balance_after !== undefined && (
+                        <p className="text-xs text-muted-foreground">Баланс: {item.balance_after}</p>
+                      )}
+                    </div>
+                    {item.hash && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setSelectedTransactionHash(item.hash || null)}
+                        title="Показать hash"
+                      >
+                        <Key className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
                     )}
                   </div>
                 </div>
               ))
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hash View Dialog */}
+      <Dialog open={!!selectedTransactionHash} onOpenChange={() => setSelectedTransactionHash(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Hash операции
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Textarea
+              value={selectedTransactionHash || ""}
+              readOnly
+              className="font-mono text-xs h-32 resize-none"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                if (selectedTransactionHash) {
+                  navigator.clipboard.writeText(selectedTransactionHash);
+                  toast({ title: "Hash скопирован" });
+                }
+              }}
+            >
+              Копировать
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -2494,6 +2602,13 @@ const Dashboard = () => {
         onOpenChange={setIsProfileDialogOpen}
         isNewUser={isNewUser}
         onSaveSuccess={handleProfileSaveSuccess}
+      />
+
+      {/* Exchange Requests Dialog */}
+      <ExchangeRequestsDialog
+        open={exchangeRequestsDialogOpen}
+        onOpenChange={setExchangeRequestsDialogOpen}
+        profileId={profileId}
       />
     </MainLayout>
   );
