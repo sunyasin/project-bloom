@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Building2, 
-  Tag, 
-  FileText, 
+import {
+  LayoutDashboard,
+  Users,
+  Building2,
+  Tag,
+  FileText,
   Newspaper,
   Settings,
   Shield,
@@ -47,19 +47,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type AdminRole = "super_admin";
 
@@ -96,7 +85,7 @@ const AVAILABLE_ROLES = [
 // Roles Management Section Component
 const RolesManagementSection = () => {
   const { toast } = useToast();
-  
+
   interface UserWithRoleData {
     user_id: string;
     email: string;
@@ -112,12 +101,12 @@ const RolesManagementSection = () => {
     first_name: string | null;
     last_name: string | null;
   }
-  
+
   const [users, setUsers] = useState<UserWithRoleData[]>([]);
   const [allProfiles, setAllProfiles] = useState<ProfileData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
-  
+
   // Add new role state
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newUserOpen, setNewUserOpen] = useState(false);
@@ -132,12 +121,10 @@ const RolesManagementSection = () => {
 
   const loadUsersWithRoles = async () => {
     setLoading(true);
-    
+
     // Get all user_roles with profile info
-    const { data: rolesData, error: rolesError } = await supabase
-      .from("user_roles")
-      .select("id, user_id, role");
-    
+    const { data: rolesData, error: rolesError } = await supabase.from("user_roles").select("id, user_id, role");
+
     if (rolesError) {
       console.error("Error loading roles:", rolesError);
       setLoading(false);
@@ -145,9 +132,7 @@ const RolesManagementSection = () => {
     }
 
     // Get profiles for names
-    const { data: profilesData } = await supabase
-      .from("profiles")
-      .select("user_id, email, first_name, last_name");
+    const { data: profilesData } = await supabase.from("profiles").select("user_id, email, first_name, last_name");
 
     if (profilesData) {
       setAllProfiles(profilesData);
@@ -175,13 +160,11 @@ const RolesManagementSection = () => {
   }, []);
 
   // Users without roles (for add combobox)
-  const usersWithoutRoles = allProfiles.filter(
-    (p) => !users.some((u) => u.user_id === p.user_id)
-  );
+  const usersWithoutRoles = allProfiles.filter((p) => !users.some((u) => u.user_id === p.user_id));
 
   const handleRoleChange = async (userId: string, roleId: string, newRole: string) => {
     setUpdating(userId);
-    
+
     const { error } = await supabase
       .from("user_roles")
       .update({ role: newRole as "visitor" | "client" | "moderator" | "news_editor" | "super_admin" })
@@ -196,16 +179,12 @@ const RolesManagementSection = () => {
     } else {
       toast({
         title: "Роль обновлена",
-        description: `Новая роль: ${AVAILABLE_ROLES.find(r => r.value === newRole)?.label}`,
+        description: `Новая роль: ${AVAILABLE_ROLES.find((r) => r.value === newRole)?.label}`,
       });
       // Update local state
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.user_id === userId ? { ...u, role: newRole } : u
-        )
-      );
+      setUsers((prev) => prev.map((u) => (u.user_id === userId ? { ...u, role: newRole } : u)));
     }
-    
+
     setUpdating(null);
   };
 
@@ -217,17 +196,18 @@ const RolesManagementSection = () => {
 
     setAddingRole(true);
 
-    const { error } = await supabase
-      .from("user_roles")
-      .insert({
-        user_id: newSelectedUserId,
-        role: newSelectedRole as "visitor" | "client" | "moderator" | "news_editor" | "super_admin",
-      });
+    const { error } = await supabase.from("user_roles").insert({
+      user_id: newSelectedUserId,
+      role: newSelectedRole as "visitor" | "client" | "moderator" | "news_editor" | "super_admin",
+    });
 
     if (error) {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Роль добавлена", description: `Пользователю назначена роль ${AVAILABLE_ROLES.find(r => r.value === newSelectedRole)?.label}` });
+      toast({
+        title: "Роль добавлена",
+        description: `Пользователю назначена роль ${AVAILABLE_ROLES.find((r) => r.value === newSelectedRole)?.label}`,
+      });
       setIsAddingNew(false);
       setNewSelectedUserId("");
       setNewSelectedRole("client");
@@ -242,10 +222,7 @@ const RolesManagementSection = () => {
 
     setDeleting(true);
 
-    const { error } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("id", userToDelete.role_id);
+    const { error } = await supabase.from("user_roles").delete().eq("id", userToDelete.role_id);
 
     if (error) {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
@@ -293,12 +270,7 @@ const RolesManagementSection = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Управление ролями пользователей</h2>
           <div className="flex gap-2">
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={() => setIsAddingNew(true)} 
-              disabled={isAddingNew || usersWithoutRoles.length === 0}
-            >
+            <Button variant="default" size="sm" onClick={() => setIsAddingNew(true)} disabled={isAddingNew}>
               <Plus className="h-4 w-4 mr-1" />
               Добавить
             </Button>
@@ -362,7 +334,7 @@ const RolesManagementSection = () => {
                                       <Check
                                         className={cn(
                                           "mr-2 h-4 w-4",
-                                          newSelectedUserId === profile.user_id ? "opacity-100" : "opacity-0"
+                                          newSelectedUserId === profile.user_id ? "opacity-100" : "opacity-0",
                                         )}
                                       />
                                       <div className="flex flex-col">
@@ -395,7 +367,12 @@ const RolesManagementSection = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" onClick={handleAddRole} disabled={addingRole || !newSelectedUserId}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={handleAddRole}
+                          disabled={addingRole || !newSelectedUserId}
+                        >
                           <Check className="h-4 w-4 text-green-600" />
                         </Button>
                         <Button size="icon" variant="ghost" onClick={cancelAddNew} disabled={addingRole}>
@@ -413,15 +390,12 @@ const RolesManagementSection = () => {
                         ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
                         : "Без имени"}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {user.email}
-                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
                     <TableCell>
-                      <span className={cn(
-                        "px-2 py-1 rounded-md text-xs font-medium border",
-                        getRoleBadgeColor(user.role)
-                      )}>
-                        {AVAILABLE_ROLES.find(r => r.value === user.role)?.label || user.role}
+                      <span
+                        className={cn("px-2 py-1 rounded-md text-xs font-medium border", getRoleBadgeColor(user.role))}
+                      >
+                        {AVAILABLE_ROLES.find((r) => r.value === user.role)?.label || user.role}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -468,13 +442,17 @@ const RolesManagementSection = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить роль?</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить роль пользователя{" "}
-              <strong>{userToDelete?.email}</strong>? Это действие нельзя отменить.
+              Вы уверены, что хотите удалить роль пользователя <strong>{userToDelete?.email}</strong>? Это действие
+              нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteRole} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDeleteRole}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               {deleting ? "Удаление..." : "Удалить"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -534,13 +512,16 @@ const CoinExchangeSection = () => {
   }
   const [verificationResults, setVerificationResults] = useState<Record<string, VerificationResult>>({});
   const [verifying, setVerifying] = useState(false);
-  const [verificationSummary, setVerificationSummary] = useState<{ total: number; valid: number; invalid: number; errors: number } | null>(null);
+  const [verificationSummary, setVerificationSummary] = useState<{
+    total: number;
+    valid: number;
+    invalid: number;
+    errors: number;
+  } | null>(null);
 
   const loadProfiles = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, user_id, first_name, last_name, wallet");
-    
+    const { data } = await supabase.from("profiles").select("id, user_id, first_name, last_name, wallet");
+
     if (data) {
       setProfiles(
         data.map((p) => ({
@@ -548,18 +529,16 @@ const CoinExchangeSection = () => {
           user_id: p.user_id,
           name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
           wallet: p.wallet || 0,
-        }))
+        })),
       );
     }
   };
 
   const loadCoins = async () => {
     setCoinsLoading(true);
-    
-    let query = supabase
-      .from("coins")
-      .select("*", { count: "exact" });
-    
+
+    let query = supabase.from("coins").select("*", { count: "exact" });
+
     // Apply filters
     if (dateFrom) {
       query = query.gte("when", new Date(dateFrom).toISOString());
@@ -580,23 +559,31 @@ const CoinExchangeSection = () => {
       const numValue = parseInt(amountValue, 10);
       if (!isNaN(numValue)) {
         switch (amountOperator) {
-          case ">": query = query.gt("amount", numValue); break;
-          case "<": query = query.lt("amount", numValue); break;
-          case "=": query = query.eq("amount", numValue); break;
-          case ">=": query = query.gte("amount", numValue); break;
-          case "<=": query = query.lte("amount", numValue); break;
+          case ">":
+            query = query.gt("amount", numValue);
+            break;
+          case "<":
+            query = query.lt("amount", numValue);
+            break;
+          case "=":
+            query = query.eq("amount", numValue);
+            break;
+          case ">=":
+            query = query.gte("amount", numValue);
+            break;
+          case "<=":
+            query = query.lte("amount", numValue);
+            break;
         }
       }
     }
-    
+
     // Pagination
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
-    
-    const { data, count, error } = await query
-      .order("when", { ascending: false })
-      .range(from, to);
-    
+
+    const { data, count, error } = await query.order("when", { ascending: false }).range(from, to);
+
     if (error) {
       console.error("Error loading coins:", error);
     } else {
@@ -613,10 +600,7 @@ const CoinExchangeSection = () => {
     setVerificationSummary(null);
 
     // Load ALL coins ordered by time ascending for chain verification
-    const { data: allCoins } = await supabase
-      .from("coins")
-      .select("*")
-      .order("when", { ascending: true });
+    const { data: allCoins } = await supabase.from("coins").select("*").order("when", { ascending: true });
 
     if (!allCoins || allCoins.length === 0) {
       toast({ title: "Нет данных", description: "Таблица coins пуста", variant: "destructive" });
@@ -631,7 +615,7 @@ const CoinExchangeSection = () => {
 
     for (let i = 0; i < allCoins.length; i++) {
       const coin = allCoins[i] as CoinRecord;
-      
+
       try {
         // Call decode_coin_hash to decrypt
         const { data: decoded, error } = await supabase.rpc("decode_coin_hash", {
@@ -676,12 +660,12 @@ const CoinExchangeSection = () => {
           if (!isProfileBalanceValid) errors.push(`баланс: ${decodedProfileBalance}≠${coin.profile_balance}`);
           if (!isTotalBalanceValid) errors.push(`общий: ${decodedTotalBalance}≠${coin.total_balance}`);
           if (!isUserValid) errors.push(`пользователь не совпадает`);
-          
-          results[coin.id] = { 
-            coinId: coin.id, 
-            status: "invalid", 
-            decoded, 
-            error: errors.join(", ") 
+
+          results[coin.id] = {
+            coinId: coin.id,
+            status: "invalid",
+            decoded,
+            error: errors.join(", "),
           };
           invalidCount++;
         }
@@ -703,10 +687,10 @@ const CoinExchangeSection = () => {
     if (invalidCount === 0 && errorCount === 0) {
       toast({ title: "Верификация успешна", description: `Все ${validCount} записей прошли проверку` });
     } else {
-      toast({ 
-        title: "Обнаружены проблемы", 
+      toast({
+        title: "Обнаружены проблемы",
         description: `Валидных: ${validCount}, невалидных: ${invalidCount}, ошибок: ${errorCount}`,
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -765,9 +749,7 @@ const CoinExchangeSection = () => {
         setResultHash(hashResult);
         toast({
           title: "Успешно",
-          description: isRubToCoin
-            ? `Начислено ${sum} коинов`
-            : `Списано ${sum} коинов`,
+          description: isRubToCoin ? `Начислено ${sum} коинов` : `Списано ${sum} коинов`,
         });
         setAmount("");
 
@@ -775,23 +757,30 @@ const CoinExchangeSection = () => {
         const now = new Date();
         const dateStr = now.toLocaleString("ru-RU");
         const operationType = isRubToCoin ? "Начисление" : "Списание";
-        
+
         // Get recipient's profile id
         const recipientProfile = profiles.find((p) => p.user_id === selectedUserId);
-        const newBalance = recipientProfile ? (isRubToCoin ? recipientProfile.wallet + sum : recipientProfile.wallet - sum) : sum;
-        
-        const notificationContent = `💰 ${operationType} коинов\n\n` +
+        const newBalance = recipientProfile
+          ? isRubToCoin
+            ? recipientProfile.wallet + sum
+            : recipientProfile.wallet - sum
+          : sum;
+
+        const notificationContent =
+          `💰 ${operationType} коинов\n\n` +
           `Сумма: ${isRubToCoin ? "+" : "-"}${sum} коинов\n` +
           `Новый баланс: ${newBalance} коинов\n` +
           `Дата: ${dateStr}\n\n` +
           `🔐 Хэш транзакции:\n${hashResult}`;
 
-        await supabase.from("messages").insert([{
-          from_id: selectedUserId,
-          to_id: selectedUserId,
-          message: notificationContent,
-          type: "wallet" as const,
-        }]);
+        await supabase.from("messages").insert([
+          {
+            from_id: selectedUserId,
+            to_id: selectedUserId,
+            message: notificationContent,
+            type: "wallet" as const,
+          },
+        ]);
 
         // Refresh profiles and coins
         const { data: refreshed } = await supabase
@@ -804,7 +793,7 @@ const CoinExchangeSection = () => {
               user_id: p.user_id,
               name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
               wallet: p.wallet || 0,
-            }))
+            })),
           );
         }
         if (showJournal) {
@@ -831,7 +820,7 @@ const CoinExchangeSection = () => {
             Журнал
           </Button>
         </div>
-        
+
         <div className="space-y-4 max-w-md">
           {/* User selector */}
           <div className="space-y-2">
@@ -858,17 +847,10 @@ const CoinExchangeSection = () => {
           {/* Direction toggle */}
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
-              <p className="font-medium">
-                {isRubToCoin ? "Рубли → Коины" : "Коины → Рубли"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {isRubToCoin ? "Начисление коинов" : "Списание коинов"}
-              </p>
+              <p className="font-medium">{isRubToCoin ? "Рубли → Коины" : "Коины → Рубли"}</p>
+              <p className="text-sm text-muted-foreground">{isRubToCoin ? "Начисление коинов" : "Списание коинов"}</p>
             </div>
-            <Switch
-              checked={isRubToCoin}
-              onCheckedChange={setIsRubToCoin}
-            />
+            <Switch checked={isRubToCoin} onCheckedChange={setIsRubToCoin} />
           </div>
 
           {/* Amount */}
@@ -919,12 +901,7 @@ const CoinExchangeSection = () => {
                 <Filter className="h-4 w-4 mr-1" />
                 Фильтры
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={verifyChain} 
-                disabled={verifying || coinsLoading}
-              >
+              <Button variant="outline" size="sm" onClick={verifyChain} disabled={verifying || coinsLoading}>
                 <ShieldCheck className={cn("h-4 w-4 mr-1", verifying && "animate-pulse")} />
                 {verifying ? "Проверка..." : "Верифицировать"}
               </Button>
@@ -942,22 +919,12 @@ const CoinExchangeSection = () => {
                 {/* Date From */}
                 <div className="space-y-1">
                   <Label className="text-xs">Дата от</Label>
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="h-9"
-                  />
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9" />
                 </div>
                 {/* Date To */}
                 <div className="space-y-1">
                   <Label className="text-xs">Дата до</Label>
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="h-9"
-                  />
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9" />
                 </div>
                 {/* User Filter */}
                 <div className="space-y-1">
@@ -1017,12 +984,14 @@ const CoinExchangeSection = () => {
 
           {/* Verification Summary */}
           {verificationSummary && (
-            <div className={cn(
-              "p-3 rounded-lg flex items-center gap-4",
-              verificationSummary.invalid === 0 && verificationSummary.errors === 0
-                ? "bg-green-500/10 border border-green-500/20"
-                : "bg-red-500/10 border border-red-500/20"
-            )}>
+            <div
+              className={cn(
+                "p-3 rounded-lg flex items-center gap-4",
+                verificationSummary.invalid === 0 && verificationSummary.errors === 0
+                  ? "bg-green-500/10 border border-green-500/20"
+                  : "bg-red-500/10 border border-red-500/20",
+              )}
+            >
               {verificationSummary.invalid === 0 && verificationSummary.errors === 0 ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
@@ -1035,10 +1004,10 @@ const CoinExchangeSection = () => {
                     : "Обнаружены проблемы в цепочке"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Всего: {verificationSummary.total} | 
-                  Валидных: <span className="text-green-600">{verificationSummary.valid}</span> | 
-                  Невалидных: <span className="text-red-600">{verificationSummary.invalid}</span> | 
-                  Ошибок: <span className="text-orange-600">{verificationSummary.errors}</span>
+                  Всего: {verificationSummary.total} | Валидных:{" "}
+                  <span className="text-green-600">{verificationSummary.valid}</span> | Невалидных:{" "}
+                  <span className="text-red-600">{verificationSummary.invalid}</span> | Ошибок:{" "}
+                  <span className="text-orange-600">{verificationSummary.errors}</span>
                 </p>
               </div>
             </div>
@@ -1068,47 +1037,39 @@ const CoinExchangeSection = () => {
                     {coins.map((coin) => {
                       const profile = profiles.find((p) => p.id === coin.who);
                       const verification = verificationResults[coin.id];
-                      
+
                       return (
-                        <TableRow key={coin.id} className={cn(
-                          verification?.status === "invalid" && "bg-red-500/5",
-                          verification?.status === "error" && "bg-orange-500/5"
-                        )}>
+                        <TableRow
+                          key={coin.id}
+                          className={cn(
+                            verification?.status === "invalid" && "bg-red-500/5",
+                            verification?.status === "error" && "bg-orange-500/5",
+                          )}
+                        >
                           <TableCell>
                             {verification ? (
                               <div title={verification.error || verification.decoded || ""}>
-                                {verification.status === "valid" && (
-                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                )}
-                                {verification.status === "invalid" && (
-                                  <XCircle className="h-4 w-4 text-red-600" />
-                                )}
-                                {verification.status === "error" && (
-                                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                                )}
+                                {verification.status === "valid" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                                {verification.status === "invalid" && <XCircle className="h-4 w-4 text-red-600" />}
+                                {verification.status === "error" && <AlertCircle className="h-4 w-4 text-orange-600" />}
                               </div>
                             ) : (
                               <span className="text-muted-foreground text-xs">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-xs">
-                            {new Date(coin.when).toLocaleString("ru-RU")}
+                          <TableCell className="text-xs">{new Date(coin.when).toLocaleString("ru-RU")}</TableCell>
+                          <TableCell className="text-sm">{profile?.name || coin.who.slice(0, 8) + "..."}</TableCell>
+                          <TableCell
+                            className={cn(
+                              "text-right font-medium",
+                              coin.amount > 0 ? "text-green-600" : "text-red-600",
+                            )}
+                          >
+                            {coin.amount > 0 ? "+" : ""}
+                            {coin.amount}
                           </TableCell>
-                          <TableCell className="text-sm">
-                            {profile?.name || coin.who.slice(0, 8) + "..."}
-                          </TableCell>
-                          <TableCell className={cn(
-                            "text-right font-medium",
-                            coin.amount > 0 ? "text-green-600" : "text-red-600"
-                          )}>
-                            {coin.amount > 0 ? "+" : ""}{coin.amount}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {coin.profile_balance}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {coin.total_balance}
-                          </TableCell>
+                          <TableCell className="text-right text-sm">{coin.profile_balance}</TableCell>
+                          <TableCell className="text-right text-sm">{coin.total_balance}</TableCell>
                           <TableCell className="font-mono text-xs truncate max-w-[200px]" title={coin.hash}>
                             {coin.hash.slice(0, 20)}...
                           </TableCell>
@@ -1125,7 +1086,8 @@ const CoinExchangeSection = () => {
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t">
               <p className="text-sm text-muted-foreground">
-                Показано {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} из {totalCount}
+                Показано {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} из{" "}
+                {totalCount}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -1161,13 +1123,11 @@ const CoinExchangeSection = () => {
 const AdminContent = () => {
   const [activeSection, setActiveSection] = useState("Дашборд");
   const { user } = useCurrentUserWithRole();
-  
+
   // Get user role
   const userRole = user?.role;
 
-  const availableMenu = adminMenu.filter((item) => 
-    userRole && item.roles.includes(userRole as AdminRole)
-  );
+  const availableMenu = adminMenu.filter((item) => userRole && item.roles.includes(userRole as AdminRole));
 
   const renderContent = () => {
     switch (activeSection) {
@@ -1178,9 +1138,7 @@ const AdminContent = () => {
       default:
         return (
           <div className="content-card">
-            <p className="text-muted-foreground text-center py-16">
-              Контент раздела «{activeSection}» будет здесь
-            </p>
+            <p className="text-muted-foreground text-center py-16">Контент раздела «{activeSection}» будет здесь</p>
           </div>
         );
     }
@@ -1206,15 +1164,12 @@ const AdminContent = () => {
           {availableMenu.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.label;
-            
+
             return (
               <button
                 key={item.label}
                 onClick={() => setActiveSection(item.label)}
-                className={cn(
-                  "w-full nav-link",
-                  isActive && "active"
-                )}
+                className={cn("w-full nav-link", isActive && "active")}
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 <span>{item.label}</span>
@@ -1229,9 +1184,7 @@ const AdminContent = () => {
         <div className="max-w-5xl mx-auto space-y-6">
           <div>
             <h1 className="text-2xl font-bold text-foreground">{activeSection}</h1>
-            <p className="text-muted-foreground mt-1">
-              Управление разделом «{activeSection}»
-            </p>
+            <p className="text-muted-foreground mt-1">Управление разделом «{activeSection}»</p>
           </div>
 
           {renderContent()}
