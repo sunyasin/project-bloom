@@ -1107,52 +1107,12 @@ const Dashboard = () => {
     }
   };
 
-  // Load transaction history
+  // Load transaction history (only from coins table)
   const loadTransactionHistory = async () => {
     if (!profileId) return;
 
     setTransactionsLoading(true);
     try {
-      const items: TransactionHistoryItem[] = [];
-
-      // Load transfers (from transactions table)
-      const { data: transfers, error: transfersError } = await supabase
-        .from("transactions")
-        .select("id, from_id, to_id, amount, when")
-        .or(`from_id.eq.${profileId},to_id.eq.${profileId}`)
-        .order("when", { ascending: false })
-        .limit(50);
-
-      if (!transfersError && transfers) {
-        // Get profile names for counterparties
-        const counterpartyIds = transfers.map((t) => (t.from_id === profileId ? t.to_id : t.from_id));
-        const uniqueIds = [...new Set(counterpartyIds)];
-
-        let profileMap = new Map<string, string>();
-        if (uniqueIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, first_name, last_name")
-            .in("id", uniqueIds);
-
-          profileMap = new Map(
-            profiles?.map((p) => [p.id, `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Неизвестный"]) || [],
-          );
-        }
-
-        transfers.forEach((t) => {
-          const isOutgoing = t.from_id === profileId;
-          items.push({
-            id: t.id,
-            type: isOutgoing ? "transfer_out" : "transfer_in",
-            amount: t.amount,
-            date: t.when,
-            counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id) || "Неизвестный",
-          });
-        });
-      }
-
-      // Load coin exchanges (from coins table)
       const { data: coins, error: coinsError } = await supabase
         .from("coins")
         .select("id, amount, when, profile_balance")
@@ -1160,20 +1120,20 @@ const Dashboard = () => {
         .order("when", { ascending: false })
         .limit(50);
 
-      if (!coinsError && coins) {
-        coins.forEach((c) => {
-          items.push({
-            id: c.id,
-            type: "coin_exchange",
-            amount: c.amount,
-            date: c.when,
-            balance_after: c.profile_balance,
-          });
-        });
+      if (coinsError) {
+        console.error("Error loading coins:", coinsError);
+        setTransactionHistory([]);
+        return;
       }
 
-      // Sort by date
-      items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const items: TransactionHistoryItem[] = (coins || []).map((c) => ({
+        id: c.id,
+        type: c.amount >= 0 ? "transfer_in" : "transfer_out",
+        amount: c.amount,
+        date: c.when,
+        balance_after: c.profile_balance,
+      }));
+
       setTransactionHistory(items);
     } catch (err) {
       console.error("Error loading transactions:", err);
