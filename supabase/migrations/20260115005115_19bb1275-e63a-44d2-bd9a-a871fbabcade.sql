@@ -1,0 +1,1 @@
+ALTER TABLE public.exchange RENAME COLUMN seller_items TO provider_items;
