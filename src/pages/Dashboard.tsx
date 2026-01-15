@@ -304,6 +304,7 @@ const Dashboard = () => {
   const [decoding, setDecoding] = useState(false);
 
   // Transaction history state
+  type TransactionViewMode = "transfers" | "exchanges";
   interface TransactionHistoryItem {
     id: string;
     type: "transfer_out" | "transfer_in" | "coin_exchange";
@@ -315,6 +316,7 @@ const Dashboard = () => {
   const [transactionsDialogOpen, setTransactionsDialogOpen] = useState(false);
   const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionViewMode, setTransactionViewMode] = useState<TransactionViewMode>("transfers");
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   // Exchange requests dialog state
@@ -1107,61 +1109,37 @@ const Dashboard = () => {
     }
   };
 
-  // Load transaction history (only from coins table, with counterparty from transactions)
-  const loadTransactionHistory = async () => {
+  // Load transfers from transactions table
+  const loadTransfers = async () => {
     if (!profileId) return;
 
     setTransactionsLoading(true);
     try {
-      const { data: coins, error: coinsError } = await supabase
-        .from("coins")
-        .select("id, amount, when, profile_balance, hash")
-        .eq("who", profileId)
+      const { data: transfers, error: transfersError } = await supabase
+        .from("transactions")
+        .select("id, from_id, to_id, amount, when")
+        .or(`from_id.eq.${profileId},to_id.eq.${profileId}`)
         .order("when", { ascending: false })
         .limit(50);
 
-      if (coinsError) {
-        console.error("Error loading coins:", coinsError);
+      if (transfersError) {
+        console.error("Error loading transfers:", transfersError);
         setTransactionHistory([]);
         return;
       }
 
-      // Get hashes to find counterparties from transactions table
-      const hashes = (coins || []).map((c) => c.hash).filter(Boolean);
-      
-      let transactionMap = new Map<string, { from_id: string; to_id: string }>();
-      if (hashes.length > 0) {
-        const { data: transactions } = await supabase
-          .from("transactions")
-          .select("hash, from_id, to_id")
-          .in("hash", hashes);
-
-        if (transactions) {
-          transactions.forEach((t) => {
-            transactionMap.set(t.hash, { from_id: t.from_id, to_id: t.to_id });
-          });
-        }
-      }
-
       // Get counterparty profile IDs
-      const counterpartyIds = new Set<string>();
-      (coins || []).forEach((c) => {
-        const tx = transactionMap.get(c.hash);
-        if (tx) {
-          const counterpartyId = c.amount < 0 ? tx.to_id : tx.from_id;
-          if (counterpartyId && counterpartyId !== profileId) {
-            counterpartyIds.add(counterpartyId);
-          }
-        }
-      });
+      const counterpartyIds = (transfers || []).map((t) =>
+        t.from_id === profileId ? t.to_id : t.from_id
+      );
+      const uniqueIds = [...new Set(counterpartyIds)];
 
-      // Fetch counterparty names
       let profileMap = new Map<string, string>();
-      if (counterpartyIds.size > 0) {
+      if (uniqueIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, first_name, last_name")
-          .in("id", Array.from(counterpartyIds));
+          .in("id", uniqueIds);
 
         profileMap = new Map(
           profiles?.map((p) => [
@@ -1171,38 +1149,77 @@ const Dashboard = () => {
         );
       }
 
-      const items: TransactionHistoryItem[] = (coins || []).map((c) => {
-        const tx = transactionMap.get(c.hash);
-        let counterparty: string | undefined;
-        
-        if (tx) {
-          const counterpartyId = c.amount < 0 ? tx.to_id : tx.from_id;
-          if (counterpartyId && counterpartyId !== profileId) {
-            counterparty = profileMap.get(counterpartyId);
-          }
-        }
-
+      const items: TransactionHistoryItem[] = (transfers || []).map((t) => {
+        const isOutgoing = t.from_id === profileId;
         return {
-          id: c.id,
-          type: c.amount >= 0 ? "transfer_in" : "transfer_out",
-          amount: c.amount,
-          date: c.when,
-          balance_after: c.profile_balance,
-          counterparty,
+          id: t.id,
+          type: isOutgoing ? "transfer_out" : "transfer_in",
+          amount: t.amount,
+          date: t.when,
+          counterparty: profileMap.get(isOutgoing ? t.to_id : t.from_id),
         };
       });
 
       setTransactionHistory(items);
     } catch (err) {
-      console.error("Error loading transactions:", err);
+      console.error("Error loading transfers:", err);
     } finally {
       setTransactionsLoading(false);
     }
   };
 
+  // Load exchanges from coins table
+  const loadExchanges = async () => {
+    if (!profileId) return;
+
+    setTransactionsLoading(true);
+    try {
+      const { data: coins, error: coinsError } = await supabase
+        .from("coins")
+        .select("id, amount, when, profile_balance")
+        .eq("who", profileId)
+        .order("when", { ascending: false })
+        .limit(50);
+
+      if (coinsError) {
+        console.error("Error loading exchanges:", coinsError);
+        setTransactionHistory([]);
+        return;
+      }
+
+      const items: TransactionHistoryItem[] = (coins || []).map((c) => ({
+        id: c.id,
+        type: "coin_exchange" as const,
+        amount: c.amount,
+        date: c.when,
+        balance_after: c.profile_balance,
+      }));
+
+      setTransactionHistory(items);
+    } catch (err) {
+      console.error("Error loading exchanges:", err);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
+  // Load transaction history based on view mode
+  const loadTransactionHistory = async (mode: TransactionViewMode) => {
+    if (mode === "transfers") {
+      await loadTransfers();
+    } else {
+      await loadExchanges();
+    }
+  };
+
   const openTransactionsDialog = () => {
     setTransactionsDialogOpen(true);
-    loadTransactionHistory();
+    loadTransactionHistory(transactionViewMode);
+  };
+
+  const handleTransactionViewModeChange = (mode: TransactionViewMode) => {
+    setTransactionViewMode(mode);
+    loadTransactionHistory(mode);
   };
 
   return (
@@ -2449,11 +2466,33 @@ const Dashboard = () => {
             </DialogTitle>
           </DialogHeader>
 
+          {/* View Mode Toggle */}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg">
+            <Button
+              variant={transactionViewMode === "transfers" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => handleTransactionViewModeChange("transfers")}
+            >
+              Переводы
+            </Button>
+            <Button
+              variant={transactionViewMode === "exchanges" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => handleTransactionViewModeChange("exchanges")}
+            >
+              Обмены
+            </Button>
+          </div>
+
           <div className="flex-1 overflow-y-auto space-y-2">
             {transactionsLoading ? (
               <p className="text-sm text-muted-foreground text-center py-4">Загрузка...</p>
             ) : transactionHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Транзакций пока нет</p>
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {transactionViewMode === "transfers" ? "Переводов пока нет" : "Обменов пока нет"}
+              </p>
             ) : (
               transactionHistory.map((item) => (
                 <div
@@ -2462,29 +2501,21 @@ const Dashboard = () => {
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      item.type === "transfer_out"
+                      item.type === "transfer_out" || item.amount < 0
                         ? "bg-destructive/10 text-destructive"
-                        : item.type === "transfer_in"
-                          ? "bg-green-500/10 text-green-600"
-                          : item.amount > 0
-                            ? "bg-green-500/10 text-green-600"
-                            : "bg-destructive/10 text-destructive"
+                        : "bg-green-500/10 text-green-600"
                     }`}
                   >
-                    {item.type === "transfer_out" ? (
+                    {item.type === "transfer_out" || item.amount < 0 ? (
                       <ArrowUpRight className="h-4 w-4" />
-                    ) : item.type === "transfer_in" ? (
-                      <ArrowDownLeft className="h-4 w-4" />
-                    ) : item.amount > 0 ? (
-                      <ArrowDownLeft className="h-4 w-4" />
                     ) : (
-                      <ArrowUpRight className="h-4 w-4" />
+                      <ArrowDownLeft className="h-4 w-4" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {item.type === "transfer_out" && `Перевод → ${item.counterparty}`}
-                      {item.type === "transfer_in" && `Получено от ${item.counterparty}`}
+                      {item.type === "transfer_out" && `Перевод → ${item.counterparty || "Пользователь"}`}
+                      {item.type === "transfer_in" && `Получено от ${item.counterparty || "Пользователь"}`}
                       {item.type === "coin_exchange" && (item.amount > 0 ? "Пополнение" : "Списание")}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -2503,8 +2534,7 @@ const Dashboard = () => {
                         item.type === "transfer_out" || item.amount < 0 ? "text-destructive" : "text-green-600"
                       }`}
                     >
-                      {item.type === "transfer_out" ? "-" : item.amount > 0 ? "+" : ""}
-                      {item.type === "transfer_out" ? item.amount : item.amount}
+                      {item.amount > 0 ? "+" : ""}{item.amount}
                     </p>
                     {item.balance_after !== undefined && (
                       <p className="text-xs text-muted-foreground">Баланс: {item.balance_after}</p>
