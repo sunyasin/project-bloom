@@ -8,11 +8,15 @@ interface MediaOverlayProps {
   onDeleteMedia: (element: HTMLElement) => void;
 }
 
+type ResizeHandle = "nw" | "ne" | "sw" | "se" | null;
+
 export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia }: MediaOverlayProps) => {
   const [selectedMedia, setSelectedMedia] = useState<HTMLElement | null>(null);
   const [overlayPosition, setOverlayPosition] = useState({ top: 0, left: 0, width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState<ResizeHandle>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const initialSizeRef = useRef({ width: 0, height: 0, x: 0, y: 0 });
 
   const updateOverlayPosition = useCallback((element: HTMLElement) => {
     if (!editorContainer) return;
@@ -97,7 +101,6 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia }: MediaOverl
     
     setIsDragging(true);
     
-    // Store original position for visual feedback
     const mediaRect = selectedMedia.getBoundingClientRect();
     
     // Create a drag ghost
@@ -135,14 +138,81 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia }: MediaOverl
     document.addEventListener("mouseup", handleMouseUp);
   }, [selectedMedia]);
 
+  // Handle resize start
+  const handleResizeStart = useCallback((e: React.MouseEvent, handle: ResizeHandle) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!selectedMedia) return;
+
+    setIsResizing(handle);
+    
+    const rect = selectedMedia.getBoundingClientRect();
+    initialSizeRef.current = {
+      width: rect.width,
+      height: rect.height,
+      x: e.clientX,
+      y: e.clientY,
+    };
+
+    const aspectRatio = rect.width / rect.height;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!selectedMedia) return;
+
+      const deltaX = moveEvent.clientX - initialSizeRef.current.x;
+      const deltaY = moveEvent.clientY - initialSizeRef.current.y;
+
+      let newWidth = initialSizeRef.current.width;
+      let newHeight = initialSizeRef.current.height;
+
+      // Calculate new size based on handle position
+      switch (handle) {
+        case "se":
+          newWidth = Math.max(50, initialSizeRef.current.width + deltaX);
+          newHeight = newWidth / aspectRatio;
+          break;
+        case "sw":
+          newWidth = Math.max(50, initialSizeRef.current.width - deltaX);
+          newHeight = newWidth / aspectRatio;
+          break;
+        case "ne":
+          newWidth = Math.max(50, initialSizeRef.current.width + deltaX);
+          newHeight = newWidth / aspectRatio;
+          break;
+        case "nw":
+          newWidth = Math.max(50, initialSizeRef.current.width - deltaX);
+          newHeight = newWidth / aspectRatio;
+          break;
+      }
+
+      // Apply size to the element
+      selectedMedia.style.width = `${newWidth}px`;
+      selectedMedia.style.height = `${newHeight}px`;
+      
+      // Update overlay position
+      updateOverlayPosition(selectedMedia);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(null);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [selectedMedia, updateOverlayPosition]);
+
   if (!selectedMedia || !editorContainer) return null;
+
+  const resizeHandleClass = "absolute w-3 h-3 bg-primary border-2 border-background rounded-sm pointer-events-auto";
 
   return (
     <div
       ref={overlayRef}
       className={cn(
         "absolute pointer-events-none z-50 border-2 border-primary rounded transition-all",
-        isDragging && "opacity-50"
+        (isDragging || isResizing) && "opacity-70"
       )}
       style={{
         top: overlayPosition.top,
@@ -172,6 +242,24 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia }: MediaOverl
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Resize handles */}
+      <div
+        className={cn(resizeHandleClass, "top-[-6px] left-[-6px] cursor-nw-resize")}
+        onMouseDown={(e) => handleResizeStart(e, "nw")}
+      />
+      <div
+        className={cn(resizeHandleClass, "top-[-6px] right-[-6px] cursor-ne-resize")}
+        onMouseDown={(e) => handleResizeStart(e, "ne")}
+      />
+      <div
+        className={cn(resizeHandleClass, "bottom-[-6px] left-[-6px] cursor-sw-resize")}
+        onMouseDown={(e) => handleResizeStart(e, "sw")}
+      />
+      <div
+        className={cn(resizeHandleClass, "bottom-[-6px] right-[-6px] cursor-se-resize")}
+        onMouseDown={(e) => handleResizeStart(e, "se")}
+      />
     </div>
   );
 };
