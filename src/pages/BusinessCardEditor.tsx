@@ -23,6 +23,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QuillMediaOverlay } from "@/components/QuillMediaOverlay";
 
 interface Category {
   id: string;
@@ -78,6 +79,7 @@ const BusinessCardEditor = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isEditorDragging, setIsEditorDragging] = useState(false);
   const quillRef = useRef<ReactQuill>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // Quill modules configuration
   const quillModules = useMemo(() => ({
@@ -473,6 +475,34 @@ const BusinessCardEditor = () => {
     }
   };
 
+  // Handle media deletion from Quill editor
+  const handleDeleteMedia = useCallback((element: HTMLElement) => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const blot = (window as any).Quill?.find(element);
+      if (blot) {
+        const index = quill.getIndex(blot);
+        quill.deleteText(index, 1);
+        toast({
+          title: "Удалено",
+          description: "Медиа-элемент удалён из редактора",
+        });
+      } else {
+        // Fallback: remove element directly
+        element.remove();
+        // Sync content
+        setCardData(prev => ({
+          ...prev,
+          content: quill.root.innerHTML,
+        }));
+        toast({
+          title: "Удалено",
+          description: "Медиа-элемент удалён из редактора",
+        });
+      }
+    }
+  }, [toast]);
+
   if (isDataLoading) {
     return (
       <MainLayout>
@@ -685,12 +715,13 @@ const BusinessCardEditor = () => {
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Содержимое</h2>
           <p className="text-sm text-muted-foreground">
-            Перетащите изображения прямо в редактор для быстрой загрузки
+            Перетащите изображения прямо в редактор. Кликните на изображение для перемещения или удаления.
           </p>
           
           <div 
+            ref={editorContainerRef}
             className={cn(
-              "quill-editor-wrapper rounded-lg border transition-all",
+              "quill-editor-wrapper rounded-lg border transition-all relative",
               isEditorDragging ? "border-primary bg-primary/5" : "border-border"
             )}
             onDragOver={handleEditorDragOver}
@@ -705,6 +736,10 @@ const BusinessCardEditor = () => {
               modules={quillModules}
               formats={quillFormats}
               placeholder="Введите содержимое визитки..."
+            />
+            <QuillMediaOverlay
+              editorContainer={editorContainerRef.current}
+              onDeleteMedia={handleDeleteMedia}
             />
           </div>
         </div>
