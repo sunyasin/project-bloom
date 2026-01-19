@@ -23,6 +23,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QuillMediaOverlay } from "@/components/QuillMediaOverlay";
 
 interface Category {
   id: string;
@@ -78,18 +79,75 @@ const BusinessCardEditor = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isEditorDragging, setIsEditorDragging] = useState(false);
   const quillRef = useRef<ReactQuill>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
-  // Quill modules configuration
+  // Quill modules configuration with custom handlers
   const quillModules = useMemo(() => ({
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'align': [] }],
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-      ['blockquote'],
-      ['link', 'image'],
-      ['clean'],
-    ],
+    toolbar: {
+      container: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'align': [] }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['blockquote'],
+        ['link', 'image'],
+        ['cut', 'paste'],
+        ['clean'],
+      ],
+      handlers: {
+        cut: function() {
+          const quill = this.quill;
+          const range = quill.getSelection();
+          if (range && range.length > 0) {
+            const text = quill.getText(range.index, range.length);
+            const html = quill.getSemanticHTML(range.index, range.length);
+            // Copy to clipboard
+            navigator.clipboard.write([
+              new ClipboardItem({
+                'text/plain': new Blob([text], { type: 'text/plain' }),
+                'text/html': new Blob([html], { type: 'text/html' }),
+              })
+            ]).then(() => {
+              quill.deleteText(range.index, range.length);
+            }).catch(() => {
+              // Fallback for older browsers
+              navigator.clipboard.writeText(text).then(() => {
+                quill.deleteText(range.index, range.length);
+              });
+            });
+          }
+        },
+        paste: async function() {
+          const quill = this.quill;
+          try {
+            const clipboardItems = await navigator.clipboard.read();
+            for (const item of clipboardItems) {
+              // Try HTML first
+              if (item.types.includes('text/html')) {
+                const blob = await item.getType('text/html');
+                const html = await blob.text();
+                const range = quill.getSelection(true);
+                quill.clipboard.dangerouslyPasteHTML(range.index, html);
+                return;
+              }
+              // Fallback to plain text
+              if (item.types.includes('text/plain')) {
+                const blob = await item.getType('text/plain');
+                const text = await blob.text();
+                const range = quill.getSelection(true);
+                quill.insertText(range.index, text);
+                return;
+              }
+            }
+          } catch {
+            // Fallback for older browsers
+            const text = await navigator.clipboard.readText();
+            const range = quill.getSelection(true);
+            quill.insertText(range.index, text);
+          }
+        },
+      },
+    },
   }), []);
 
   const quillFormats = useMemo(() => [
@@ -473,6 +531,34 @@ const BusinessCardEditor = () => {
     }
   };
 
+  // Handle media deletion from Quill editor
+  const handleDeleteMedia = useCallback((element: HTMLElement) => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const blot = (window as any).Quill?.find(element);
+      if (blot) {
+        const index = quill.getIndex(blot);
+        quill.deleteText(index, 1);
+        toast({
+          title: "Удалено",
+          description: "Медиа-элемент удалён из редактора",
+        });
+      } else {
+        // Fallback: remove element directly
+        element.remove();
+        // Sync content
+        setCardData(prev => ({
+          ...prev,
+          content: quill.root.innerHTML,
+        }));
+        toast({
+          title: "Удалено",
+          description: "Медиа-элемент удалён из редактора",
+        });
+      }
+    }
+  }, [toast]);
+
   if (isDataLoading) {
     return (
       <MainLayout>
@@ -685,12 +771,13 @@ const BusinessCardEditor = () => {
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Содержимое</h2>
           <p className="text-sm text-muted-foreground">
-            Перетащите изображения прямо в редактор для быстрой загрузки
+            Перетащите изображения прямо в редактор. Кликните на изображение для перемещения или удаления.
           </p>
           
           <div 
+            ref={editorContainerRef}
             className={cn(
-              "quill-editor-wrapper rounded-lg border transition-all",
+              "quill-editor-wrapper rounded-lg border transition-all relative",
               isEditorDragging ? "border-primary bg-primary/5" : "border-border"
             )}
             onDragOver={handleEditorDragOver}
@@ -705,6 +792,10 @@ const BusinessCardEditor = () => {
               modules={quillModules}
               formats={quillFormats}
               placeholder="Введите содержимое визитки..."
+            />
+            <QuillMediaOverlay
+              editorContainer={editorContainerRef.current}
+              onDeleteMedia={handleDeleteMedia}
             />
           </div>
         </div>
