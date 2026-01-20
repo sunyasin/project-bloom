@@ -559,6 +559,17 @@ const BusinessCardEditor = () => {
     }
   }, [toast]);
 
+  // Sync content after resize
+  const handleMediaContentChange = useCallback(() => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      setCardData(prev => ({
+        ...prev,
+        content: quill.root.innerHTML,
+      }));
+    }
+  }, []);
+
   if (isDataLoading) {
     return (
       <MainLayout>
@@ -796,6 +807,7 @@ const BusinessCardEditor = () => {
             <QuillMediaOverlay
               editorContainer={editorContainerRef.current}
               onDeleteMedia={handleDeleteMedia}
+              onContentChange={handleMediaContentChange}
             />
           </div>
         </div>

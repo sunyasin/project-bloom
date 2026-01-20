@@ -6,11 +6,12 @@ import { cn } from "@/lib/utils";
 interface MediaOverlayProps {
   editorContainer: HTMLElement | null;
   onDeleteMedia: (element: HTMLElement) => void;
+  onContentChange?: () => void;
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | null;
 
-export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia }: MediaOverlayProps) => {
+export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentChange }: MediaOverlayProps) => {
   const [selectedMedia, setSelectedMedia] = useState<HTMLElement | null>(null);
   const [overlayPosition, setOverlayPosition] = useState({ top: 0, left: 0, width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -195,13 +196,15 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia }: MediaOverl
 
     const handleMouseUp = () => {
       setIsResizing(null);
+      // Notify parent that content changed (for saving resized dimensions)
+      onContentChange?.();
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-  }, [selectedMedia, updateOverlayPosition]);
+  }, [selectedMedia, updateOverlayPosition, onContentChange]);
 
   if (!selectedMedia || !editorContainer) return null;
 
