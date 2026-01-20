@@ -36,9 +36,12 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
   useEffect(() => {
     if (!editorContainer) return;
 
+    let editorContent: Element | null = null;
+    let rafId: number | null = null;
+
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      
+
       // Check if clicked on media element (img or video/iframe)
       if (target.tagName === "IMG" || target.tagName === "VIDEO" || target.tagName === "IFRAME") {
         e.preventDefault();
@@ -47,31 +50,36 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
         updateOverlayPosition(target);
         return;
       }
-      
+
       // Check if clicked inside overlay
-      if (overlayRef.current?.contains(target)) {
-        return;
-      }
-      
+      if (overlayRef.current?.contains(target)) return;
+
       // Clicked elsewhere - deselect
       setSelectedMedia(null);
     };
 
     const handleScroll = () => {
-      if (selectedMedia) {
-        updateOverlayPosition(selectedMedia);
-      }
+      if (selectedMedia) updateOverlayPosition(selectedMedia);
     };
 
-    const editorContent = editorContainer.querySelector(".ql-editor");
-    if (editorContent) {
-      editorContent.addEventListener("click", handleClick);
+    const attach = () => {
+      editorContent = editorContainer.querySelector(".ql-editor");
+      if (!editorContent) {
+        rafId = window.requestAnimationFrame(attach);
+        return;
+      }
+
+      // Use capture phase to ensure we get the event before Quill
+      editorContent.addEventListener("click", handleClick, true);
       editorContent.addEventListener("scroll", handleScroll);
-    }
+    };
+
+    attach();
 
     return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
       if (editorContent) {
-        editorContent.removeEventListener("click", handleClick);
+        editorContent.removeEventListener("click", handleClick, true);
         editorContent.removeEventListener("scroll", handleScroll);
       }
     };
