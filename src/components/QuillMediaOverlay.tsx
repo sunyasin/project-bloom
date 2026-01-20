@@ -36,6 +36,9 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
   useEffect(() => {
     if (!editorContainer) return;
 
+    const editorContent = editorContainer.querySelector(".ql-editor");
+    if (!editorContent) return;
+
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       
@@ -63,17 +66,13 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
       }
     };
 
-    const editorContent = editorContainer.querySelector(".ql-editor");
-    if (editorContent) {
-      editorContent.addEventListener("click", handleClick);
-      editorContent.addEventListener("scroll", handleScroll);
-    }
+    // Use capture phase to ensure we get the event before Quill
+    editorContent.addEventListener("click", handleClick, true);
+    editorContent.addEventListener("scroll", handleScroll);
 
     return () => {
-      if (editorContent) {
-        editorContent.removeEventListener("click", handleClick);
-        editorContent.removeEventListener("scroll", handleScroll);
-      }
+      editorContent.removeEventListener("click", handleClick, true);
+      editorContent.removeEventListener("scroll", handleScroll);
     };
   }, [editorContainer, selectedMedia, updateOverlayPosition]);
 
