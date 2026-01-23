@@ -106,12 +106,17 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    if (!selectedMedia) return;
-    
+    if (!selectedMedia || !editorContainer) return;
+
     setIsDragging(true);
-    
+
+    const editorContent = editorContainer.querySelector(".ql-editor");
+    if (!editorContent) return;
+
     const mediaRect = selectedMedia.getBoundingClientRect();
-    
+    const offsetX = e.clientX - mediaRect.left;
+    const offsetY = e.clientY - mediaRect.top;
+
     // Create a drag ghost
     const ghost = selectedMedia.cloneNode(true) as HTMLElement;
     ghost.style.position = "fixed";
@@ -124,28 +129,135 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
     ghost.style.zIndex = "9999";
     ghost.id = "media-drag-ghost";
     document.body.appendChild(ghost);
-    
+
+    // Create drop indicator
+    const indicator = document.createElement("div");
+    indicator.id = "media-drop-indicator";
+    indicator.style.cssText = `
+      position: absolute;
+      height: 3px;
+      background: hsl(var(--primary));
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+    `;
+    editorContent.appendChild(indicator);
+
+    // Hide original image during drag
+    selectedMedia.style.opacity = "0.3";
+
+    const getDropTarget = (x: number, y: number): { element: Element | null; position: "before" | "after" } => {
+      const elements = editorContent.querySelectorAll("p, img, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, div:not(#media-drop-indicator)");
+      
+      for (const el of elements) {
+        if (el === selectedMedia || el.contains(selectedMedia)) continue;
+        
+        const rect = el.getBoundingClientRect();
+        if (y >= rect.top && y <= rect.bottom) {
+          const midY = rect.top + rect.height / 2;
+          return { element: el, position: y < midY ? "before" : "after" };
+        }
+      }
+      
+      // If below all elements, append at end
+      const lastElement = elements[elements.length - 1];
+      if (lastElement) {
+        const rect = lastElement.getBoundingClientRect();
+        if (y > rect.bottom) {
+          return { element: lastElement, position: "after" };
+        }
+      }
+      
+      return { element: null, position: "before" };
+    };
+
+    let currentDropTarget: { element: Element | null; position: "before" | "after" } = { element: null, position: "before" };
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const ghostEl = document.getElementById("media-drag-ghost");
       if (ghostEl) {
-        ghostEl.style.left = `${moveEvent.clientX - mediaRect.width / 2}px`;
-        ghostEl.style.top = `${moveEvent.clientY - mediaRect.height / 2}px`;
+        ghostEl.style.left = `${moveEvent.clientX - offsetX}px`;
+        ghostEl.style.top = `${moveEvent.clientY - offsetY}px`;
+      }
+
+      // Find drop target
+      currentDropTarget = getDropTarget(moveEvent.clientX, moveEvent.clientY);
+      
+      const indicatorEl = document.getElementById("media-drop-indicator");
+      if (indicatorEl && currentDropTarget.element) {
+        const targetRect = currentDropTarget.element.getBoundingClientRect();
+        const containerRect = editorContent.getBoundingClientRect();
+        
+        indicatorEl.style.display = "block";
+        indicatorEl.style.left = "0";
+        indicatorEl.style.width = `${containerRect.width}px`;
+        
+        if (currentDropTarget.position === "before") {
+          indicatorEl.style.top = `${targetRect.top - containerRect.top - 2}px`;
+        } else {
+          indicatorEl.style.top = `${targetRect.bottom - containerRect.top - 1}px`;
+        }
+      } else if (indicatorEl) {
+        indicatorEl.style.display = "none";
       }
     };
-    
+
     const handleMouseUp = () => {
       setIsDragging(false);
-      const ghostEl = document.getElementById("media-drag-ghost");
-      if (ghostEl) {
-        ghostEl.remove();
+
+      // Restore original visibility
+      if (selectedMedia) {
+        selectedMedia.style.opacity = "1";
       }
+
+      // Remove ghost and indicator
+      document.getElementById("media-drag-ghost")?.remove();
+      document.getElementById("media-drop-indicator")?.remove();
+
+      // Move the element if we have a valid drop target
+      if (currentDropTarget.element && selectedMedia) {
+        // Wrap img in a <p> if it's not already wrapped
+        let elementToMove: HTMLElement = selectedMedia;
+        const parent = selectedMedia.parentElement;
+        
+        if (parent?.tagName !== "P" || parent.children.length > 1) {
+          // Create a new paragraph wrapper
+          const wrapper = document.createElement("p");
+          wrapper.appendChild(selectedMedia.cloneNode(true));
+          elementToMove = wrapper;
+          selectedMedia.remove();
+        } else {
+          // Move the whole paragraph
+          elementToMove = parent;
+        }
+
+        if (currentDropTarget.position === "before") {
+          currentDropTarget.element.parentNode?.insertBefore(elementToMove, currentDropTarget.element);
+        } else {
+          currentDropTarget.element.parentNode?.insertBefore(elementToMove, currentDropTarget.element.nextSibling);
+        }
+
+        // Update selected media reference and position
+        const newMedia = elementToMove.tagName === "IMG" ? elementToMove : elementToMove.querySelector("img, video, iframe");
+        if (newMedia) {
+          setSelectedMedia(newMedia as HTMLElement);
+          setTimeout(() => updateOverlayPosition(newMedia as HTMLElement), 0);
+        } else {
+          setSelectedMedia(null);
+        }
+
+        // Notify parent of content change
+        onContentChange?.();
+      }
+
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-    
+
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-  }, [selectedMedia]);
+  }, [selectedMedia, editorContainer, updateOverlayPosition, onContentChange]);
 
   // Handle resize start
   const handleResizeStart = useCallback((e: React.MouseEvent, handle: ResizeHandle) => {
