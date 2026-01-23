@@ -39,22 +39,26 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
     let editorContent: Element | null = null;
     let rafId: number | null = null;
 
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
 
-      // Check if clicked on media element (img or video/iframe)
-      if (target.tagName === "IMG" || target.tagName === "VIDEO" || target.tagName === "IFRAME") {
+      // If pressed inside overlay controls — keep selection
+      if (overlayRef.current?.contains(target)) return;
+
+      // Quill иногда перехватывает click на img, поэтому ловим pointerdown в capture
+      const media = target.closest("img, video, iframe") as HTMLElement | null;
+      if (media) {
+        // Prevent Quill selection weirdness on media interaction
         e.preventDefault();
         e.stopPropagation();
-        setSelectedMedia(target);
-        updateOverlayPosition(target);
+        setSelectedMedia(media);
+        // Defer to ensure layout is stable
+        requestAnimationFrame(() => updateOverlayPosition(media));
         return;
       }
 
-      // Check if clicked inside overlay
-      if (overlayRef.current?.contains(target)) return;
-
-      // Clicked elsewhere - deselect
+      // Pressed elsewhere — deselect
       setSelectedMedia(null);
     };
 
@@ -69,8 +73,8 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
         return;
       }
 
-      // Use capture phase to ensure we get the event before Quill
-      editorContent.addEventListener("click", handleClick, true);
+       // Use capture phase to ensure we get the event before Quill
+       editorContent.addEventListener("pointerdown", handlePointerDown, true);
       editorContent.addEventListener("scroll", handleScroll);
     };
 
@@ -79,7 +83,7 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
       if (editorContent) {
-        editorContent.removeEventListener("click", handleClick, true);
+        editorContent.removeEventListener("pointerdown", handlePointerDown, true);
         editorContent.removeEventListener("scroll", handleScroll);
       }
     };
