@@ -332,6 +332,10 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
 
   if (!selectedMedia || !editorContainer) return null;
 
+  // Auto-position toolbar: if not enough space at top, show at bottom
+  const toolbarHeight = 36; // ~9 * 4px (h-7 + gap)
+  const showToolbarBelow = overlayPosition.top < toolbarHeight;
+
   const resizeHandleClass = "absolute w-3 h-3 bg-primary border-2 border-background rounded-sm pointer-events-auto";
 
   return (
@@ -348,8 +352,13 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
         height: overlayPosition.height,
       }}
     >
-      {/* Toolbar */}
-      <div className="absolute -top-9 left-0 flex gap-1 pointer-events-auto">
+      {/* Toolbar - auto-positioned above or below */}
+      <div 
+        className={cn(
+          "absolute left-0 flex gap-1 pointer-events-auto",
+          showToolbarBelow ? "top-full mt-1" : "-top-9"
+        )}
+      >
         <Button
           variant="secondary"
           size="icon"
