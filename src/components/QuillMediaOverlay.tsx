@@ -39,6 +39,25 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
     let editorContent: Element | null = null;
     let rafId: number | null = null;
 
+    const findMediaAtPoint = (x: number, y: number): HTMLElement | null => {
+      // 1) Best effort: ask the browser what is visually under the pointer
+      const elAtPoint = document.elementFromPoint(x, y) as HTMLElement | null;
+      const direct = elAtPoint?.closest("img, video, iframe") as HTMLElement | null;
+      if (direct) return direct;
+
+      // 2) Fallback: in some cases (e.g. pointer-events quirks), scan media rects
+      // Keep it tight by looking only inside the current editor container.
+      const scope = editorContainer.querySelector(".ql-editor");
+      if (!scope) return null;
+
+      const mediaEls = scope.querySelectorAll<HTMLElement>("img, video, iframe");
+      for (const m of mediaEls) {
+        const r = m.getBoundingClientRect();
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return m;
+      }
+      return null;
+    };
+
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -46,14 +65,13 @@ export const QuillMediaOverlay = ({ editorContainer, onDeleteMedia, onContentCha
       // If pressed inside overlay controls — keep selection
       if (overlayRef.current?.contains(target)) return;
 
-      // Quill иногда перехватывает click на img, поэтому ловим pointerdown в capture
-      const media = target.closest("img, video, iframe") as HTMLElement | null;
+      // Quill иногда не даёт target=IMG (в т.ч. из-за стилей/блотов), поэтому ищем по координатам
+      const media = findMediaAtPoint(e.clientX, e.clientY);
       if (media) {
         // Prevent Quill selection weirdness on media interaction
         e.preventDefault();
         e.stopPropagation();
         setSelectedMedia(media);
-        // Defer to ensure layout is stable
         requestAnimationFrame(() => updateOverlayPosition(media));
         return;
       }
