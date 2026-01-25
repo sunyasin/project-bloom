@@ -49,25 +49,42 @@
   background: hsl(var(--primary) / 0.8);
 }
 
-/* Make videos resizable in Jodit */
-.jodit-wrapper .jodit-wysiwyg video {
+/* Make media selectable with visual feedback */
+.jodit-wrapper .jodit-wysiwyg video,
+.jodit-wrapper .jodit-wysiwyg iframe,
+.jodit-wrapper .jodit-wysiwyg img {
   cursor: pointer;
   max-width: 100%;
+  transition: outline 0.15s ease;
 }
 
-.jodit-wrapper .jodit-wysiwyg video:hover {
-  outline: 2px solid hsl(var(--primary) / 0.5);
+.jodit-wrapper .jodit-wysiwyg video:hover,
+.jodit-wrapper .jodit-wysiwyg iframe:hover,
+.jodit-wrapper .jodit-wysiwyg img:hover {
+  outline: 2px solid hsl(var(--primary));
   outline-offset: 2px;
 }
 
-.jodit-wrapper .jodit-wysiwyg iframe {
-  cursor: pointer;
-  max-width: 100%;
+/* Selected media styling */
+.jodit-wrapper .jodit-wysiwyg video[data-jodit-selected],
+.jodit-wrapper .jodit-wysiwyg iframe[data-jodit-selected],
+.jodit-wrapper .jodit-wysiwyg img[data-jodit-selected] {
+  outline: 3px solid hsl(var(--primary));
+  outline-offset: 2px;
 }
 
-.jodit-wrapper .jodit-wysiwyg iframe:hover {
-  outline: 2px solid hsl(var(--primary) / 0.5);
-  outline-offset: 2px;
+/* Jodit popup styling for media */
+.jodit-popup .jodit-popup__content {
+  display: flex;
+  gap: 4px;
+}
+
+.jodit-popup .jodit-toolbar-button {
+  border-radius: 4px;
+}
+
+.jodit-popup .jodit-toolbar-button:hover {
+  background: hsl(var(--muted));
 }
 
 /* Jodit popups and dialogs */

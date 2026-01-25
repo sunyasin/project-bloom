@@ -193,6 +193,72 @@ export const JoditEditorComponent = ({
       // Custom CSS for the editor
       editorClassName: "jodit-editor-content",
       
+      // Popup menus for media elements
+      popup: {
+        img: [
+          {
+            name: "delete",
+            icon: "bin",
+            tooltip: "Удалить",
+            exec: (editor: any) => {
+              const current = editor.s.current();
+              if (current) {
+                const img = current.nodeName === "IMG" ? current : current.closest?.("img");
+                if (img) {
+                  img.remove();
+                  editor.synchronizeValues();
+                }
+              }
+            },
+          },
+          "pencil",
+          "valign",
+          "left",
+          "center",
+          "right",
+        ],
+        video: [
+          {
+            name: "delete",
+            icon: "bin",
+            tooltip: "Удалить видео",
+            exec: (editor: any) => {
+              const current = editor.s.current();
+              if (current) {
+                const video = current.nodeName === "VIDEO" ? current : current.closest?.("video");
+                if (video) {
+                  video.remove();
+                  editor.synchronizeValues();
+                }
+              }
+            },
+          },
+          "left",
+          "center", 
+          "right",
+        ],
+        iframe: [
+          {
+            name: "delete",
+            icon: "bin",
+            tooltip: "Удалить",
+            exec: (editor: any) => {
+              const current = editor.s.current();
+              if (current) {
+                const iframe = current.nodeName === "IFRAME" ? current : current.closest?.("iframe");
+                if (iframe) {
+                  iframe.remove();
+                  editor.synchronizeValues();
+                }
+              }
+            },
+          },
+          "left",
+          "center",
+          "right",
+        ],
+      },
+      
       controls: {
         video: {
           popup: (editor: any, _current: any, close: () => void) => {
