@@ -1,16 +1,18 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2, Send } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -20,19 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import type { Category, Business, Product as DBProduct } from "@/types/db";
-
-// Mock user profile
-const mockAPIUserProfile = {
-  phone: "+7 (999) 123-45-67",
-};
-
-// Mock order API
-const mockAPISendOrder = async (order: { products: SelectedProduct[]; phone: string; businessId: string }) => {
-  console.log("Sending order:", order);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  return { success: true, orderId: `ORD-${Date.now()}` };
-};
+import type { Category, Product as DBProduct } from "@/types/db";
+import type { User } from "@supabase/supabase-js";
 
 type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin' | 'all';
 
@@ -52,6 +43,7 @@ interface ProductDisplay {
 interface SelectedProduct extends ProductDisplay {
   businessId: string;
   businessName: string;
+  ownerId: string;
 }
 
 interface BusinessWithProducts {
@@ -60,6 +52,7 @@ interface BusinessWithProducts {
   location: string;
   city: string;
   phone: string;
+  ownerId: string;
   products: ProductDisplay[];
 }
 
@@ -68,9 +61,11 @@ interface ProductGridProps {
   businessName: string;
   businessId: string;
   businessPhone: string;
+  ownerId: string;
   selectedProducts: SelectedProduct[];
-  onProductClick: (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string) => void;
-  onProductSelect: (product: ProductDisplay, businessId: string, businessName: string, selected: boolean) => void;
+  currentUser: User | null;
+  onProductClick: (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string, ownerId: string) => void;
+  onProductSelect: (product: ProductDisplay, businessId: string, businessName: string, ownerId: string, selected: boolean) => void;
 }
 
 const ProductGrid = ({ 
@@ -78,7 +73,9 @@ const ProductGrid = ({
   businessName, 
   businessId, 
   businessPhone, 
+  ownerId,
   selectedProducts,
+  currentUser,
   onProductClick, 
   onProductSelect 
 }: ProductGridProps) => {
@@ -137,13 +134,14 @@ const ProductGrid = ({
               <div className="flex items-start gap-1">
                 <Checkbox
                   checked={selected}
+                  disabled={!currentUser}
                   onCheckedChange={(checked) => 
-                    onProductSelect(product, businessId, businessName, checked as boolean)
+                    onProductSelect(product, businessId, businessName, ownerId, checked as boolean)
                   }
                   className="mt-1"
                 />
                 <button
-                  onClick={() => onProductClick(product, businessName, businessId, businessPhone)}
+                  onClick={() => onProductClick(product, businessName, businessId, businessPhone, ownerId)}
                   className="flex flex-col items-center gap-1 group cursor-pointer"
                 >
                   <div className="w-14 h-14 rounded-lg overflow-hidden border border-border group-hover:border-primary/50 transition-colors">
@@ -193,18 +191,85 @@ const CategoryPage = () => {
     businessName: string;
     businessId: string;
     businessPhone: string;
+    ownerId: string;
   } | null>(null);
   const [productDetailOpen, setProductDetailOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState<string | null>(null);
-  const [orderPhone, setOrderPhone] = useState(mockAPIUserProfile.phone);
+  const [orderPhone, setOrderPhone] = useState("");
+  const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const initialCity = searchParams.get("city") || "Все города";
   const [cityFilter, setCityFilter] = useState(initialCity);
   const [saleTypeFilter, setSaleTypeFilter] = useState<ProductSaleType>("all");
+
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("");
+  const [userProducts, setUserProducts] = useState<DBProduct[]>([]);
+
+  // Digital exchange states
+  const [digitalExchangeDialogOpen, setDigitalExchangeDialogOpen] = useState<string | null>(null);
+  const [digitalOfferAmount, setDigitalOfferAmount] = useState<string>("");
+  const [digitalProductQuantities, setDigitalProductQuantities] = useState<Record<string, number>>({});
+
+  // Goods exchange states
+  const [goodsExchangeDialogOpen, setGoodsExchangeDialogOpen] = useState<string | null>(null);
+  const [producerProductQuantities, setProducerProductQuantities] = useState<Record<string, number>>({});
+  const [userProductQuantities, setUserProductQuantities] = useState<Record<string, number>>({});
+  const [exchangeComment, setExchangeComment] = useState("");
+
+  // Exchange message sent confirmation
+  const [exchangeMessageSent, setExchangeMessageSent] = useState(false);
+  const [exchangeMessage, setExchangeMessage] = useState("");
+
+  // Check auth state
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch current user data for exchange
+  useEffect(() => {
+    const fetchCurrentUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const [profileResult, productsResult] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("first_name, last_name, email, phone")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          supabase
+            .from("products")
+            .select("*")
+            .eq("producer_id", user.id)
+            .eq("is_available", true)
+        ]);
+        
+        if (profileResult.data) {
+          const name = [profileResult.data.first_name, profileResult.data.last_name].filter(Boolean).join(" ") || profileResult.data.email || "Аноним";
+          setCurrentUserName(name);
+          setOrderPhone(profileResult.data.phone || "");
+        }
+        
+        if (productsResult.data) {
+          setUserProducts(productsResult.data as DBProduct[]);
+        }
+      }
+    };
+    fetchCurrentUserData();
+  }, [currentUser]);
 
   // Загрузка данных из БД
   useEffect(() => {
@@ -267,9 +332,6 @@ const CategoryPage = () => {
       }
 
       // 4. Объединяем в список производителей без дублей по owner_id.
-      // Если у производителя несколько визиток, приоритет:
-      //   1) визитка именно этой категории
-      //   2) иначе — самая свежая по updated_at/created_at
       const pickBetter = (
         a: (typeof businessesByCat)[0] | undefined,
         b: (typeof businessesByCat)[0]
@@ -299,7 +361,7 @@ const CategoryPage = () => {
       });
       setCities(Array.from(uniqueCities));
 
-      // 5. Загружаем ВСЕ товары владельцев (не только в этой категории)
+      // 5. Загружаем ВСЕ товары владельцев
       const ownerIds = allBusinesses.map(b => b.owner_id).filter(Boolean) as string[];
       
       let productsMap: Record<string, ProductDisplay[]> = {};
@@ -344,6 +406,7 @@ const CategoryPage = () => {
           location: b.location,
           city: b.city,
           phone: (contentJson.phone as string) || "",
+          ownerId: b.owner_id || "",
           products: b.owner_id ? (productsMap[b.owner_id] || []) : [],
         };
       });
@@ -355,15 +418,15 @@ const CategoryPage = () => {
     fetchData();
   }, [id]);
 
-  const handleProductClick = (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string) => {
-    setSelectedProduct({ product, businessName, businessId, businessPhone });
+  const handleProductClick = (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string, ownerId: string) => {
+    setSelectedProduct({ product, businessName, businessId, businessPhone, ownerId });
     setGalleryIndex(0);
     setProductDetailOpen(true);
   };
 
-  const handleProductSelect = (product: ProductDisplay, businessId: string, businessName: string, selected: boolean) => {
+  const handleProductSelect = (product: ProductDisplay, businessId: string, businessName: string, ownerId: string, selected: boolean) => {
     if (selected) {
-      setSelectedProducts(prev => [...prev, { ...product, businessId, businessName }]);
+      setSelectedProducts(prev => [...prev, { ...product, businessId, businessName, ownerId }]);
     } else {
       setSelectedProducts(prev => prev.filter(p => !(p.id === product.id && p.businessId === businessId)));
     }
@@ -372,13 +435,62 @@ const CategoryPage = () => {
   const getSelectedForBusiness = (businessId: string) => 
     selectedProducts.filter(p => p.businessId === businessId);
 
+  // Real order submission via messages
   const handleOrderSubmit = async (businessId: string) => {
     const products = getSelectedForBusiness(businessId);
     if (products.length === 0) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Ошибка",
+        description: "Войдите в аккаунт для заказа",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const business = businesses.find(b => b.id === businessId);
+    if (!business?.ownerId) {
+      toast({
+        title: "Ошибка",
+        description: "Производитель не найден",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await mockAPISendOrder({ products, phone: orderPhone, businessId });
+      const now = new Date();
+      const dateStr = now.toLocaleString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const productsList = products
+        .map((p) => {
+          const qty = orderQuantities[p.id] || 1;
+          return `• ${p.name} — ${qty} ${p.unit} (${p.rawPrice} ₽/${p.unit})`;
+        })
+        .join("\n");
+
+      const total = products.reduce((sum, p) => sum + p.rawPrice * (orderQuantities[p.id] || 1), 0);
+
+      const message = `🛒 Новый заказ!\n${dateStr}\n\nТовары:\n${productsList}\n\nИтого: ${total} ₽\nТелефон: ${orderPhone}\n\nОт: ${currentUserName || "Аноним"}`;
+
+      const { error } = await supabase.from("messages").insert({
+        from_id: user.id,
+        to_id: business.ownerId,
+        message,
+        type: "chat" as const,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Заказ отправлен",
         description: `Заказ на ${products.length} товар(ов) успешно отправлен производителю`,
@@ -386,6 +498,7 @@ const CategoryPage = () => {
       setSelectedProducts(prev => prev.filter(p => p.businessId !== businessId));
       setOrderDialogOpen(null);
     } catch (error) {
+      console.error("Order error:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось отправить заказ",
@@ -394,6 +507,278 @@ const CategoryPage = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Digital exchange handler
+  const handleDigitalExchange = async (businessId: string) => {
+    const products = getSelectedForBusiness(businessId);
+    if (products.length === 0) return;
+    
+    const offerAmount = parseInt(digitalOfferAmount, 10);
+    if (!offerAmount || offerAmount <= 0) {
+      toast({
+        title: "Ошибка",
+        description: "Введите корректную сумму долей",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Ошибка",
+        description: "Войдите в аккаунт для обмена",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const business = businesses.find(b => b.id === businessId);
+    if (!business?.ownerId) {
+      toast({
+        title: "Ошибка",
+        description: "Производитель не найден",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get buyer profile id
+    const { data: buyerProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+    
+    // Get provider profile id
+    const { data: providerProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", business.ownerId)
+      .single();
+
+    if (!buyerProfile || !providerProfile) {
+      toast({
+        title: "Ошибка",
+        description: "Профили не найдены",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Form provider_items
+    const providerItems = products
+      .filter(p => (digitalProductQuantities[p.id] || 1) > 0)
+      .map(p => ({ item_id: p.id, qty: digitalProductQuantities[p.id] || 1 }));
+
+    // Insert into exchange table
+    const { error: exchangeError } = await supabase.from("exchange").insert({
+      creator: buyerProfile.id,
+      provider: providerProfile.id,
+      type: "coins" as const,
+      status: "created" as const,
+      buyer_items: [],
+      provider_items: providerItems,
+      sum: offerAmount,
+      comment: null,
+    });
+
+    if (exchangeError) {
+      console.error("Exchange insert error:", exchangeError);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать запрос на обмен",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const now = new Date();
+    const dateStr = now.toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    
+    const productsList = products
+      .map((p) => {
+        const qty = digitalProductQuantities[p.id] || 1;
+        return `• ${p.name} — ${qty} шт. (${p.rawPrice} ₽/шт)`;
+      })
+      .join("\n");
+    
+    const message = `💰 Предлагаю обмен на доли.\nТовары:\n${productsList}\n\nПредлагаю: ${offerAmount} долей.\n${dateStr}.\nОт кого: ${currentUserName || "Аноним"}.`;
+    
+    // Save message to database
+    await supabase.from("messages").insert({
+      from_id: user.id,
+      to_id: business.ownerId,
+      message,
+      type: "exchange" as const,
+    });
+
+    toast({
+      title: "Запрос отправлен",
+      description: "Производитель получит уведомление о вашем запросе",
+    });
+    
+    setExchangeMessage(message);
+    setDigitalExchangeDialogOpen(null);
+    setExchangeMessageSent(true);
+    setDigitalOfferAmount("");
+    setDigitalProductQuantities({});
+    setSelectedProducts(prev => prev.filter(p => p.businessId !== businessId));
+  };
+
+  // Goods exchange handler
+  const handleGoodsExchange = async (businessId: string) => {
+    const products = getSelectedForBusiness(businessId);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Ошибка",
+        description: "Войдите в аккаунт для обмена",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const business = businesses.find(b => b.id === businessId);
+    if (!business?.ownerId) {
+      toast({
+        title: "Ошибка",
+        description: "Производитель не найден",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get buyer profile id
+    const { data: buyerProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+    
+    // Get provider profile id
+    const { data: providerProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", business.ownerId)
+      .single();
+
+    if (!buyerProfile || !providerProfile) {
+      toast({
+        title: "Ошибка",
+        description: "Профили не найдены",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Form buyer_items (user's products)
+    const buyerItems = userProducts
+      .filter(p => userProductQuantities[p.id] > 0)
+      .map(p => ({ item_id: p.id, qty: userProductQuantities[p.id] }));
+
+    // Form provider_items (selected producer's products)
+    const providerItems = products
+      .filter(p => producerProductQuantities[p.id] > 0)
+      .map(p => ({ item_id: p.id, qty: producerProductQuantities[p.id] }));
+
+    // Insert into exchange table
+    const { error: exchangeError } = await supabase.from("exchange").insert({
+      creator: buyerProfile.id,
+      provider: providerProfile.id,
+      type: "goods" as const,
+      status: "created" as const,
+      buyer_items: buyerItems,
+      provider_items: providerItems,
+      comment: exchangeComment || null,
+    });
+
+    if (exchangeError) {
+      console.error("Exchange insert error:", exchangeError);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать запрос на обмен",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const producerProductsList = products
+      .filter(p => producerProductQuantities[p.id] > 0)
+      .map(p => `${p.name} (${producerProductQuantities[p.id]} шт)`)
+      .join(", ");
+    
+    const userProductsList = userProducts
+      .filter(p => userProductQuantities[p.id] > 0)
+      .map(p => `${p.name} (${userProductQuantities[p.id]} шт)`)
+      .join(", ");
+    
+    const message = `Запрос обмена от ${currentUserName || "Аноним"}.
+Выбраны ваши товары: ${producerProductsList || "не выбраны"}
+Предлагаю обмен на: ${userProductsList || "не выбраны"}
+Сообщение: ${exchangeComment || "без сообщения"}`;
+    
+    // Save message to database
+    await supabase.from("messages").insert({
+      from_id: user.id,
+      to_id: business.ownerId,
+      message,
+      type: "exchange" as const,
+    });
+    
+    toast({
+      title: "Запрос отправлен",
+      description: "Производитель получит уведомление о вашем запросе",
+    });
+    
+    setExchangeMessage(message);
+    setGoodsExchangeDialogOpen(null);
+    setExchangeMessageSent(true);
+    setSelectedProducts(prev => prev.filter(p => p.businessId !== businessId));
+  };
+
+  const handleOpenOrderDialog = (businessId: string) => {
+    const products = getSelectedForBusiness(businessId);
+    if (products.length === 0) return;
+    const initialQuantities: Record<string, number> = {};
+    products.forEach(p => {
+      initialQuantities[p.id] = 1;
+    });
+    setOrderQuantities(initialQuantities);
+    setOrderDialogOpen(businessId);
+  };
+
+  const handleOpenGoodsExchange = (businessId: string) => {
+    const products = getSelectedForBusiness(businessId);
+    if (products.length === 0) return;
+    const initialQuantities: Record<string, number> = {};
+    products.forEach(p => {
+      initialQuantities[p.id] = 1;
+    });
+    setProducerProductQuantities(initialQuantities);
+    setUserProductQuantities({});
+    setExchangeComment("");
+    setGoodsExchangeDialogOpen(businessId);
+  };
+
+  const handleOpenDigitalExchange = (businessId: string) => {
+    const products = getSelectedForBusiness(businessId);
+    if (products.length === 0) return;
+    const initialQuantities: Record<string, number> = {};
+    products.forEach(p => {
+      initialQuantities[p.id] = 1;
+    });
+    setDigitalProductQuantities(initialQuantities);
+    setDigitalOfferAmount("");
+    setDigitalExchangeDialogOpen(businessId);
   };
 
   // Фильтруем товары по типу продажи, затем визитки по городу
@@ -470,9 +855,9 @@ const CategoryPage = () => {
                   key={business.id}
                   className="content-card hover:border-primary/30 transition-colors"
                 >
-                  <div className="flex flex-col lg:flex-row gap-4">
-                    {/* Business info - left side */}
-                    <div className="flex items-center gap-4 lg:w-72 shrink-0">
+                  <div className="flex flex-col gap-4">
+                    {/* Business info and buttons row */}
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                       <Link
                         to={`/business/${business.id}`}
                         className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
@@ -488,31 +873,55 @@ const CategoryPage = () => {
                           </div>
                         </div>
                       </Link>
-                      <Button
-                        size="sm"
-                        disabled={selectedForBusiness.length === 0}
-                        onClick={() => setOrderDialogOpen(business.id)}
-                        className="shrink-0"
-                      >
-                        <ShoppingCart className="h-4 w-4 mr-1" />
-                        Заказать
-                        {selectedForBusiness.length > 0 && (
-                          <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
-                            {selectedForBusiness.length}
-                          </span>
-                        )}
-                      </Button>
+                      
+                      {/* Action buttons */}
+                      <div className="flex gap-2 flex-wrap shrink-0">
+                        <Button
+                          size="sm"
+                          disabled={selectedForBusiness.length === 0 || !currentUser}
+                          onClick={() => handleOpenOrderDialog(business.id)}
+                          title={!currentUser ? "Войдите для заказа" : undefined}
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-1" />
+                          Заказать
+                          {selectedForBusiness.length > 0 && (
+                            <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
+                              {selectedForBusiness.length}
+                            </span>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={selectedForBusiness.length === 0 || !currentUser}
+                          onClick={() => handleOpenGoodsExchange(business.id)}
+                          title={!currentUser ? "Войдите для обмена" : undefined}
+                        >
+                          Обмен на товары
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={selectedForBusiness.length === 0 || !currentUser}
+                          onClick={() => handleOpenDigitalExchange(business.id)}
+                          title={!currentUser ? "Войдите для обмена" : undefined}
+                        >
+                          Обмен цифровой
+                        </Button>
+                      </div>
                     </div>
 
-                    {/* Products grid - right side */}
+                    {/* Products grid */}
                     {business.products.length > 0 && (
-                      <div className="flex-1 min-w-0 lg:border-l lg:border-border lg:pl-4">
+                      <div className="border-t border-border pt-4">
                         <ProductGrid
                           products={business.products}
                           businessName={business.name}
                           businessId={business.id}
                           businessPhone={business.phone}
+                          ownerId={business.ownerId}
                           selectedProducts={selectedProducts}
+                          currentUser={currentUser}
                           onProductClick={handleProductClick}
                           onProductSelect={handleProductSelect}
                         />
@@ -533,7 +942,7 @@ const CategoryPage = () => {
       </div>
 
       {/* Product Dialog */}
-      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+      <Dialog open={!!selectedProduct && !productDetailOpen} onOpenChange={() => setSelectedProduct(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg">{selectedProduct?.product.name}</DialogTitle>
@@ -565,15 +974,17 @@ const CategoryPage = () => {
                   </Link>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a
-                    href={`tel:${selectedProduct.businessPhone}`}
-                    className="text-sm text-foreground hover:text-primary transition-colors"
-                  >
-                    {selectedProduct.businessPhone}
-                  </a>
-                </div>
+                {selectedProduct.businessPhone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={`tel:${selectedProduct.businessPhone}`}
+                      className="text-sm text-foreground hover:text-primary transition-colors"
+                    >
+                      {selectedProduct.businessPhone}
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -603,29 +1014,47 @@ const CategoryPage = () => {
                         <p className="text-sm font-medium truncate">{product.name}</p>
                         <p className="text-xs text-primary">{product.price}</p>
                       </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={orderQuantities[product.id] || 1}
+                        onChange={(e) => setOrderQuantities(prev => ({
+                          ...prev,
+                          [product.id]: Math.max(1, parseInt(e.target.value) || 1)
+                        }))}
+                        className="w-16 h-8 text-center"
+                      />
                     </div>
                   ))}
                 </div>
+                <p className="text-sm font-semibold text-right">
+                  Итого: {getSelectedForBusiness(orderDialogOpen).reduce((sum, p) => sum + p.rawPrice * (orderQuantities[p.id] || 1), 0)} ₽
+                </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Телефон для связи</label>
+                <Label htmlFor="phone">Телефон для связи</Label>
                 <Input
+                  id="phone"
                   value={orderPhone}
                   onChange={(e) => setOrderPhone(e.target.value)}
                   placeholder="+7 (___) ___-__-__"
                 />
               </div>
-
-              <Button
-                className="w-full"
-                onClick={() => handleOrderSubmit(orderDialogOpen)}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Отправка..." : "Отправить заказ"}
-              </Button>
             </div>
           )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOrderDialogOpen(null)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={() => orderDialogOpen && handleOrderSubmit(orderDialogOpen)}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Отправка..." : "Отправить заказ"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -765,6 +1194,7 @@ const CategoryPage = () => {
               {/* Action Buttons */}
               <div className="flex gap-2 pt-2">
                 <Button
+                  disabled={!currentUser}
                   onClick={() => {
                     const isCurrentlySelected = selectedProducts.some(
                       p => p.id === selectedProduct.product.id && p.businessId === selectedProduct.businessId
@@ -773,6 +1203,7 @@ const CategoryPage = () => {
                       selectedProduct.product,
                       selectedProduct.businessId,
                       selectedProduct.businessName,
+                      selectedProduct.ownerId,
                       !isCurrentlySelected
                     );
                   }}
@@ -791,6 +1222,171 @@ const CategoryPage = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Digital Exchange Dialog */}
+      <Dialog open={!!digitalExchangeDialogOpen} onOpenChange={() => setDigitalExchangeDialogOpen(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Обмен цифровой</DialogTitle>
+          </DialogHeader>
+          {digitalExchangeDialogOpen && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Выбранные товары:</h4>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {getSelectedForBusiness(digitalExchangeDialogOpen).map((product) => (
+                    <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                      <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{product.name}</p>
+                        <p className="text-xs text-primary">{product.rawPrice} ₽</p>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={digitalProductQuantities[product.id] || 1}
+                        onChange={(e) => setDigitalProductQuantities(prev => ({
+                          ...prev,
+                          [product.id]: parseInt(e.target.value) || 1
+                        }))}
+                        className="w-16 h-8 text-center"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-lg font-semibold">Я предлагаю:</span>
+                <Input
+                  type="number"
+                  min="1"
+                  value={digitalOfferAmount}
+                  onChange={(e) => setDigitalOfferAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-24 text-center text-lg font-semibold"
+                />
+                <span className="text-lg font-semibold">долей</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDigitalExchangeDialogOpen(null)}>
+              Отмена
+            </Button>
+            <Button onClick={() => digitalExchangeDialogOpen && handleDigitalExchange(digitalExchangeDialogOpen)}>
+              Отправить продавцу
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Goods Exchange Dialog */}
+      <Dialog open={!!goodsExchangeDialogOpen} onOpenChange={() => setGoodsExchangeDialogOpen(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Обмен на товары</DialogTitle>
+          </DialogHeader>
+          {goodsExchangeDialogOpen && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Left column - Producer products */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">Товары производителя</h4>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {getSelectedForBusiness(goodsExchangeDialogOpen).map((product) => (
+                      <div key={product.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{product.name}</p>
+                          <p className="text-xs text-primary">{product.rawPrice} ₽</p>
+                        </div>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={producerProductQuantities[product.id] || 1}
+                          onChange={(e) => setProducerProductQuantities(prev => ({
+                            ...prev,
+                            [product.id]: parseInt(e.target.value) || 1
+                          }))}
+                          className="w-16 h-8 text-center"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right column - User products */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">Ваши товары</h4>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {userProducts.length > 0 ? (
+                      userProducts.map((product) => (
+                        <div key={product.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{product.name}</p>
+                            <p className="text-xs text-primary">{product.price} ₽</p>
+                          </div>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={userProductQuantities[product.id] || 0}
+                            onChange={(e) => setUserProductQuantities(prev => ({
+                              ...prev,
+                              [product.id]: parseInt(e.target.value) || 0
+                            }))}
+                            className="w-16 h-8 text-center"
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        У вас нет товаров для обмена
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Comment field */}
+              <div className="space-y-2">
+                <Label htmlFor="exchange-comment">Сообщение</Label>
+                <Input
+                  id="exchange-comment"
+                  value={exchangeComment}
+                  onChange={(e) => setExchangeComment(e.target.value)}
+                  placeholder="Введите сообщение..."
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGoodsExchangeDialogOpen(null)}>
+              Отмена
+            </Button>
+            <Button onClick={() => goodsExchangeDialogOpen && handleGoodsExchange(goodsExchangeDialogOpen)}>
+              Отправить запрос
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exchange Message Sent Dialog */}
+      <Dialog open={exchangeMessageSent} onOpenChange={setExchangeMessageSent}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Сообщение отправлено</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg font-mono">
+              {exchangeMessage}
+            </pre>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setExchangeMessageSent(false)}>
+              Закрыть
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </MainLayout>
