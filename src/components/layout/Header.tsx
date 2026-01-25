@@ -22,7 +22,7 @@ const mainMenuItems = [
   { label: "Акции", href: "/promotions" },
   { label: "События", href: "/events" },
   { label: "Новости", href: "/news" },
-  { label: "Бартерон", href: "/barter" },
+  // { label: "Бартерон", href: "/barter" },
 ];
 
 export const Header = () => {
@@ -39,7 +39,7 @@ export const Header = () => {
       .from("messages")
       .select("*", { count: "exact", head: true })
       .eq("to_id", userId);
-    
+
     if (!error && count !== null) {
       setUnreadCount(count);
     }
@@ -47,17 +47,17 @@ export const Header = () => {
 
   useEffect(() => {
     // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
-        if (session?.user) {
-          fetchUnreadCount(session.user.id);
-        } else {
-          setUnreadCount(0);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (session?.user) {
+        fetchUnreadCount(session.user.id);
+      } else {
+        setUnreadCount(0);
       }
-    );
+    });
 
     // Check existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -124,7 +124,7 @@ export const Header = () => {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           {/* Main Navigation - duplicated in header */}
           <nav className="hidden md:flex items-center gap-1">
             {mainMenuItems.map((item) => (
@@ -153,7 +153,7 @@ export const Header = () => {
               </Button>
             </Link>
           )}
-          
+
           {loading ? (
             <div className="h-8 w-20 bg-muted animate-pulse rounded" />
           ) : user ? (
@@ -164,11 +164,9 @@ export const Header = () => {
                     {getUserInitials()}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium text-foreground hidden xl:inline">
-                  {user.email}
-                </span>
+                <span className="text-sm font-medium text-foreground hidden xl:inline">{user.email}</span>
               </Link>
-              
+
               <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1">
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Выйти</span>
@@ -188,7 +186,7 @@ export const Header = () => {
               </Link>
             </>
           )}
-          
+
           {user && userWithRole?.roles?.includes("super_admin") && (
             <Link to="/admin">
               <Button variant="outline" size="sm">
