@@ -451,6 +451,70 @@ const BusinessCardEditor = () => {
     }
   }, [toast]);
 
+  // Upload video for editor
+  const uploadEditorVideo = useCallback(async (file: File): Promise<string | null> => {
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    const allowedTypes = ["video/mp4", "video/webm", "video/ogg"];
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Ошибка",
+        description: "Неподдерживаемый формат. Используйте MP4, WebM или OGG",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    if (file.size > maxSize) {
+      toast({
+        title: "Ошибка",
+        description: "Файл слишком большой. Максимум 50MB",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо авторизоваться",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/video-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      toast({
+        title: "Загружено",
+        description: "Видео добавлено в редактор",
+      });
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Editor video upload error:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить видео",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [toast]);
+
   if (isDataLoading) {
     return (
       <MainLayout>
@@ -670,6 +734,7 @@ const BusinessCardEditor = () => {
             key={editorKeyRef.current}
             initialValue={cardData.content || ""}
             onChange={handleEditorChange}
+            onVideoUpload={uploadEditorVideo}
             placeholder="Введите содержимое визитки..."
           />
         </div>
