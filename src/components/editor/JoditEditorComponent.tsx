@@ -145,6 +145,17 @@ export const JoditEditorComponent = ({
     const editor = editorRef.current?.editor;
     if (!editor) return;
 
+    console.log("handleAlignMedia", {
+      align,
+      tagName: hoveredMedia.tagName,
+      currentStyles: {
+        width: hoveredMedia.style.width,
+        display: hoveredMedia.style.display,
+        marginLeft: hoveredMedia.style.marginLeft,
+        marginRight: hoveredMedia.style.marginRight,
+      }
+    });
+
     // Ensure block display for alignment to work
     hoveredMedia.style.display = "block";
     hoveredMedia.style.float = "none";
@@ -158,6 +169,7 @@ export const JoditEditorComponent = ({
         // For centering: ensure element has reasonable width if it's too wide
         const currentWidth = hoveredMedia.style.width;
         if (!currentWidth || currentWidth === "100%" || currentWidth === "auto") {
+          console.log("Setting width to 60% for centering");
           hoveredMedia.style.width = "60%";
           hoveredMedia.style.height = "auto";
         }
@@ -169,6 +181,13 @@ export const JoditEditorComponent = ({
         hoveredMedia.style.marginRight = "0";
         break;
     }
+
+    console.log("After alignment", {
+      width: hoveredMedia.style.width,
+      display: hoveredMedia.style.display,
+      marginLeft: hoveredMedia.style.marginLeft,
+      marginRight: hoveredMedia.style.marginRight,
+    });
     
     editor.synchronizeValues();
     onChange?.(editor.value);
