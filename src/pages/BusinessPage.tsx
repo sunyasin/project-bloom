@@ -643,6 +643,10 @@ const BusinessPage = () => {
                 <MapPin className="h-4 w-4" />
                 {business.location}, {business.city}
               </div>
+              {/* Short description from content_json - moved here from separate section */}
+              {contentJson.shortDescription && (
+                <p className="text-sm text-muted-foreground mt-2">{contentJson.shortDescription}</p>
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               <Button 
@@ -666,18 +670,16 @@ const BusinessPage = () => {
           </div>
         </div>
 
-        {/* Description */}
+        {/* Full WYSIWYG content from business card editor */}
         {description && (
           <div className="content-card">
-            <h2 className="section-title">О производителе</h2>
             <div
-              className="text-muted-foreground prose prose-sm max-w-none"
+              className="prose prose-sm max-w-none dark:prose-invert"
               dangerouslySetInnerHTML={{ __html: description }}
             />
           </div>
         )}
 
-        
 
         {/* Products (Товары) with ordering */}
         {products.length > 0 && (
