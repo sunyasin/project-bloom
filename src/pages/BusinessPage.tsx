@@ -41,6 +41,7 @@ interface SelectedProduct {
   name: string;
   price: number;
   image: string;
+  coinPrice: number | null;
 }
 
 // Mock order API (оставляем по просьбе пользователя)
@@ -436,6 +437,24 @@ const BusinessPage = () => {
     setOrderDialogOpen(true);
   };
 
+  const handleOpenDigitalExchange = () => {
+    if (selectedProducts.length === 0) return;
+    // Initialize quantities
+    const initialQuantities: Record<string, number> = {};
+    selectedProducts.forEach(p => {
+      initialQuantities[p.id] = 1;
+    });
+    setDigitalProductQuantities(initialQuantities);
+    
+    // Calculate total coin price for pre-fill
+    const totalCoinPrice = selectedProducts.reduce((sum, p) => {
+      return sum + (p.coinPrice || p.price || 0);
+    }, 0);
+    setDigitalOfferAmount(totalCoinPrice > 0 ? String(totalCoinPrice) : "");
+    
+    setDigitalExchangeDialogOpen(true);
+  };
+
   const handleOpenGoodsExchange = () => {
     if (selectedProducts.length === 0) return;
     // Initialize producer product quantities for selected products
@@ -716,7 +735,7 @@ const BusinessPage = () => {
                 <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenGoodsExchange}>
                   Обмен на товары
                 </Button>
-                <Button variant="outline" disabled={selectedProducts.length === 0} onClick={() => setDigitalExchangeDialogOpen(true)}>
+                <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenDigitalExchange}>
                   Обмен цифровой
                 </Button>
               </div>
@@ -746,6 +765,7 @@ const BusinessPage = () => {
                               image:
                                 product.image_url ||
                                 "https://images.unsplash.com/photo-472354-b33ff0c44a43?w=200&h=200&fit=crop",
+                              coinPrice: (product as any).coin_price || null,
                             },
                             checked as boolean,
                           )
@@ -977,25 +997,40 @@ const BusinessPage = () => {
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Выбранные товары:</h4>
               <div className="max-h-48 overflow-y-auto space-y-2">
-                {selectedProducts.map((product) => (
+                {selectedProducts.map((product) => {
+                  const displayPrice = product.coinPrice || product.price;
+                  const priceLabel = product.coinPrice ? `${product.coinPrice} долей` : `${product.price} ₽`;
+                  return (
                   <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
                     <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{product.name}</p>
-                      <p className="text-xs text-primary">{product.price} ₽</p>
+                      <p className={`text-xs ${product.coinPrice ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
+                        {priceLabel}
+                      </p>
                     </div>
                     <Input
                       type="number"
                       min="1"
                       value={digitalProductQuantities[product.id] || 1}
-                      onChange={(e) => setDigitalProductQuantities(prev => ({
-                        ...prev,
-                        [product.id]: parseInt(e.target.value) || 1
-                      }))}
+                      onChange={(e) => {
+                        const newQty = parseInt(e.target.value) || 1;
+                        setDigitalProductQuantities(prev => ({
+                          ...prev,
+                          [product.id]: newQty
+                        }));
+                        // Update total offer amount when quantity changes
+                        const newTotal = selectedProducts.reduce((sum, p) => {
+                          const qty = p.id === product.id ? newQty : (digitalProductQuantities[p.id] || 1);
+                          return sum + (p.coinPrice || p.price || 0) * qty;
+                        }, 0);
+                        setDigitalOfferAmount(String(newTotal));
+                      }}
                       className="w-16 h-8 text-center"
                     />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <div className="flex items-center justify-center gap-3">
@@ -1304,6 +1339,7 @@ const BusinessPage = () => {
                         name: selectedProductDetail.name,
                         price: selectedProductDetail.price || 0,
                         image: selectedProductDetail.image_url || "",
+                        coinPrice: (selectedProductDetail as any).coin_price || null,
                       },
                       !isSelected(selectedProductDetail.id)
                     );
