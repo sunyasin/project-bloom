@@ -8,7 +8,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { OutputData } from "@editorjs/editorjs";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Save,
@@ -22,7 +21,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EditorJSComponent } from "@/components/editor/EditorJSComponent";
+import { JoditEditorComponent } from "@/components/editor/JoditEditorComponent";
 
 interface Category {
   id: string;
@@ -34,7 +33,7 @@ interface BusinessCardData {
   title: string;
   description: string;
   image: string;
-  content: OutputData | null;
+  content: string; // HTML string for Jodit
   categoryId: string;
   city: string;
   location: string;
@@ -54,31 +53,7 @@ const validateImage = (file: File): { valid: boolean; error?: string } => {
   return { valid: true };
 };
 
-// Convert Editor.js data to HTML for preview
-const editorDataToHtml = (data: OutputData | null): string => {
-  if (!data?.blocks) return "";
-  
-  return data.blocks.map(block => {
-    switch (block.type) {
-      case "header":
-        const level = block.data.level || 2;
-        return `<h${level}>${block.data.text}</h${level}>`;
-      case "paragraph":
-        return `<p>${block.data.text}</p>`;
-      case "list":
-        const tag = block.data.style === "ordered" ? "ol" : "ul";
-        const items = block.data.items.map((item: string) => `<li>${item}</li>`).join("");
-        return `<${tag}>${items}</${tag}>`;
-      case "quote":
-        return `<blockquote>${block.data.text}${block.data.caption ? `<cite>${block.data.caption}</cite>` : ""}</blockquote>`;
-      case "image":
-        const imgStyle = block.data.width ? `width: ${block.data.width}px;` : "";
-        return `<figure><img src="${block.data.file?.url}" alt="${block.data.caption || ""}" style="${imgStyle}" />${block.data.caption ? `<figcaption>${block.data.caption}</figcaption>` : ""}</figure>`;
-      default:
-        return "";
-    }
-  }).join("");
-};
+// No longer needed - Jodit outputs HTML directly
 
 const BusinessCardEditor = () => {
   const { id } = useParams();
@@ -90,7 +65,7 @@ const BusinessCardEditor = () => {
     title: "",
     description: "",
     image: "",
-    content: null,
+    content: "", // HTML string
     categoryId: "",
     city: "",
     location: "",
@@ -168,25 +143,37 @@ const BusinessCardEditor = () => {
           if (data) {
             const contentJson = data.content_json as Record<string, unknown> || {};
             
-            // Parse content - try EditorJS format first, then HTML
-            let editorContent: OutputData | null = null;
+            // Parse content - handle both HTML string and legacy EditorJS format
+            let htmlContent = "";
             const rawContent = contentJson.content;
             
-            if (rawContent && typeof rawContent === "object" && "blocks" in (rawContent as object)) {
-              // Already Editor.js format
-              editorContent = rawContent as OutputData;
-            } else if (typeof rawContent === "string" && rawContent.trim()) {
-              // HTML string - convert to Editor.js format (simple paragraph)
-              editorContent = {
-                time: Date.now(),
-                blocks: [
-                  {
-                    type: "paragraph",
-                    data: { text: rawContent },
-                  },
-                ],
-                version: "2.28.0",
-              };
+            if (typeof rawContent === "string") {
+              // Already HTML string
+              htmlContent = rawContent;
+            } else if (rawContent && typeof rawContent === "object" && "blocks" in (rawContent as Record<string, unknown>)) {
+              // Legacy Editor.js format - convert to HTML
+              const blocks = (rawContent as { blocks: Array<{ type: string; data: Record<string, unknown> }> }).blocks || [];
+              htmlContent = blocks.map(block => {
+                switch (block.type) {
+                  case "header":
+                    const level = block.data.level || 2;
+                    return `<h${level}>${block.data.text}</h${level}>`;
+                  case "paragraph":
+                    return `<p>${block.data.text}</p>`;
+                  case "list":
+                    const tag = block.data.style === "ordered" ? "ol" : "ul";
+                    const items = (block.data.items as string[]).map((item: string) => `<li>${item}</li>`).join("");
+                    return `<${tag}>${items}</${tag}>`;
+                  case "quote":
+                    return `<blockquote>${block.data.text}${block.data.caption ? `<cite>${block.data.caption}</cite>` : ""}</blockquote>`;
+                  case "image":
+                    const imgData = block.data.file as { url: string } | undefined;
+                    const imgStyle = block.data.width ? `width: ${block.data.width}px;` : "";
+                    return `<figure><img src="${imgData?.url || ""}" alt="${block.data.caption || ""}" style="${imgStyle}" /></figure>`;
+                  default:
+                    return "";
+                }
+              }).join("");
             }
             
             const loaded: BusinessCardData = {
@@ -194,14 +181,13 @@ const BusinessCardEditor = () => {
               title: data.name,
               description: (contentJson.description as string) || "",
               image: (contentJson.image as string) || "",
-              content: editorContent,
+              content: htmlContent,
               categoryId: data.category_id || "",
-              // Подставляем город из профиля, если в визитке он пустой
               city: data.city || profile?.city || "",
               location: data.location || profile?.address || "",
             };
             setCardData(loaded);
-            editorKeyRef.current += 1; // Force editor re-mount with new data
+            editorKeyRef.current += 1;
           } else {
             toast({
               title: "Ошибка",
@@ -231,8 +217,8 @@ const BusinessCardEditor = () => {
     setCardData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleEditorChange = useCallback((data: OutputData) => {
-    setCardData((prev) => ({ ...prev, content: data }));
+  const handleEditorChange = useCallback((content: string) => {
+    setCardData((prev) => ({ ...prev, content }));
   }, []);
 
   const handleSave = async () => {
@@ -261,11 +247,11 @@ const BusinessCardEditor = () => {
       // Получаем название категории
       const selectedCategory = categories.find(c => c.id === cardData.categoryId);
       
-      // Convert OutputData to JSON-compatible format
+      // Store HTML content directly
       const contentJson = {
         description: cardData.description,
         image: cardData.image,
-        content: cardData.content ? JSON.parse(JSON.stringify(cardData.content)) : null,
+        content: cardData.content || "",
       };
 
       if (isNew) {
@@ -673,18 +659,17 @@ const BusinessCardEditor = () => {
           )}
         </div>
 
-        {/* Редактор контента - Editor.js */}
+        {/* Редактор контента - Jodit */}
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Содержимое</h2>
           <p className="text-sm text-muted-foreground">
-            Используйте "+" для добавления блоков. Перетаскивайте блоки для изменения порядка. Наведите на изображение для изменения размера.
+            Используйте панель инструментов для форматирования. Перетаскивайте изображения и изменяйте их размер.
           </p>
           
-          <EditorJSComponent
+          <JoditEditorComponent
             key={editorKeyRef.current}
-            initialData={cardData.content || undefined}
+            initialValue={cardData.content || ""}
             onChange={handleEditorChange}
-            onImageUpload={uploadEditorImage}
             placeholder="Введите содержимое визитки..."
           />
         </div>
@@ -716,7 +701,7 @@ const BusinessCardEditor = () => {
             {cardData.content && (
               <div
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: editorDataToHtml(cardData.content) }}
+                dangerouslySetInnerHTML={{ __html: cardData.content }}
               />
             )}
           </div>
