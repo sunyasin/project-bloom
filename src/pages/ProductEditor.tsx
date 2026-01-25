@@ -41,6 +41,7 @@ interface ProductFormData {
   content: string;
   categoryId: string;
   saleType: ProductSaleType;
+  coinPrice: number | null;
 }
 
 // Валидация файла изображения (для будущего Storage)
@@ -81,6 +82,7 @@ const ProductEditor = () => {
     content: "",
     categoryId: "",
     saleType: "sell_only",
+    coinPrice: null,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(!isNew);
@@ -242,6 +244,7 @@ const ProductEditor = () => {
               content: data.content || "",
               categoryId: data.category_id || "",
               saleType: (data as any).sale_type || "sell_only",
+              coinPrice: (data as any).coin_price || null,
             });
             setProductId(data.id);
           } else {
@@ -295,6 +298,7 @@ const ProductEditor = () => {
         category_id: productData.categoryId || null,
         content: productData.content,
         sale_type: productData.saleType,
+        coin_price: productData.saleType === "barter_coin" ? productData.coinPrice : null,
       };
 
       if (isNew || !productId) {
@@ -709,6 +713,29 @@ const ProductEditor = () => {
                 <span className="text-sm">Бартер цифровой</span>
               </label>
             </div>
+
+            {/* Coin Price Input - shown when barter_coin selected */}
+            {productData.saleType === "barter_coin" && (
+              <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Цена в долях (коинах)
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={productData.coinPrice || ""}
+                    onChange={(e) => updateField("coinPrice", e.target.value ? Number(e.target.value) : null)}
+                    placeholder="Укажите цену в долях"
+                    className="w-40"
+                  />
+                  <span className="text-sm text-muted-foreground">долей</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Эта цена будет отображаться при цифровом обмене
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

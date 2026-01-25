@@ -38,6 +38,7 @@ interface ProductDisplay {
   content: string;
   unit: string;
   rawPrice: number;
+  coinPrice: number | null;
 }
 
 interface SelectedProduct extends ProductDisplay {
@@ -425,6 +426,7 @@ const CategoryPage = () => {
               content: (p as any).content || "",
               unit: p.unit || "шт",
               rawPrice: p.price || 0,
+              coinPrice: (p as any).coin_price || null,
             });
           });
         }
@@ -1274,7 +1276,13 @@ const CategoryPage = () => {
                       <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{product.name}</p>
-                        <p className="text-xs text-primary">{product.rawPrice} ₽</p>
+                        <div className="flex items-center gap-2">
+                          {product.coinPrice ? (
+                            <p className="text-xs font-semibold text-primary">{product.coinPrice} долей</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">{product.rawPrice} ₽</p>
+                          )}
+                        </div>
                       </div>
                       <Input
                         type="number"
@@ -1290,6 +1298,23 @@ const CategoryPage = () => {
                   ))}
                 </div>
               </div>
+              
+              {/* Show total suggested coin price */}
+              {(() => {
+                const products = getSelectedForBusiness(digitalExchangeDialogOpen);
+                const totalCoinPrice = products.reduce((sum, p) => {
+                  const qty = digitalProductQuantities[p.id] || 1;
+                  return sum + (p.coinPrice ? p.coinPrice * qty : 0);
+                }, 0);
+                
+                return totalCoinPrice > 0 ? (
+                  <div className="text-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <p className="text-sm text-muted-foreground">Рекомендуемая цена продавца:</p>
+                    <p className="text-xl font-bold text-primary">{totalCoinPrice} долей</p>
+                  </div>
+                ) : null;
+              })()}
+              
               <div className="flex items-center justify-center gap-3">
                 <span className="text-lg font-semibold">Я предлагаю:</span>
                 <Input

@@ -317,6 +317,7 @@ export type Database = {
       products: {
         Row: {
           category_id: string | null
+          coin_price: number | null
           content: string | null
           created_at: string
           description: string | null
@@ -333,6 +334,7 @@ export type Database = {
         }
         Insert: {
           category_id?: string | null
+          coin_price?: number | null
           content?: string | null
           created_at?: string
           description?: string | null
@@ -349,6 +351,7 @@ export type Database = {
         }
         Update: {
           category_id?: string | null
+          coin_price?: number | null
           content?: string | null
           created_at?: string
           description?: string | null
