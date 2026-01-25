@@ -672,20 +672,20 @@ const BusinessPage = () => {
               {contentJson.shortDescription && (
                 <p className="text-sm text-muted-foreground mt-2">{contentJson.shortDescription}</p>
               )}
-              <p className="space-y-3">
+              <div className="space-y-3">
                 {ownerProfile?.phone && (
-                  <div className="flex items-center gap-3 text-muted-foreground">
+                  <p className="flex items-center gap-3 text-muted-foreground">
                     <Phone className="h-4 w-4" />
                     <span>{ownerProfile.phone}</span>
-                  </div>
+                  </p>
                 )}
                 {ownerProfile?.email && (
-                  <div className="flex items-center gap-3 text-muted-foreground">
+                  <p className="flex items-center gap-3 text-muted-foreground">
                     <Mail className="h-4 w-4" />
                     <span>{ownerProfile.email}</span>
-                  </div>
+                  </p>
                 )}
-              </p>
+              </div>
             </div>
             <div className="flex gap-2 shrink-0">
               <Button
