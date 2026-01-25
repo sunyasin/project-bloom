@@ -38,6 +38,7 @@ interface BusinessCard {
   image: string;
   description?: string;
   isMain?: boolean;
+  content: string; // HTML string for Jodit
 }
 
 interface Profile {
