@@ -696,15 +696,14 @@ const BusinessPage = () => {
         </div>
 
         {/* Full WYSIWYG content from business card editor */}
-        {contentJson &&
-          contentJson.content(
-            <div className="content-card">
-              <div
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: contentJson.content }}
-              />
-            </div>,
-          )}
+        {contentJson?.content && (
+          <div className="content-card">
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: contentJson.content }}
+            />
+          </div>
+        )}
 
         {/* Products (Товары) with ordering */}
         {products.length > 0 && (
