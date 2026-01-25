@@ -103,6 +103,25 @@ export const JoditEditorComponent = ({
     setHoveredMedia(null);
   }, [hoveredMedia, onChange]);
 
+  const handleResizeMedia = useCallback((widthPercent: number) => {
+    if (!hoveredMedia) return;
+    
+    const editor = editorRef.current?.editor;
+    if (!editor) return;
+
+    hoveredMedia.style.width = `${widthPercent}%`;
+    hoveredMedia.style.height = "auto";
+    editor.synchronizeValues();
+    onChange?.(editor.value);
+    
+    // Update overlay position after resize
+    setTimeout(() => {
+      if (hoveredMedia) {
+        updateDeleteButtonPosition(hoveredMedia);
+      }
+    }, 10);
+  }, [hoveredMedia, onChange, updateDeleteButtonPosition]);
+
   const handleVideoInsert = useCallback(
     (videoHtml: string) => {
       const editor = editorRef.current?.editor;
@@ -369,20 +388,38 @@ export const JoditEditorComponent = ({
         onBlur={handleChange}
       />
       
-      {/* Media delete overlay button */}
+      {/* Media overlay toolbar */}
       {hoveredMedia && (
-        <button
-          className="media-delete-overlay absolute z-50 w-7 h-7 flex items-center justify-center bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full shadow-lg transition-all duration-150 hover:scale-110"
+        <div
+          className="media-delete-overlay absolute z-50 flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border rounded-lg shadow-lg p-1"
           style={{
             top: deleteButtonPos.top,
             left: deleteButtonPos.left,
+            transform: "translateX(-100%)",
           }}
-          onClick={handleDeleteMedia}
           onMouseLeave={() => setHoveredMedia(null)}
-          title="Удалить"
         >
-          <X className="w-4 h-4" />
-        </button>
+          {/* Width presets */}
+          {[25, 50, 75, 100].map((percent) => (
+            <button
+              key={percent}
+              className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+              onClick={() => handleResizeMedia(percent)}
+              title={`Ширина ${percent}%`}
+            >
+              {percent}%
+            </button>
+          ))}
+          
+          {/* Delete button */}
+          <button
+            className="w-7 h-7 flex items-center justify-center bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded transition-all duration-150 hover:scale-110 ml-1"
+            onClick={handleDeleteMedia}
+            title="Удалить"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
       
       {showVideoDropzone && createPortal(
