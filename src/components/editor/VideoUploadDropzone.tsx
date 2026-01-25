@@ -63,7 +63,8 @@ export const VideoUploadDropzone = ({
       console.log("VideoUploadDropzone: upload result", url);
       
       if (url) {
-        const videoHtml = `<p><video controls style="display: block; max-width: 100%; height: auto; margin: 16px 0;"><source src="${url}" type="${file.type}">Ваш браузер не поддерживает видео.</video></p>`;
+        // No wrapper <p> - Jodit resizer needs direct access to the video element
+        const videoHtml = `<video controls style="display: block; width: 400px; height: auto; margin: 16px 0;"><source src="${url}" type="${file.type}">Ваш браузер не поддерживает видео.</video><p><br></p>`;
         onVideoInsert(videoHtml);
         onClose();
       } else {
@@ -156,9 +157,11 @@ export const VideoUploadDropzone = ({
 
     let videoHtml: string;
     if (embedUrl.match(/\.(mp4|webm|ogg)(\?.*)?$/i)) {
-      videoHtml = `<p><video controls style="display: block; max-width: 100%; height: auto; margin: 16px 0;"><source src="${embedUrl}">Ваш браузер не поддерживает видео.</video></p>`;
+      // No wrapper <p> - Jodit resizer needs direct access to the video element
+      videoHtml = `<video controls style="display: block; width: 400px; height: auto; margin: 16px 0;"><source src="${embedUrl}">Ваш браузер не поддерживает видео.</video><p><br></p>`;
     } else {
-      videoHtml = `<p><iframe src="${embedUrl}" frameborder="0" allowfullscreen style="display: block; width: 100%; height: 315px; max-width: 560px; margin: 16px 0;"></iframe></p>`;
+      // iframes are also resizable
+      videoHtml = `<iframe src="${embedUrl}" frameborder="0" allowfullscreen style="display: block; width: 560px; height: 315px; margin: 16px 0;"></iframe><p><br></p>`;
     }
 
     onVideoInsert(videoHtml);
