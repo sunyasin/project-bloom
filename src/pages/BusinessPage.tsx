@@ -1,6 +1,22 @@
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, Phone, Mail, Globe, Tag, Package, ShoppingCart, Bell, Loader2, MessageCircle, Send, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Tag,
+  Package,
+  ShoppingCart,
+  Bell,
+  Loader2,
+  MessageCircle,
+  Send,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -12,15 +28,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Business, Product, Promotion } from "@/types/db";
 import type { User } from "@supabase/supabase-js";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin' | 'all';
+type ProductSaleType = "sell_only" | "barter_goods" | "barter_coin" | "all";
 
 interface BusinessCard {
   id: string;
@@ -50,7 +60,6 @@ const mockAPISendOrder = async (order: { products: any[]; phone: string; busines
   await new Promise((resolve) => setTimeout(resolve, 1000));
   return { success: true, orderId: `ORD-${Date.now()}` };
 };
-
 
 const BusinessPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -111,7 +120,9 @@ const BusinessPage = () => {
 
   // Check auth state
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user ?? null);
     });
 
@@ -197,26 +208,23 @@ const BusinessPage = () => {
   // Fetch current user name and products for exchange
   useEffect(() => {
     const fetchCurrentUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         const [profileResult, productsResult] = await Promise.all([
-          supabase
-            .from("profiles")
-            .select("first_name, last_name, email")
-            .eq("user_id", user.id)
-            .maybeSingle(),
-          supabase
-            .from("products")
-            .select("*")
-            .eq("producer_id", user.id)
-            .eq("is_available", true)
+          supabase.from("profiles").select("first_name, last_name, email").eq("user_id", user.id).maybeSingle(),
+          supabase.from("products").select("*").eq("producer_id", user.id).eq("is_available", true),
         ]);
-        
+
         if (profileResult.data) {
-          const name = [profileResult.data.first_name, profileResult.data.last_name].filter(Boolean).join(" ") || profileResult.data.email || "Аноним";
+          const name =
+            [profileResult.data.first_name, profileResult.data.last_name].filter(Boolean).join(" ") ||
+            profileResult.data.email ||
+            "Аноним";
           setCurrentUserName(name);
         }
-        
+
         if (productsResult.data) {
           setUserProducts(productsResult.data as Product[]);
         }
@@ -260,7 +268,7 @@ const BusinessPage = () => {
 
   const handleSubscribe = async () => {
     if (!business?.owner_id) return;
-    
+
     setIsSubscribing(true);
     try {
       // Check if subscription exists
@@ -276,24 +284,22 @@ const BusinessPage = () => {
         if (!currentProfiles.includes(business.owner_id)) {
           const { error } = await supabase
             .from("newsletter_subscriptions")
-            .update({ 
+            .update({
               send_profiles: [...currentProfiles, business.owner_id],
-              enabled: true
+              enabled: true,
             })
             .eq("id", existing.id);
-          
+
           if (error) throw error;
         }
       } else {
         // Create new subscription
-        const { error } = await supabase
-          .from("newsletter_subscriptions")
-          .insert({
-            email: subscribeEmail,
-            send_profiles: [business.owner_id],
-            enabled: true
-          });
-        
+        const { error } = await supabase.from("newsletter_subscriptions").insert({
+          email: subscribeEmail,
+          send_profiles: [business.owner_id],
+          enabled: true,
+        });
+
         if (error) throw error;
       }
 
@@ -316,7 +322,7 @@ const BusinessPage = () => {
 
   const handleDigitalExchange = async () => {
     if (selectedProducts.length === 0) return;
-    
+
     const offerAmount = parseInt(digitalOfferAmount, 10);
     if (!offerAmount || offerAmount <= 0) {
       toast({
@@ -327,7 +333,9 @@ const BusinessPage = () => {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       toast({
         title: "Ошибка",
@@ -338,12 +346,8 @@ const BusinessPage = () => {
     }
 
     // Get buyer profile id
-    const { data: buyerProfile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-    
+    const { data: buyerProfile } = await supabase.from("profiles").select("id").eq("user_id", user.id).single();
+
     // Get provider profile id
     const { data: providerProfile } = await supabase
       .from("profiles")
@@ -362,8 +366,8 @@ const BusinessPage = () => {
 
     // Form provider_items (selected producer's products)
     const providerItems = selectedProducts
-      .filter(p => (digitalProductQuantities[p.id] || 1) > 0)
-      .map(p => ({ item_id: p.id, qty: digitalProductQuantities[p.id] || 1 }));
+      .filter((p) => (digitalProductQuantities[p.id] || 1) > 0)
+      .map((p) => ({ item_id: p.id, qty: digitalProductQuantities[p.id] || 1 }));
 
     // Insert into exchange table with sum (coin exchange)
     const { error: exchangeError } = await supabase.from("exchange").insert({
@@ -386,7 +390,7 @@ const BusinessPage = () => {
       });
       return;
     }
-    
+
     const now = new Date();
     const dateStr = now.toLocaleString("ru-RU", {
       day: "2-digit",
@@ -395,16 +399,16 @@ const BusinessPage = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
-    
+
     const productsList = selectedProducts
       .map((p) => {
         const qty = digitalProductQuantities[p.id] || 1;
         return `• ${p.name} — ${qty} шт. (${p.price} ₽/шт)`;
       })
       .join("\n");
-    
+
     const message = `💰 Предлагаю обмен на доли.\nТовары:\n${productsList}\n\nПредлагаю: ${offerAmount} долей.\n${dateStr}.\nОт кого: ${currentUserName || "Аноним"}.`;
-    
+
     // Save message to database
     if (business?.owner_id) {
       await supabase.from("messages").insert({
@@ -419,7 +423,7 @@ const BusinessPage = () => {
       title: "Запрос отправлен",
       description: "Производитель получит уведомление о вашем запросе",
     });
-    
+
     setExchangeMessage(message);
     setDigitalExchangeDialogOpen(false);
     setExchangeMessageSent(true);
@@ -430,7 +434,7 @@ const BusinessPage = () => {
   const handleOpenOrderDialog = () => {
     if (selectedProducts.length === 0) return;
     const initialQuantities: Record<string, number> = {};
-    selectedProducts.forEach(p => {
+    selectedProducts.forEach((p) => {
       initialQuantities[p.id] = 1;
     });
     setOrderQuantities(initialQuantities);
@@ -441,17 +445,17 @@ const BusinessPage = () => {
     if (selectedProducts.length === 0) return;
     // Initialize quantities
     const initialQuantities: Record<string, number> = {};
-    selectedProducts.forEach(p => {
+    selectedProducts.forEach((p) => {
       initialQuantities[p.id] = 1;
     });
     setDigitalProductQuantities(initialQuantities);
-    
+
     // Calculate total coin price for pre-fill
     const totalCoinPrice = selectedProducts.reduce((sum, p) => {
       return sum + (p.coinPrice || p.price || 0);
     }, 0);
     setDigitalOfferAmount(totalCoinPrice > 0 ? String(totalCoinPrice) : "");
-    
+
     setDigitalExchangeDialogOpen(true);
   };
 
@@ -459,7 +463,7 @@ const BusinessPage = () => {
     if (selectedProducts.length === 0) return;
     // Initialize producer product quantities for selected products
     const initialQuantities: Record<string, number> = {};
-    selectedProducts.forEach(p => {
+    selectedProducts.forEach((p) => {
       initialQuantities[p.id] = 1;
     });
     setProducerProductQuantities(initialQuantities);
@@ -469,7 +473,9 @@ const BusinessPage = () => {
   };
 
   const handleGoodsExchange = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       toast({
         title: "Ошибка",
@@ -480,12 +486,8 @@ const BusinessPage = () => {
     }
 
     // Get buyer profile id
-    const { data: buyerProfile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-    
+    const { data: buyerProfile } = await supabase.from("profiles").select("id").eq("user_id", user.id).single();
+
     // Get provider profile id
     const { data: providerProfile } = await supabase
       .from("profiles")
@@ -504,13 +506,13 @@ const BusinessPage = () => {
 
     // Form buyer_items (user's products)
     const buyerItems = userProducts
-      .filter(p => userProductQuantities[p.id] > 0)
-      .map(p => ({ item_id: p.id, qty: userProductQuantities[p.id] }));
+      .filter((p) => userProductQuantities[p.id] > 0)
+      .map((p) => ({ item_id: p.id, qty: userProductQuantities[p.id] }));
 
     // Form provider_items (selected producer's products)
     const providerItems = selectedProducts
-      .filter(p => producerProductQuantities[p.id] > 0)
-      .map(p => ({ item_id: p.id, qty: producerProductQuantities[p.id] }));
+      .filter((p) => producerProductQuantities[p.id] > 0)
+      .map((p) => ({ item_id: p.id, qty: producerProductQuantities[p.id] }));
 
     // Insert into exchange table
     const { error: exchangeError } = await supabase.from("exchange").insert({
@@ -534,20 +536,20 @@ const BusinessPage = () => {
     }
 
     const producerProductsList = selectedProducts
-      .filter(p => producerProductQuantities[p.id] > 0)
-      .map(p => `${p.name} (${producerProductQuantities[p.id]} шт)`)
+      .filter((p) => producerProductQuantities[p.id] > 0)
+      .map((p) => `${p.name} (${producerProductQuantities[p.id]} шт)`)
       .join(", ");
-    
+
     const userProductsList = userProducts
-      .filter(p => userProductQuantities[p.id] > 0)
-      .map(p => `${p.name} (${userProductQuantities[p.id]} шт)`)
+      .filter((p) => userProductQuantities[p.id] > 0)
+      .map((p) => `${p.name} (${userProductQuantities[p.id]} шт)`)
       .join(", ");
-    
+
     const message = `Запрос обмена от ${currentUserName || "Аноним"}.
 Выбраны ваши товары: ${producerProductsList || "не выбраны"}
 Предлагаю обмен на: ${userProductsList || "не выбраны"}
 Сообщение: ${exchangeComment || "без сообщения"}`;
-    
+
     // Save message to database
     if (business?.owner_id) {
       await supabase.from("messages").insert({
@@ -557,12 +559,12 @@ const BusinessPage = () => {
         type: "exchange" as const,
       });
     }
-    
+
     toast({
       title: "Запрос отправлен",
       description: "Производитель получит уведомление о вашем запросе",
     });
-    
+
     setExchangeMessage(message);
     setGoodsExchangeDialogOpen(false);
     setExchangeMessageSent(true);
@@ -578,7 +580,9 @@ const BusinessPage = () => {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       toast({
         title: "Ошибка",
@@ -668,8 +672,8 @@ const BusinessPage = () => {
               )}
             </div>
             <div className="flex gap-2 shrink-0">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setIsSubscribeDialogOpen(true)}
                 disabled={!currentUser}
                 title={!currentUser ? "Войдите, чтобы подписаться" : undefined}
@@ -677,7 +681,7 @@ const BusinessPage = () => {
                 <Bell className="h-4 w-4 mr-1" />
                 Подписка
               </Button>
-              <Button 
+              <Button
                 onClick={() => setContactDialogOpen(true)}
                 disabled={!currentUser}
                 title={!currentUser ? "Войдите, чтобы связаться" : undefined}
@@ -690,15 +694,14 @@ const BusinessPage = () => {
         </div>
 
         {/* Full WYSIWYG content from business card editor */}
-        {description && (
+        {
           <div className="content-card">
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
               dangerouslySetInnerHTML={{ __html: description }}
             />
           </div>
-        )}
-
+        }
 
         {/* Products (Товары) with ordering */}
         {products.length > 0 && (
@@ -742,56 +745,58 @@ const BusinessPage = () => {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {products
-                .filter(p => saleTypeFilter === "all" || (p as any).sale_type === saleTypeFilter)
+                .filter((p) => saleTypeFilter === "all" || (p as any).sale_type === saleTypeFilter)
                 .map((product) => {
-                const selected = isSelected(product.id);
-                return (
-                  <div
-                    key={product.id}
-                    className={`content-card hover:border-primary/30 transition-all hover:shadow-md p-3 ${
-                      selected ? "ring-2 ring-primary" : ""
-                    }`}
-                  >
-                    <div className="flex items-start gap-2 mb-2">
-                      <Checkbox
-                        checked={selected}
-                        disabled={!currentUser}
-                        onCheckedChange={(checked) =>
-                          handleProductSelect(
-                            {
-                              id: product.id,
-                              name: product.name,
-                              price: product.price || 0,
-                              image:
-                                product.image_url ||
-                                "https://images.unsplash.com/photo-472354-b33ff0c44a43?w=200&h=200&fit=crop",
-                              coinPrice: (product as any).coin_price || null,
-                            },
-                            checked as boolean,
-                          )
-                        }
-                      />
-                      <span className={`text-xs ${!currentUser ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                        {!currentUser ? 'Войдите' : 'Выбрать'}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        setSelectedProductDetail(product);
-                        setGalleryIndex(0);
-                        setProductDetailOpen(true);
-                      }}
-                      className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted cursor-pointer hover:opacity-90 transition-opacity w-full"
+                  const selected = isSelected(product.id);
+                  return (
+                    <div
+                      key={product.id}
+                      className={`content-card hover:border-primary/30 transition-all hover:shadow-md p-3 ${
+                        selected ? "ring-2 ring-primary" : ""
+                      }`}
                     >
-                      <img src={product.image_url || ""} alt={product.name} className="w-full h-full object-cover" />
-                    </button>
-                    <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                    <p className="text-sm text-primary font-semibold">
-                      {product.price || 0} ₽/{product.unit || "шт"}
-                    </p>
-                  </div>
-                );
-              })}
+                      <div className="flex items-start gap-2 mb-2">
+                        <Checkbox
+                          checked={selected}
+                          disabled={!currentUser}
+                          onCheckedChange={(checked) =>
+                            handleProductSelect(
+                              {
+                                id: product.id,
+                                name: product.name,
+                                price: product.price || 0,
+                                image:
+                                  product.image_url ||
+                                  "https://images.unsplash.com/photo-472354-b33ff0c44a43?w=200&h=200&fit=crop",
+                                coinPrice: (product as any).coin_price || null,
+                              },
+                              checked as boolean,
+                            )
+                          }
+                        />
+                        <span
+                          className={`text-xs ${!currentUser ? "text-muted-foreground/50" : "text-muted-foreground"}`}
+                        >
+                          {!currentUser ? "Войдите" : "Выбрать"}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedProductDetail(product);
+                          setGalleryIndex(0);
+                          setProductDetailOpen(true);
+                        }}
+                        className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted cursor-pointer hover:opacity-90 transition-opacity w-full"
+                      >
+                        <img src={product.image_url || ""} alt={product.name} className="w-full h-full object-cover" />
+                      </button>
+                      <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+                      <p className="text-sm text-primary font-semibold">
+                        {product.price || 0} ₽/{product.unit || "шт"}
+                      </p>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -842,7 +847,7 @@ const BusinessPage = () => {
             )}
           </div>
         )}
-        
+
         {/* https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop*/}
         {/* Contacts */}
         <div className="content-card">
@@ -909,10 +914,12 @@ const BusinessPage = () => {
                       type="number"
                       min="1"
                       value={orderQuantities[product.id] || 1}
-                      onChange={(e) => setOrderQuantities(prev => ({
-                        ...prev,
-                        [product.id]: Math.max(1, parseInt(e.target.value) || 1)
-                      }))}
+                      onChange={(e) =>
+                        setOrderQuantities((prev) => ({
+                          ...prev,
+                          [product.id]: Math.max(1, parseInt(e.target.value) || 1),
+                        }))
+                      }
                       className="w-16 h-8 text-center"
                     />
                   </div>
@@ -1001,34 +1008,36 @@ const BusinessPage = () => {
                   const displayPrice = product.coinPrice || product.price;
                   const priceLabel = product.coinPrice ? `${product.coinPrice} долей` : `${product.price} ₽`;
                   return (
-                  <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
-                    <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{product.name}</p>
-                      <p className={`text-xs ${product.coinPrice ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                        {priceLabel}
-                      </p>
+                    <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                      <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{product.name}</p>
+                        <p
+                          className={`text-xs ${product.coinPrice ? "text-primary font-semibold" : "text-muted-foreground"}`}
+                        >
+                          {priceLabel}
+                        </p>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={digitalProductQuantities[product.id] || 1}
+                        onChange={(e) => {
+                          const newQty = parseInt(e.target.value) || 1;
+                          setDigitalProductQuantities((prev) => ({
+                            ...prev,
+                            [product.id]: newQty,
+                          }));
+                          // Update total offer amount when quantity changes
+                          const newTotal = selectedProducts.reduce((sum, p) => {
+                            const qty = p.id === product.id ? newQty : digitalProductQuantities[p.id] || 1;
+                            return sum + (p.coinPrice || p.price || 0) * qty;
+                          }, 0);
+                          setDigitalOfferAmount(String(newTotal));
+                        }}
+                        className="w-16 h-8 text-center"
+                      />
                     </div>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={digitalProductQuantities[product.id] || 1}
-                      onChange={(e) => {
-                        const newQty = parseInt(e.target.value) || 1;
-                        setDigitalProductQuantities(prev => ({
-                          ...prev,
-                          [product.id]: newQty
-                        }));
-                        // Update total offer amount when quantity changes
-                        const newTotal = selectedProducts.reduce((sum, p) => {
-                          const qty = p.id === product.id ? newQty : (digitalProductQuantities[p.id] || 1);
-                          return sum + (p.coinPrice || p.price || 0) * qty;
-                        }, 0);
-                        setDigitalOfferAmount(String(newTotal));
-                      }}
-                      className="w-16 h-8 text-center"
-                    />
-                  </div>
                   );
                 })}
               </div>
@@ -1050,9 +1059,7 @@ const BusinessPage = () => {
             <Button variant="outline" onClick={() => setDigitalExchangeDialogOpen(false)}>
               Отмена
             </Button>
-            <Button onClick={handleDigitalExchange}>
-              Отправить продавцу
-            </Button>
+            <Button onClick={handleDigitalExchange}>Отправить продавцу</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1079,10 +1086,12 @@ const BusinessPage = () => {
                         type="number"
                         min="1"
                         value={producerProductQuantities[product.id] || 1}
-                        onChange={(e) => setProducerProductQuantities(prev => ({
-                          ...prev,
-                          [product.id]: parseInt(e.target.value) || 1
-                        }))}
+                        onChange={(e) =>
+                          setProducerProductQuantities((prev) => ({
+                            ...prev,
+                            [product.id]: parseInt(e.target.value) || 1,
+                          }))
+                        }
                         className="w-16 h-8 text-center"
                       />
                     </div>
@@ -1105,18 +1114,18 @@ const BusinessPage = () => {
                           type="number"
                           min="0"
                           value={userProductQuantities[product.id] || 0}
-                          onChange={(e) => setUserProductQuantities(prev => ({
-                            ...prev,
-                            [product.id]: parseInt(e.target.value) || 0
-                          }))}
+                          onChange={(e) =>
+                            setUserProductQuantities((prev) => ({
+                              ...prev,
+                              [product.id]: parseInt(e.target.value) || 0,
+                            }))
+                          }
                           className="w-16 h-8 text-center"
                         />
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      У вас нет товаров для обмена
-                    </p>
+                    <p className="text-sm text-muted-foreground text-center py-4">У вас нет товаров для обмена</p>
                   )}
                 </div>
               </div>
@@ -1137,9 +1146,7 @@ const BusinessPage = () => {
             <Button variant="outline" onClick={() => setGoodsExchangeDialogOpen(false)}>
               Отмена
             </Button>
-            <Button onClick={handleGoodsExchange}>
-              Отправить запрос
-            </Button>
+            <Button onClick={handleGoodsExchange}>Отправить запрос</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1151,14 +1158,10 @@ const BusinessPage = () => {
             <DialogTitle>Сообщение отправлено</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg font-mono">
-              {exchangeMessage}
-            </pre>
+            <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg font-mono">{exchangeMessage}</pre>
           </div>
           <DialogFooter>
-            <Button onClick={() => setExchangeMessageSent(false)}>
-              Закрыть
-            </Button>
+            <Button onClick={() => setExchangeMessageSent(false)}>Закрыть</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1202,44 +1205,44 @@ const BusinessPage = () => {
           <DialogHeader>
             <DialogTitle>{selectedProductDetail?.name || "Товар"}</DialogTitle>
           </DialogHeader>
-          
+
           {selectedProductDetail && (
             <div className="space-y-4">
               {/* Product Image Gallery */}
               {(() => {
                 const allImages = [
                   selectedProductDetail.image_url,
-                  ...(selectedProductDetail.gallery_urls || [])
+                  ...(selectedProductDetail.gallery_urls || []),
                 ].filter(Boolean) as string[];
-                
+
                 if (allImages.length === 0) return null;
-                
+
                 return (
                   <div className="relative">
                     <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                      <img 
-                        src={allImages[galleryIndex] || allImages[0]} 
-                        alt={selectedProductDetail.name} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={allImages[galleryIndex] || allImages[0]}
+                        alt={selectedProductDetail.name}
+                        className="w-full h-full object-cover"
                       />
                     </div>
-                    
+
                     {/* Navigation arrows */}
                     {allImages.length > 1 && (
                       <>
                         <button
-                          onClick={() => setGalleryIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1)}
+                          onClick={() => setGalleryIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1))}
                           className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
                         >
                           <ChevronLeft className="h-5 w-5" />
                         </button>
                         <button
-                          onClick={() => setGalleryIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1)}
+                          onClick={() => setGalleryIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1))}
                           className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
                         >
                           <ChevronRight className="h-5 w-5" />
                         </button>
-                        
+
                         {/* Dots indicator */}
                         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
                           {allImages.map((_, idx) => (
@@ -1254,7 +1257,7 @@ const BusinessPage = () => {
                         </div>
                       </>
                     )}
-                    
+
                     {/* Thumbnails */}
                     {allImages.length > 1 && (
                       <div className="flex gap-2 mt-2 overflow-x-auto">
@@ -1277,12 +1280,8 @@ const BusinessPage = () => {
 
               {/* Price and Unit */}
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-primary">
-                  {selectedProductDetail.price || 0} ₽
-                </span>
-                <span className="text-muted-foreground">
-                  / {selectedProductDetail.unit || "шт"}
-                </span>
+                <span className="text-2xl font-bold text-primary">{selectedProductDetail.price || 0} ₽</span>
+                <span className="text-muted-foreground">/ {selectedProductDetail.unit || "шт"}</span>
               </div>
 
               {/* Sale Type Badge */}
@@ -1297,7 +1296,8 @@ const BusinessPage = () => {
                     Бартер цифровой
                   </span>
                 )}
-                {((selectedProductDetail as any).sale_type === "sell_only" || !(selectedProductDetail as any).sale_type) && (
+                {((selectedProductDetail as any).sale_type === "sell_only" ||
+                  !(selectedProductDetail as any).sale_type) && (
                   <span className="inline-block text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded">
                     Только продажа
                   </span>
@@ -1316,7 +1316,7 @@ const BusinessPage = () => {
               {selectedProductDetail.content && (
                 <div className="border-t border-border pt-4">
                   <h3 className="font-medium text-foreground mb-2">Подробнее</h3>
-                  <div 
+                  <div
                     className="prose prose-sm max-w-none text-muted-foreground"
                     dangerouslySetInnerHTML={{ __html: selectedProductDetail.content }}
                   />
@@ -1341,7 +1341,7 @@ const BusinessPage = () => {
                         image: selectedProductDetail.image_url || "",
                         coinPrice: (selectedProductDetail as any).coin_price || null,
                       },
-                      !isSelected(selectedProductDetail.id)
+                      !isSelected(selectedProductDetail.id),
                     );
                   }}
                   variant={isSelected(selectedProductDetail.id) ? "secondary" : "default"}
