@@ -4,6 +4,7 @@ import { Jodit } from "jodit-react";
 import { cn } from "@/lib/utils";
 import { VideoUploadDropzone } from "./VideoUploadDropzone";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 
 interface JoditEditorComponentProps {
   initialValue?: string;
@@ -25,13 +26,82 @@ export const JoditEditorComponent = ({
   const savedContentRef = useRef<string>("");
   const [showVideoDropzone, setShowVideoDropzone] = useState(false);
   const [dropzonePosition, setDropzonePosition] = useState({ top: 0, left: 0 });
+  
+  // Overlay delete button state
+  const [hoveredMedia, setHoveredMedia] = useState<HTMLElement | null>(null);
+  const [deleteButtonPos, setDeleteButtonPos] = useState({ top: 0, left: 0 });
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Debug: helps catch cases where onVideoUpload becomes undefined unexpectedly
     console.log("JoditEditorComponent: onVideoUpload", {
       provided: typeof onVideoUpload === "function",
     });
   }, [onVideoUpload]);
+
+  // Media hover detection for delete overlay
+  useEffect(() => {
+    const editor = editorRef.current?.editor;
+    if (!editor) return;
+
+    const editorArea = editor.editor as HTMLElement | null;
+    if (!editorArea) return;
+
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const mediaEl = target.closest("img, video, iframe") as HTMLElement | null;
+      
+      if (mediaEl && editorArea.contains(mediaEl)) {
+        setHoveredMedia(mediaEl);
+        updateDeleteButtonPosition(mediaEl);
+      }
+    };
+
+    const handleMouseOut = (e: MouseEvent) => {
+      const relatedTarget = e.relatedTarget as HTMLElement | null;
+      // Don't hide if moving to delete button
+      if (relatedTarget?.closest(".media-delete-overlay")) return;
+      
+      const target = e.target as HTMLElement;
+      if (target.closest("img, video, iframe")) {
+        // Check if we're still within the same media element
+        if (!relatedTarget?.closest("img, video, iframe")) {
+          setHoveredMedia(null);
+        }
+      }
+    };
+
+    editorArea.addEventListener("mouseover", handleMouseOver);
+    editorArea.addEventListener("mouseout", handleMouseOut);
+
+    return () => {
+      editorArea.removeEventListener("mouseover", handleMouseOver);
+      editorArea.removeEventListener("mouseout", handleMouseOut);
+    };
+  }, [editorRef.current?.editor]);
+
+  const updateDeleteButtonPosition = useCallback((mediaEl: HTMLElement) => {
+    if (!wrapperRef.current) return;
+    
+    const mediaRect = mediaEl.getBoundingClientRect();
+    const wrapperRect = wrapperRef.current.getBoundingClientRect();
+    
+    setDeleteButtonPos({
+      top: mediaRect.top - wrapperRect.top + 8,
+      left: mediaRect.right - wrapperRect.left - 36,
+    });
+  }, []);
+
+  const handleDeleteMedia = useCallback(() => {
+    if (!hoveredMedia) return;
+    
+    const editor = editorRef.current?.editor;
+    if (!editor) return;
+
+    hoveredMedia.remove();
+    editor.synchronizeValues();
+    onChange?.(editor.value);
+    setHoveredMedia(null);
+  }, [hoveredMedia, onChange]);
 
   const handleVideoInsert = useCallback(
     (videoHtml: string) => {
@@ -291,13 +361,29 @@ export const JoditEditorComponent = ({
   }, [showVideoDropzone]);
 
   return (
-    <div className={cn("jodit-wrapper relative", className)}>
+    <div ref={wrapperRef} className={cn("jodit-wrapper relative", className)}>
       <JoditEditor
         ref={editorRef}
         value={initialValue}
         config={config}
         onBlur={handleChange}
       />
+      
+      {/* Media delete overlay button */}
+      {hoveredMedia && (
+        <button
+          className="media-delete-overlay absolute z-50 w-7 h-7 flex items-center justify-center bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full shadow-lg transition-all duration-150 hover:scale-110"
+          style={{
+            top: deleteButtonPos.top,
+            left: deleteButtonPos.left,
+          }}
+          onClick={handleDeleteMedia}
+          onMouseLeave={() => setHoveredMedia(null)}
+          title="Удалить"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
       
       {showVideoDropzone && createPortal(
         <div
