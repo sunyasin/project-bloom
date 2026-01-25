@@ -41,40 +41,44 @@ export const JoditEditorComponent = ({
         return;
       }
 
-      // When interacting with a portal, the editor can lose focus and `selection` may be undefined.
-      try {
-        if (typeof editor.focus === "function") editor.focus();
+      console.log("JoditEditorComponent: handleVideoInsert called", { videoHtml: videoHtml.substring(0, 100) });
 
-        // Restore selection saved before opening the portal (prevents selection being undefined)
-        try {
-          const restore = editor?.selection?.restore;
-          if (typeof restore === "function") restore.call(editor.selection, savedSelectionRef.current);
-        } catch (e) {
-          console.warn("JoditEditorComponent: selection restore failed", e);
+      // When interacting with a portal, the editor loses focus and selection becomes undefined.
+      // The most reliable approach is to append to editor.value directly.
+      try {
+        // Try to focus and restore selection first
+        if (typeof editor.focus === "function") {
+          editor.focus();
         }
 
-        const insertViaSelection = editor?.selection?.insertHTML;
-        const insertViaS = editor?.s?.insertHTML;
-        const execCommand = editor?.execCommand;
+        // Attempt to restore saved selection
+        let insertedViaSelection = false;
+        try {
+          const restore = editor?.selection?.restore;
+          if (typeof restore === "function" && savedSelectionRef.current) {
+            restore.call(editor.selection, savedSelectionRef.current);
+          }
+          
+          // Try insertion via selection
+          const insertViaS = editor?.s?.insertHTML;
+          if (typeof insertViaS === "function") {
+            insertViaS.call(editor.s, videoHtml);
+            insertedViaSelection = true;
+            console.log("JoditEditorComponent: inserted via s.insertHTML");
+          }
+        } catch (e) {
+          console.warn("JoditEditorComponent: selection-based insertion failed", e);
+        }
 
-        if (typeof insertViaSelection === "function") {
-          insertViaSelection.call(editor.selection, videoHtml);
-        } else if (typeof insertViaS === "function") {
-          insertViaS.call(editor.s, videoHtml);
-        } else if (typeof execCommand === "function") {
-          // Fallback: uses browser command through Jodit
-          execCommand.call(editor, "insertHTML", false, videoHtml);
-        } else {
-          console.error("JoditEditorComponent: no insertHTML method found", {
-            hasSelection: !!editor?.selection,
-            hasS: !!editor?.s,
-            hasExecCommand: typeof execCommand === "function",
-          });
-          setShowVideoDropzone(false);
-          return;
+        // Fallback: append to end of content if selection insertion didn't work
+        if (!insertedViaSelection) {
+          const currentValue = editor.value || "";
+          editor.value = currentValue + videoHtml;
+          console.log("JoditEditorComponent: appended to editor.value");
         }
 
         onChange?.(editor.value);
+        console.log("JoditEditorComponent: video inserted successfully");
       } catch (e) {
         console.error("JoditEditorComponent: failed to insert video HTML", e);
       } finally {
