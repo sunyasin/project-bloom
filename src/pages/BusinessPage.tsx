@@ -181,6 +181,7 @@ const BusinessPage = () => {
         name: b.name,
         image: b.content_json?.image || "",
         description: b.content_json?.description || "",
+        content: b.content_json?.description || "",
         isMain: b.id === id, // Текущая визитка - главная
       }));
       //no image -> https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop
