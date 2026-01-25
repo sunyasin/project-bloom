@@ -28,10 +28,38 @@ const Categories = () => {
   const [cities, setCities] = useState<string[]>(["Все города"]);
   const [loading, setLoading] = useState(true);
 
-  // GET /api/categories - загрузка категорий из БД
+  // Загрузка списка городов (один раз)
+  useEffect(() => {
+    const fetchCities = async () => {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("city")
+        .eq("status", "published")
+        .not("city", "is", null)
+        .neq("city", "");
+      
+      if (error) {
+        console.error("[Supabase] Error fetching cities:", error);
+        return;
+      }
+      
+      const uniqueCities = new Set<string>();
+      data?.forEach(b => {
+        if (b.city) uniqueCities.add(b.city);
+      });
+      
+      setCities(["Все города", ...Array.from(uniqueCities).sort()]);
+    };
+    
+    fetchCities();
+  }, []);
+
+  // Загрузка категорий с фильтрацией по городу
   useEffect(() => {
     const fetchCategories = async () => {
-      console.log("[Supabase] GET categories where is_hidden=false, order by position");
+      setLoading(true);
+      
+      // Загружаем все категории
       const { data: allCategories, error: err } = await supabase
         .from("categories")
         .select("*")
@@ -40,69 +68,54 @@ const Categories = () => {
 
       if (err) {
         console.error("[Supabase] Error fetching categories:", err);
-        throw err;
-      } else {
-        //Загрузить товары с category_id и producer_id
-
-        // const { data: products, error: err1 } = await supabase
-        //   .from("products")
-        //   .select("category_id, producer_id")
-        //   .eq("is_available", true)
-        //   .not("category_id", "is", null);
-
-        // if (err1) throw err1;
-
-        //Шаг 3: Загрузить визитки с category_id и owner_id
-
-        const { data: businesses, error: err2 } = await supabase
-          .from("businesses")
-          .select("category_id, owner_id, city")
-          .eq("status", "published")
-          .not("category_id", "is", null);
-        if (err2) throw err2;
-
-        //Шаг 4: Подсчитать уникальных производителей для каждой категории
-        // Для каждой категории собираем уникальных producer_id из товаров и owner_id из визиток
-        const producersByCategory = new Map<string, Set<string>>();
-
-        // products?.forEach((p) => {
-        //   if (!producersByCategory.has(p.category_id)) {
-        //     producersByCategory.set(p.category_id, new Set());
-        //   }
-        //   producersByCategory.get(p.category_id)!.add(p.producer_id);
-        // });
-
-        businesses?.forEach((b) => {
-          if (!producersByCategory.has(b.category_id)) {
-            producersByCategory.set(b.category_id, new Set());
-          }
-          producersByCategory.get(b.category_id)!.add(b.owner_id);
-        });
-
-        //Шаг 5: Фильтровать категории и добавить реальный count
-        const categoriesWithContent = allCategories
-          .filter((cat) => producersByCategory.has(cat.id))
-          .map((cat) => ({
-            ...cat,
-            count: producersByCategory.get(cat.id)?.size || 0,
-          }));
-
-        // Динамический список городов
-        const uniqueCities = [...new Set(businesses?.map((b) => b.city).filter(Boolean))];
-        setCities(["Все города", ...uniqueCities.sort()]);
-
-        const filteredCategories =
-          cityFilter === "Все города"
-            ? categoriesWithContent
-            : categories.filter((cat) => cat.cities?.includes(cityFilter));
-
-        setCategories(filteredCategories || []);
+        setLoading(false);
+        return;
       }
+
+      // Загружаем визитки с фильтром по городу
+      let businessQuery = supabase
+        .from("businesses")
+        .select("category_id, owner_id, city")
+        .eq("status", "published")
+        .not("category_id", "is", null);
+      
+      if (cityFilter && cityFilter !== "Все города") {
+        businessQuery = businessQuery.eq("city", cityFilter);
+      }
+      
+      const { data: businesses, error: err2 } = await businessQuery;
+      
+      if (err2) {
+        console.error("[Supabase] Error fetching businesses:", err2);
+        setLoading(false);
+        return;
+      }
+
+      // Подсчитываем уникальных производителей для каждой категории
+      const producersByCategory = new Map<string, Set<string>>();
+
+      businesses?.forEach((b) => {
+        if (!b.category_id || !b.owner_id) return;
+        if (!producersByCategory.has(b.category_id)) {
+          producersByCategory.set(b.category_id, new Set());
+        }
+        producersByCategory.get(b.category_id)!.add(b.owner_id);
+      });
+
+      // Фильтруем категории — оставляем только те, где есть производители
+      const categoriesWithContent = allCategories
+        .filter((cat) => producersByCategory.has(cat.id) && producersByCategory.get(cat.id)!.size > 0)
+        .map((cat) => ({
+          ...cat,
+          count: producersByCategory.get(cat.id)?.size || 0,
+        }));
+
+      setCategories(categoriesWithContent);
       setLoading(false);
     };
 
     fetchCategories();
-  }, []);
+  }, [cityFilter]);
 
   /*
 // При фильтрации по городу пересчитываем производителей
