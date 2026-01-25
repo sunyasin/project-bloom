@@ -864,26 +864,6 @@ const BusinessPage = () => {
           </div>
         )}
 
-        {/* https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop*/}
-        {/* Contacts */}
-        <div className="content-card">
-          <h2 className="section-title">Контакты</h2>
-          <div className="space-y-3">
-            {ownerProfile?.phone && (
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <span>{ownerProfile.phone}</span>
-              </div>
-            )}
-            {ownerProfile?.email && (
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                <span>{ownerProfile.email}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Promotions */}
         {promotions.length > 0 && (
           <div className="content-card">
