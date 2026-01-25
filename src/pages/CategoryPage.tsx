@@ -271,6 +271,32 @@ const CategoryPage = () => {
     fetchCurrentUserData();
   }, [currentUser]);
 
+  // Загрузка городов из БД
+  useEffect(() => {
+    const fetchCities = async () => {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("city")
+        .eq("status", "published")
+        .not("city", "is", null)
+        .neq("city", "");
+      
+      if (error) {
+        console.error("[Supabase] Error fetching cities:", error);
+        return;
+      }
+      
+      const uniqueCities = new Set<string>();
+      data?.forEach(b => {
+        if (b.city) uniqueCities.add(b.city);
+      });
+      
+      setCities(["Все города", ...Array.from(uniqueCities).sort()]);
+    };
+    
+    fetchCities();
+  }, []);
+
   // Загрузка данных из БД
   useEffect(() => {
     const fetchData = async () => {
@@ -292,11 +318,18 @@ const CategoryPage = () => {
       }
 
       // 1. Загружаем визитки с category_id = id
-      const { data: businessesByCat, error: err1 } = await supabase
+      let businessQuery = supabase
         .from("businesses")
         .select("*")
         .eq("category_id", id)
         .eq("status", "published");
+      
+      // Применяем фильтр по городу
+      if (cityFilter && cityFilter !== "Все города") {
+        businessQuery = businessQuery.eq("city", cityFilter);
+      }
+      
+      const { data: businessesByCat, error: err1 } = await businessQuery;
       
       if (err1) {
         console.error("[Supabase] Error fetching businesses by category:", err1);
@@ -318,11 +351,18 @@ const CategoryPage = () => {
 
       let businessesByProduct: typeof businessesByCat = [];
       if (producerIds.length > 0) {
-        const { data, error: err3 } = await supabase
+        let productBusinessQuery = supabase
           .from("businesses")
           .select("*")
           .in("owner_id", producerIds)
           .eq("status", "published");
+        
+        // Применяем фильтр по городу
+        if (cityFilter && cityFilter !== "Все города") {
+          productBusinessQuery = productBusinessQuery.eq("city", cityFilter);
+        }
+
+        const { data, error: err3 } = await productBusinessQuery;
 
         if (err3) {
           console.error("[Supabase] Error fetching businesses by product:", err3);
@@ -353,13 +393,6 @@ const CategoryPage = () => {
       });
 
       const allBusinesses = Array.from(byOwner.values());
-
-      // Собираем уникальные города
-      const uniqueCities = new Set<string>(["Все города"]);
-      allBusinesses.forEach(b => {
-        if (b.city) uniqueCities.add(b.city);
-      });
-      setCities(Array.from(uniqueCities));
 
       // 5. Загружаем ВСЕ товары владельцев
       const ownerIds = allBusinesses.map(b => b.owner_id).filter(Boolean) as string[];
@@ -416,7 +449,7 @@ const CategoryPage = () => {
     };
 
     fetchData();
-  }, [id]);
+  }, [id, cityFilter]);
 
   const handleProductClick = (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string, ownerId: string) => {
     setSelectedProduct({ product, businessName, businessId, businessPhone, ownerId });
