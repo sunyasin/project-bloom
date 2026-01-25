@@ -19,6 +19,9 @@ export const VideoUploadDropzone = ({
   onUpload,
   onClose,
 }: VideoUploadDropzoneProps) => {
+  // Debug: helps confirm whether upload callback is actually wired from the parent
+  console.log("VideoUploadDropzone: mounted", { hasOnUpload: typeof onUpload === "function" });
+
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");

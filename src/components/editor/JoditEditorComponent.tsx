@@ -23,13 +23,52 @@ export const JoditEditorComponent = ({
   const [showVideoDropzone, setShowVideoDropzone] = useState(false);
   const [dropzonePosition, setDropzonePosition] = useState({ top: 0, left: 0 });
 
-  const handleVideoInsert = useCallback((videoHtml: string) => {
-    if (editorRef.current?.editor) {
-      editorRef.current.editor.selection.insertHTML(videoHtml);
-      onChange?.(editorRef.current.editor.value);
-    }
-    setShowVideoDropzone(false);
-  }, [onChange]);
+  useEffect(() => {
+    // Debug: helps catch cases where onVideoUpload becomes undefined unexpectedly
+    console.log("JoditEditorComponent: onVideoUpload", {
+      provided: typeof onVideoUpload === "function",
+    });
+  }, [onVideoUpload]);
+
+  const handleVideoInsert = useCallback(
+    (videoHtml: string) => {
+      const editor = editorRef.current?.editor;
+
+      if (!editor) {
+        console.error("JoditEditorComponent: editor instance is missing");
+        setShowVideoDropzone(false);
+        return;
+      }
+
+      // When interacting with a portal, the editor can lose focus and `selection` may be undefined.
+      try {
+        if (typeof editor.focus === "function") editor.focus();
+
+        const insertViaSelection = editor?.selection?.insertHTML;
+        const insertViaS = editor?.s?.insertHTML;
+
+        if (typeof insertViaSelection === "function") {
+          insertViaSelection.call(editor.selection, videoHtml);
+        } else if (typeof insertViaS === "function") {
+          insertViaS.call(editor.s, videoHtml);
+        } else {
+          console.error("JoditEditorComponent: no insertHTML method found", {
+            hasSelection: !!editor?.selection,
+            hasS: !!editor?.s,
+          });
+          setShowVideoDropzone(false);
+          return;
+        }
+
+        onChange?.(editor.value);
+      } catch (e) {
+        console.error("JoditEditorComponent: failed to insert video HTML", e);
+      } finally {
+        setShowVideoDropzone(false);
+      }
+    },
+    [onChange]
+  );
 
   // Video button handler - outside useMemo to avoid stale closures
   const handleVideoButtonClick = useCallback((editor: any, close: () => void) => {
