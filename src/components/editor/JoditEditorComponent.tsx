@@ -1,5 +1,6 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from "react";
 import JoditEditor from "jodit-react";
+import { Jodit } from "jodit-react";
 import { cn } from "@/lib/utils";
 import { VideoUploadDropzone } from "./VideoUploadDropzone";
 import { createPortal } from "react-dom";
@@ -193,70 +194,63 @@ export const JoditEditorComponent = ({
       // Custom CSS for the editor
       editorClassName: "jodit-editor-content",
       
-      // Popup menus for media elements
+      // Inline popup for media elements when clicked
       popup: {
-        img: [
+        img: Jodit.atom([
           {
-            name: "delete",
+            name: "bin",
             icon: "bin",
             tooltip: "Удалить",
             exec: (editor: any) => {
-              const current = editor.s.current();
-              if (current) {
-                const img = current.nodeName === "IMG" ? current : current.closest?.("img");
-                if (img) {
-                  img.remove();
-                  editor.synchronizeValues();
-                }
+              const img = editor.s.current()?.closest?.("img") || editor.s.current();
+              if (img?.nodeName === "IMG") {
+                img.remove();
+                editor.synchronizeValues();
               }
             },
           },
           "pencil",
-          "valign",
+          "|",
           "left",
           "center",
           "right",
-        ],
-        video: [
+        ]),
+        video: Jodit.atom([
           {
-            name: "delete",
-            icon: "bin",
+            name: "bin",
+            icon: "bin", 
             tooltip: "Удалить видео",
             exec: (editor: any) => {
-              const current = editor.s.current();
-              if (current) {
-                const video = current.nodeName === "VIDEO" ? current : current.closest?.("video");
-                if (video) {
-                  video.remove();
-                  editor.synchronizeValues();
-                }
+              const video = editor.s.current()?.closest?.("video") || editor.s.current();
+              if (video?.nodeName === "VIDEO") {
+                video.remove();
+                editor.synchronizeValues();
               }
             },
           },
+          "|",
           "left",
-          "center", 
+          "center",
           "right",
-        ],
-        iframe: [
+        ]),
+        iframe: Jodit.atom([
           {
-            name: "delete",
+            name: "bin",
             icon: "bin",
             tooltip: "Удалить",
             exec: (editor: any) => {
-              const current = editor.s.current();
-              if (current) {
-                const iframe = current.nodeName === "IFRAME" ? current : current.closest?.("iframe");
-                if (iframe) {
-                  iframe.remove();
-                  editor.synchronizeValues();
-                }
+              const iframe = editor.s.current()?.closest?.("iframe") || editor.s.current();
+              if (iframe?.nodeName === "IFRAME") {
+                iframe.remove();
+                editor.synchronizeValues();
               }
             },
           },
+          "|",
           "left",
           "center",
           "right",
-        ],
+        ]),
       },
       
       controls: {
