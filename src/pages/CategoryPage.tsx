@@ -812,7 +812,13 @@ const CategoryPage = () => {
       initialQuantities[p.id] = 1;
     });
     setDigitalProductQuantities(initialQuantities);
-    setDigitalOfferAmount("");
+    
+    // Calculate and pre-fill total coin price
+    const totalCoinPrice = products.reduce((sum, p) => {
+      return sum + (p.coinPrice || p.rawPrice || 0);
+    }, 0);
+    setDigitalOfferAmount(totalCoinPrice > 0 ? String(totalCoinPrice) : "");
+    
     setDigitalExchangeDialogOpen(businessId);
   };
 
@@ -1288,10 +1294,20 @@ const CategoryPage = () => {
                         type="number"
                         min="1"
                         value={digitalProductQuantities[product.id] || 1}
-                        onChange={(e) => setDigitalProductQuantities(prev => ({
-                          ...prev,
-                          [product.id]: parseInt(e.target.value) || 1
-                        }))}
+                        onChange={(e) => {
+                          const newQty = parseInt(e.target.value) || 1;
+                          setDigitalProductQuantities(prev => ({
+                            ...prev,
+                            [product.id]: newQty
+                          }));
+                          // Update total offer amount when quantity changes
+                          const products = getSelectedForBusiness(digitalExchangeDialogOpen!);
+                          const newTotal = products.reduce((sum, p) => {
+                            const qty = p.id === product.id ? newQty : (digitalProductQuantities[p.id] || 1);
+                            return sum + (p.coinPrice || p.rawPrice || 0) * qty;
+                          }, 0);
+                          setDigitalOfferAmount(String(newTotal));
+                        }}
                         className="w-16 h-8 text-center"
                       />
                     </div>
