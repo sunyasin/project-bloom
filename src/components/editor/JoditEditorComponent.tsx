@@ -4,7 +4,7 @@ import { Jodit } from "jodit-react";
 import { cn } from "@/lib/utils";
 import { VideoUploadDropzone } from "./VideoUploadDropzone";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 
 interface JoditEditorComponentProps {
   initialValue?: string;
@@ -132,6 +132,41 @@ export const JoditEditorComponent = ({
     onChange?.(editor.value);
     
     // Update overlay position after resize
+    setTimeout(() => {
+      if (hoveredMedia) {
+        updateDeleteButtonPosition(hoveredMedia);
+      }
+    }, 10);
+  }, [hoveredMedia, onChange, updateDeleteButtonPosition]);
+
+  const handleAlignMedia = useCallback((align: "left" | "center" | "right") => {
+    if (!hoveredMedia) return;
+    
+    const editor = editorRef.current?.editor;
+    if (!editor) return;
+
+    // Reset previous alignment styles
+    hoveredMedia.style.marginLeft = "";
+    hoveredMedia.style.marginRight = "";
+    hoveredMedia.style.display = "block";
+    
+    switch (align) {
+      case "left":
+        hoveredMedia.style.marginRight = "auto";
+        break;
+      case "center":
+        hoveredMedia.style.marginLeft = "auto";
+        hoveredMedia.style.marginRight = "auto";
+        break;
+      case "right":
+        hoveredMedia.style.marginLeft = "auto";
+        break;
+    }
+    
+    editor.synchronizeValues();
+    onChange?.(editor.value);
+    
+    // Update overlay position after alignment change
     setTimeout(() => {
       if (hoveredMedia) {
         updateDeleteButtonPosition(hoveredMedia);
@@ -427,9 +462,38 @@ export const JoditEditorComponent = ({
             </button>
           ))}
           
+          {/* Separator */}
+          <div className="w-px h-5 bg-border mx-1" />
+          
+          {/* Alignment buttons */}
+          <button
+            className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+            onClick={() => handleAlignMedia("left")}
+            title="По левому краю"
+          >
+            <AlignLeft className="w-4 h-4" />
+          </button>
+          <button
+            className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+            onClick={() => handleAlignMedia("center")}
+            title="По центру"
+          >
+            <AlignCenter className="w-4 h-4" />
+          </button>
+          <button
+            className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+            onClick={() => handleAlignMedia("right")}
+            title="По правому краю"
+          >
+            <AlignRight className="w-4 h-4" />
+          </button>
+          
+          {/* Separator */}
+          <div className="w-px h-5 bg-border mx-1" />
+          
           {/* Delete button */}
           <button
-            className="w-7 h-7 flex items-center justify-center bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded transition-all duration-150 hover:scale-110 ml-1"
+            className="w-7 h-7 flex items-center justify-center bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded transition-all duration-150 hover:scale-110"
             onClick={handleDeleteMedia}
             title="Удалить"
           >
