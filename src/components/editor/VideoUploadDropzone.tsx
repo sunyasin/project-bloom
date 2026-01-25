@@ -36,9 +36,18 @@ export const VideoUploadDropzone = ({
   };
 
   const handleUpload = async (file: File) => {
+    console.log("VideoUploadDropzone: handleUpload called", { fileName: file.name, fileSize: file.size, fileType: file.type });
+    
     const validation = validateVideo(file);
     if (!validation.valid) {
+      console.log("VideoUploadDropzone: validation failed", validation.error);
       setError(validation.error || "Ошибка валидации");
+      return;
+    }
+
+    if (!onUpload) {
+      console.error("VideoUploadDropzone: onUpload callback is not provided");
+      setError("Функция загрузки не настроена");
       return;
     }
 
@@ -46,15 +55,16 @@ export const VideoUploadDropzone = ({
     setIsUploading(true);
 
     try {
-      if (onUpload) {
-        const url = await onUpload(file);
-        if (url) {
-          const videoHtml = `<video controls style="max-width: 100%; height: auto;"><source src="${url}" type="${file.type}">Ваш браузер не поддерживает видео.</video>`;
-          onVideoInsert(videoHtml);
-          onClose();
-        } else {
-          setError("Не удалось загрузить видео");
-        }
+      console.log("VideoUploadDropzone: starting upload...");
+      const url = await onUpload(file);
+      console.log("VideoUploadDropzone: upload result", url);
+      
+      if (url) {
+        const videoHtml = `<video controls style="max-width: 100%; height: auto;"><source src="${url}" type="${file.type}">Ваш браузер не поддерживает видео.</video>`;
+        onVideoInsert(videoHtml);
+        onClose();
+      } else {
+        setError("Не удалось загрузить видео");
       }
     } catch (err) {
       console.error("Video upload error:", err);
