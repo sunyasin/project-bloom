@@ -1,4 +1,23 @@
 @tailwind base;
+
+/* Jodit Editor - Media spacing and cursor visibility */
+.jodit-wysiwyg video,
+.jodit-wysiwyg iframe {
+  display: block;
+  margin: 16px 0 !important;
+}
+
+.jodit-wysiwyg {
+  caret-color: hsl(var(--foreground)) !important;
+}
+
+.jodit-wysiwyg p {
+  min-height: 1.5em;
+}
+
+.jodit-wysiwyg p:empty::before {
+  content: '\00a0';
+}
 @tailwind components;
 @tailwind utilities;
 
