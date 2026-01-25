@@ -62,9 +62,12 @@ export const VideoUploadDropzone = ({
       const url = await onUpload(file);
       console.log("VideoUploadDropzone: upload result", url);
       
-      if (url) {
-        // No wrapper <p> - Jodit resizer needs direct access to the video element
-        const videoHtml = `<video controls style="display: block; width: 400px; height: auto; margin: 16px 0;"><source src="${url}" type="${file.type}">Ваш браузер не поддерживает видео.</video><p><br></p>`;
+       if (url) {
+         // Important: avoid nested <source>. In Jodit, clicking the inner <source>
+         // can prevent the VIDEO popup from showing (selection becomes SOURCE).
+         // Using src directly keeps selection on the VIDEO element.
+         // No wrapper <p> - Jodit resizer needs direct access to the video element.
+         const videoHtml = `<video controls preload="metadata" src="${url}" style="display: block; width: 400px; height: auto; margin: 16px 0;">Ваш браузер не поддерживает видео.</video><p><br></p>`;
         onVideoInsert(videoHtml);
         onClose();
       } else {
@@ -156,9 +159,10 @@ export const VideoUploadDropzone = ({
     }
 
     let videoHtml: string;
-    if (embedUrl.match(/\.(mp4|webm|ogg)(\?.*)?$/i)) {
-      // No wrapper <p> - Jodit resizer needs direct access to the video element
-      videoHtml = `<video controls style="display: block; width: 400px; height: auto; margin: 16px 0;"><source src="${embedUrl}">Ваш браузер не поддерживает видео.</video><p><br></p>`;
+     if (embedUrl.match(/\.(mp4|webm|ogg)(\?.*)?$/i)) {
+       // Same reason as in upload: keep selection on VIDEO for the popup.
+       // No wrapper <p> - Jodit resizer needs direct access to the video element.
+       videoHtml = `<video controls preload="metadata" src="${embedUrl}" style="display: block; width: 400px; height: auto; margin: 16px 0;">Ваш браузер не поддерживает видео.</video><p><br></p>`;
     } else {
       // iframes are also resizable
       videoHtml = `<iframe src="${embedUrl}" frameborder="0" allowfullscreen style="display: block; width: 560px; height: 315px; margin: 16px 0;"></iframe><p><br></p>`;
