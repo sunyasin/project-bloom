@@ -52,20 +52,38 @@
   border-top: 1px solid hsl(var(--border));
 }
 
-/* Jodit image and video resizing */
-.jodit-wrapper .jodit-resizer {
-  border: 2px solid hsl(var(--primary));
+/* Jodit image and video resizing - make handles visible */
+.jodit-resizer {
+  border: 2px dashed hsl(var(--primary)) !important;
+  z-index: 100 !important;
 }
 
-.jodit-wrapper .jodit-resizer > i {
-  background: hsl(var(--primary));
-  border-radius: 2px;
-  width: 10px !important;
-  height: 10px !important;
+.jodit-resizer > i {
+  background: hsl(var(--primary)) !important;
+  border: 2px solid hsl(var(--background)) !important;
+  border-radius: 2px !important;
+  width: 12px !important;
+  height: 12px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
 }
 
-.jodit-wrapper .jodit-resizer > i:hover {
-  background: hsl(var(--primary) / 0.8);
+.jodit-resizer > i:hover {
+  background: hsl(var(--primary) / 0.8) !important;
+  transform: scale(1.2);
+}
+
+/* Corner handles positioning */
+.jodit-resizer > i.jodit_handler_resize_n,
+.jodit-resizer > i.jodit_handler_resize_s,
+.jodit-resizer > i.jodit_handler_resize_e,
+.jodit-resizer > i.jodit_handler_resize_w,
+.jodit-resizer > i.jodit_handler_resize_ne,
+.jodit-resizer > i.jodit_handler_resize_nw,
+.jodit-resizer > i.jodit_handler_resize_se,
+.jodit-resizer > i.jodit_handler_resize_sw {
+  display: block !important;
 }
 
 /* Make media selectable with visual feedback */
