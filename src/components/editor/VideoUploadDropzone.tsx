@@ -63,7 +63,7 @@ export const VideoUploadDropzone = ({
       console.log("VideoUploadDropzone: upload result", url);
       
       if (url) {
-        const videoHtml = `<video controls style="max-width: 100%; height: auto;"><source src="${url}" type="${file.type}">Ваш браузер не поддерживает видео.</video>`;
+        const videoHtml = `<p><video controls style="display: block; max-width: 100%; height: auto; margin: 16px 0;"><source src="${url}" type="${file.type}">Ваш браузер не поддерживает видео.</video></p>`;
         onVideoInsert(videoHtml);
         onClose();
       } else {
@@ -156,9 +156,9 @@ export const VideoUploadDropzone = ({
 
     let videoHtml: string;
     if (embedUrl.match(/\.(mp4|webm|ogg)(\?.*)?$/i)) {
-      videoHtml = `<video controls style="max-width: 100%; height: auto;"><source src="${embedUrl}">Ваш браузер не поддерживает видео.</video>`;
+      videoHtml = `<p><video controls style="display: block; max-width: 100%; height: auto; margin: 16px 0;"><source src="${embedUrl}">Ваш браузер не поддерживает видео.</video></p>`;
     } else {
-      videoHtml = `<iframe src="${embedUrl}" frameborder="0" allowfullscreen style="width: 100%; height: 315px; max-width: 560px;"></iframe>`;
+      videoHtml = `<p><iframe src="${embedUrl}" frameborder="0" allowfullscreen style="display: block; width: 100%; height: 315px; max-width: 560px; margin: 16px 0;"></iframe></p>`;
     }
 
     onVideoInsert(videoHtml);
