@@ -21,6 +21,7 @@ export const JoditEditorComponent = ({
 }: JoditEditorComponentProps) => {
   const editorRef = useRef<any>(null);
   const savedSelectionRef = useRef<unknown>(null);
+  const savedContentRef = useRef<string>("");
   const [showVideoDropzone, setShowVideoDropzone] = useState(false);
   const [dropzonePosition, setDropzonePosition] = useState({ top: 0, left: 0 });
 
@@ -72,7 +73,8 @@ export const JoditEditorComponent = ({
 
         // Fallback: append to end of content if selection insertion didn't work
         if (!insertedViaSelection) {
-          const currentValue = editor.value || "";
+          // Use saved content (before portal opened) to avoid losing existing content
+          const currentValue = savedContentRef.current || editor.value || "";
           editor.value = currentValue + videoHtml;
           console.log("JoditEditorComponent: appended to editor.value");
         }
@@ -90,6 +92,10 @@ export const JoditEditorComponent = ({
 
   // Video button handler - outside useMemo to avoid stale closures
   const handleVideoButtonClick = useCallback((editor: any, close: () => void) => {
+    // Save content BEFORE opening portal; otherwise editor may lose content on focus loss
+    savedContentRef.current = editor?.value || "";
+    console.log("JoditEditorComponent: saved content length", savedContentRef.current.length);
+
     // Save selection BEFORE opening portal; otherwise editor may lose selection
     try {
       const save = editor?.selection?.save;
