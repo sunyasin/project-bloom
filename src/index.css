@@ -2,43 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Quill Editor Styles */
-.quill-editor-wrapper .ql-container {
-  min-height: 300px;
-  font-size: 14px;
-  border-bottom-left-radius: 0.5rem;
-  border-bottom-right-radius: 0.5rem;
-}
-
-.quill-editor-wrapper .ql-toolbar {
-  border-top-left-radius: 0.5rem;
-  border-top-right-radius: 0.5rem;
-  background: hsl(var(--muted) / 0.5);
-}
-
-.quill-editor-wrapper .ql-editor {
+/* Editor.js Styles */
+.editorjs-wrapper {
   min-height: 300px;
 }
 
-.quill-editor-wrapper .ql-editor.ql-blank::before {
-  color: hsl(var(--muted-foreground));
-  font-style: normal;
+.editorjs-wrapper .codex-editor {
+  font-family: inherit;
 }
 
-/* Custom Quill toolbar buttons */
-.quill-editor-wrapper .ql-cut::before {
-  content: "✂";
-  font-size: 16px;
+.editorjs-wrapper .codex-editor__redactor {
+  padding-bottom: 100px !important;
 }
 
-.quill-editor-wrapper .ql-paste::before {
-  content: "📋";
-  font-size: 14px;
+.editorjs-wrapper .ce-block__content,
+.editorjs-wrapper .ce-toolbar__content {
+  max-width: 100%;
 }
 
-.quill-editor-wrapper .ql-cut,
-.quill-editor-wrapper .ql-paste {
-  width: 28px !important;
+.editorjs-wrapper .ce-paragraph {
+  line-height: 1.6;
+}
+
+.editorjs-wrapper .ce-header {
+  padding: 0.5em 0;
+}
+
+.editorjs-wrapper .ce-block--selected .ce-block__content {
+  background: hsl(var(--primary) / 0.1);
+}
+
+.editorjs-wrapper .ce-toolbar__plus,
+.editorjs-wrapper .ce-toolbar__settings-btn {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+}
+
+.editorjs-wrapper .ce-toolbar__plus:hover,
+.editorjs-wrapper .ce-toolbar__settings-btn:hover {
+  background: hsl(var(--muted));
+}
+
+.editorjs-wrapper .ce-inline-toolbar {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+}
+
+.editorjs-wrapper .ce-inline-tool {
+  color: hsl(var(--foreground));
+}
+
+.editorjs-wrapper .ce-inline-tool:hover {
+  background: hsl(var(--muted));
+}
+
+.editorjs-wrapper .ce-inline-tool--active {
+  color: hsl(var(--primary));
+}
+
+.editorjs-wrapper .ce-popover {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.1);
+}
+
+.editorjs-wrapper .ce-popover-item {
+  color: hsl(var(--foreground));
+}
+
+.editorjs-wrapper .ce-popover-item:hover {
+  background: hsl(var(--muted));
+}
+
+.editorjs-wrapper .ce-popover-item__icon {
+  background: hsl(var(--muted));
+}
+
+.editorjs-wrapper .cdx-block {
+  padding: 0.4em 0;
+}
+
+.editorjs-wrapper .image-tool {
+  border-radius: 8px;
+}
+
+.editorjs-wrapper .cdx-quote {
+  border-left: 3px solid hsl(var(--primary));
+  padding-left: 1rem;
+  font-style: italic;
+}
+
+/* Drag and drop styles */
+.editorjs-wrapper .ce-block--drop-target .ce-block__content::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: hsl(var(--primary));
+  border-radius: 2px;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
