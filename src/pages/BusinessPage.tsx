@@ -694,11 +694,11 @@ const BusinessPage = () => {
         </div>
 
         {/* Full WYSIWYG content from business card editor */}
-        {description && (
+        {contentJson && (
           <div className="content-card">
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: description }}
+              dangerouslySetInnerHTML={{ __html: contentJson }}
             />
           </div>
         )}
