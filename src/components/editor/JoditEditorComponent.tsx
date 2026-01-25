@@ -22,7 +22,6 @@ export const JoditEditorComponent = ({
   const editorRef = useRef<any>(null);
   const [showVideoDropzone, setShowVideoDropzone] = useState(false);
   const [dropzonePosition, setDropzonePosition] = useState({ top: 0, left: 0 });
-  const videoButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const handleVideoInsert = useCallback((videoHtml: string) => {
     if (editorRef.current?.editor) {
@@ -39,7 +38,6 @@ export const JoditEditorComponent = ({
       height: 400,
       language: "ru",
       
-      // Custom buttons
       buttons: [
         "bold",
         "italic",
@@ -54,29 +52,7 @@ export const JoditEditorComponent = ({
         "paragraph",
         "|",
         "image",
-        {
-          name: "customVideo",
-          iconURL: "",
-          tooltip: "Вставить видео",
-          exec: (editor: any) => {
-            // Find the button element in toolbar
-            const toolbar = editor.container.querySelector(".jodit-toolbar__box");
-            const buttons = toolbar?.querySelectorAll(".jodit-toolbar-button");
-            let buttonRect = { top: 100, left: 100 };
-            
-            buttons?.forEach((btn: HTMLElement) => {
-              if (btn.querySelector('[aria-label="Вставить видео"]')) {
-                buttonRect = btn.getBoundingClientRect();
-              }
-            });
-            
-            setDropzonePosition({
-              top: buttonRect.top + 40,
-              left: Math.max(10, buttonRect.left - 120),
-            });
-            setShowVideoDropzone(true);
-          },
-        },
+        "video",
         "link",
         "|",
         "align",
@@ -120,11 +96,27 @@ export const JoditEditorComponent = ({
       // Custom CSS for the editor
       editorClassName: "jodit-editor-content",
       
-      // Controls config for custom video button
       controls: {
-        customVideo: {
-          name: "customVideo",
-          icon: "video",
+        video: {
+          popup: (editor: any, _current: any, close: () => void) => {
+            const toolbar = editor.container.querySelector(".jodit-toolbar__box");
+            const videoBtn = toolbar?.querySelector('[data-ref="video"]') 
+              || toolbar?.querySelector('.jodit-toolbar-button_video');
+            
+            let buttonRect = { top: 100, left: 100 };
+            if (videoBtn) {
+              buttonRect = videoBtn.getBoundingClientRect();
+            }
+            
+            setDropzonePosition({
+              top: buttonRect.top + 40,
+              left: Math.max(10, buttonRect.left - 120),
+            });
+            setShowVideoDropzone(true);
+            close();
+            
+            return false;
+          },
           tooltip: "Вставить видео",
         },
       },
