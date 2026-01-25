@@ -31,6 +31,25 @@ export const JoditEditorComponent = ({
     setShowVideoDropzone(false);
   }, [onChange]);
 
+  // Video button handler - outside useMemo to avoid stale closures
+  const handleVideoButtonClick = useCallback((editor: any, close: () => void) => {
+    const toolbar = editor.container.querySelector(".jodit-toolbar__box");
+    const videoBtn = toolbar?.querySelector('[data-ref="video"]') 
+      || toolbar?.querySelector('.jodit-toolbar-button_video');
+    
+    let buttonRect = { top: 100, left: 100 };
+    if (videoBtn) {
+      buttonRect = videoBtn.getBoundingClientRect();
+    }
+    
+    setDropzonePosition({
+      top: buttonRect.top + 40,
+      left: Math.max(10, buttonRect.left - 120),
+    });
+    setShowVideoDropzone(true);
+    close();
+  }, []);
+
   const config = useMemo(
     () => ({
       readonly: false,
@@ -99,29 +118,14 @@ export const JoditEditorComponent = ({
       controls: {
         video: {
           popup: (editor: any, _current: any, close: () => void) => {
-            const toolbar = editor.container.querySelector(".jodit-toolbar__box");
-            const videoBtn = toolbar?.querySelector('[data-ref="video"]') 
-              || toolbar?.querySelector('.jodit-toolbar-button_video');
-            
-            let buttonRect = { top: 100, left: 100 };
-            if (videoBtn) {
-              buttonRect = videoBtn.getBoundingClientRect();
-            }
-            
-            setDropzonePosition({
-              top: buttonRect.top + 40,
-              left: Math.max(10, buttonRect.left - 120),
-            });
-            setShowVideoDropzone(true);
-            close();
-            
+            handleVideoButtonClick(editor, close);
             return false;
           },
           tooltip: "Вставить видео",
         },
       },
     }),
-    [placeholder]
+    [placeholder, handleVideoButtonClick]
   );
 
   const handleChange = useCallback(
