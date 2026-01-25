@@ -672,7 +672,7 @@ const BusinessPage = () => {
               {contentJson.shortDescription && (
                 <p className="text-sm text-muted-foreground mt-2">{contentJson.shortDescription}</p>
               )}
-              <div className="space-y-3">
+              <p className="space-y-3">
                 {ownerProfile?.phone && (
                   <div className="flex items-center gap-3 text-muted-foreground">
                     <Phone className="h-4 w-4" />
@@ -685,7 +685,7 @@ const BusinessPage = () => {
                     <span>{ownerProfile.email}</span>
                   </div>
                 )}
-              </div>
+              </p>
             </div>
             <div className="flex gap-2 shrink-0">
               <Button
