@@ -171,8 +171,10 @@ export const JoditEditorComponent = ({
         min_height: 50,
       },
       
-      // Enable image resize on img, iframe, table, video
-      allowResizeTags: new Set(["img", "iframe", "table", "jodit", "video"]),
+      // Enable resize on img, iframe, table, video
+      allowResizeTags: ["img", "iframe", "table", "jodit", "video"],
+      allowResizeX: true,
+      allowResizeY: true,
       
       // Image uploader - insert as base64 (can be overridden)
       uploader: {

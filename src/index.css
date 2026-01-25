@@ -33,7 +33,7 @@
   border-top: 1px solid hsl(var(--border));
 }
 
-/* Jodit image resizing */
+/* Jodit image and video resizing */
 .jodit-wrapper .jodit-resizer {
   border: 2px solid hsl(var(--primary));
 }
@@ -41,10 +41,33 @@
 .jodit-wrapper .jodit-resizer > i {
   background: hsl(var(--primary));
   border-radius: 2px;
+  width: 10px !important;
+  height: 10px !important;
 }
 
 .jodit-wrapper .jodit-resizer > i:hover {
   background: hsl(var(--primary) / 0.8);
+}
+
+/* Make videos resizable in Jodit */
+.jodit-wrapper .jodit-wysiwyg video {
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.jodit-wrapper .jodit-wysiwyg video:hover {
+  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline-offset: 2px;
+}
+
+.jodit-wrapper .jodit-wysiwyg iframe {
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.jodit-wrapper .jodit-wysiwyg iframe:hover {
+  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline-offset: 2px;
 }
 
 /* Jodit popups and dialogs */
