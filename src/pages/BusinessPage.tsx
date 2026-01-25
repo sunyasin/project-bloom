@@ -694,14 +694,14 @@ const BusinessPage = () => {
         </div>
 
         {/* Full WYSIWYG content from business card editor */}
-        {
+        {content_json && (
           <div className="content-card">
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: description }}
+              dangerouslySetInnerHTML={{ __html: content_json }}
             />
           </div>
-        }
+        )}
 
         {/* Products (Товары) with ordering */}
         {products.length > 0 && (
