@@ -261,8 +261,8 @@ export const JoditEditorComponent = ({
         min_height: 50,
       },
       
-      // Enable resize on img, iframe, table, video
-      allowResizeTags: ["img", "iframe", "table", "jodit", "video"],
+      // Enable resize on img, iframe, table, video - MUST be a Set, not array!
+      allowResizeTags: new Set(["img", "iframe", "table", "video"]),
       allowResizeX: true,
       allowResizeY: true,
       
