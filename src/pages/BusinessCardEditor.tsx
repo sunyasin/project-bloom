@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import ReactQuill from "react-quill-new";
-import "react-quill-new/dist/quill.snow.css";
+import { OutputData } from "@editorjs/editorjs";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Save,
@@ -23,7 +22,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { QuillMediaOverlay } from "@/components/QuillMediaOverlay";
+import { EditorJSComponent } from "@/components/editor/EditorJSComponent";
 
 interface Category {
   id: string;
@@ -35,7 +34,7 @@ interface BusinessCardData {
   title: string;
   description: string;
   image: string;
-  content: string;
+  content: OutputData | null;
   categoryId: string;
   city: string;
   location: string;
@@ -55,6 +54,32 @@ const validateImage = (file: File): { valid: boolean; error?: string } => {
   return { valid: true };
 };
 
+// Convert Editor.js data to HTML for preview
+const editorDataToHtml = (data: OutputData | null): string => {
+  if (!data?.blocks) return "";
+  
+  return data.blocks.map(block => {
+    switch (block.type) {
+      case "header":
+        const level = block.data.level || 2;
+        return `<h${level}>${block.data.text}</h${level}>`;
+      case "paragraph":
+        return `<p>${block.data.text}</p>`;
+      case "list":
+        const tag = block.data.style === "ordered" ? "ol" : "ul";
+        const items = block.data.items.map((item: string) => `<li>${item}</li>`).join("");
+        return `<${tag}>${items}</${tag}>`;
+      case "quote":
+        return `<blockquote>${block.data.text}${block.data.caption ? `<cite>${block.data.caption}</cite>` : ""}</blockquote>`;
+      case "image":
+        const imgStyle = block.data.width ? `width: ${block.data.width}px;` : "";
+        return `<figure><img src="${block.data.file?.url}" alt="${block.data.caption || ""}" style="${imgStyle}" />${block.data.caption ? `<figcaption>${block.data.caption}</figcaption>` : ""}</figure>`;
+      default:
+        return "";
+    }
+  }).join("");
+};
+
 const BusinessCardEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -65,7 +90,7 @@ const BusinessCardEditor = () => {
     title: "",
     description: "",
     image: "",
-    content: "",
+    content: null,
     categoryId: "",
     city: "",
     location: "",
@@ -77,93 +102,7 @@ const BusinessCardEditor = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [isEditorDragging, setIsEditorDragging] = useState(false);
-  const quillRef = useRef<ReactQuill>(null);
-  const editorContainerRef = useRef<HTMLDivElement>(null);
-  const [editorContainerEl, setEditorContainerEl] = useState<HTMLDivElement | null>(null);
-
-  // Sync ref to state for QuillMediaOverlay
-  useEffect(() => {
-    setEditorContainerEl(editorContainerRef.current);
-  }, []);
-
-  // Quill modules configuration with custom handlers
-  const quillModules = useMemo(() => ({
-    toolbar: {
-      container: [
-        [{ 'header': [1, 2, 3, false] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ 'align': [] }],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        ['blockquote'],
-        ['link', 'image'],
-        ['cut', 'paste'],
-        ['clean'],
-      ],
-      handlers: {
-        cut: function() {
-          const quill = this.quill;
-          const range = quill.getSelection();
-          if (range && range.length > 0) {
-            const text = quill.getText(range.index, range.length);
-            const html = quill.getSemanticHTML(range.index, range.length);
-            // Copy to clipboard
-            navigator.clipboard.write([
-              new ClipboardItem({
-                'text/plain': new Blob([text], { type: 'text/plain' }),
-                'text/html': new Blob([html], { type: 'text/html' }),
-              })
-            ]).then(() => {
-              quill.deleteText(range.index, range.length);
-            }).catch(() => {
-              // Fallback for older browsers
-              navigator.clipboard.writeText(text).then(() => {
-                quill.deleteText(range.index, range.length);
-              });
-            });
-          }
-        },
-        paste: async function() {
-          const quill = this.quill;
-          try {
-            const clipboardItems = await navigator.clipboard.read();
-            for (const item of clipboardItems) {
-              // Try HTML first
-              if (item.types.includes('text/html')) {
-                const blob = await item.getType('text/html');
-                const html = await blob.text();
-                const range = quill.getSelection(true);
-                quill.clipboard.dangerouslyPasteHTML(range.index, html);
-                return;
-              }
-              // Fallback to plain text
-              if (item.types.includes('text/plain')) {
-                const blob = await item.getType('text/plain');
-                const text = await blob.text();
-                const range = quill.getSelection(true);
-                quill.insertText(range.index, text);
-                return;
-              }
-            }
-          } catch {
-            // Fallback for older browsers
-            const text = await navigator.clipboard.readText();
-            const range = quill.getSelection(true);
-            quill.insertText(range.index, text);
-          }
-        },
-      },
-    },
-  }), []);
-
-  const quillFormats = useMemo(() => [
-    'header',
-    'bold', 'italic', 'underline', 'strike',
-    'align',
-    'list', 'bullet',
-    'blockquote',
-    'link', 'image',
-  ], []);
+  const editorKeyRef = useRef(0);
 
   // Загрузка категорий и профиля пользователя
   useEffect(() => {
@@ -228,18 +167,41 @@ const BusinessCardEditor = () => {
           
           if (data) {
             const contentJson = data.content_json as Record<string, unknown> || {};
+            
+            // Parse content - try EditorJS format first, then HTML
+            let editorContent: OutputData | null = null;
+            const rawContent = contentJson.content;
+            
+            if (rawContent && typeof rawContent === "object" && "blocks" in (rawContent as object)) {
+              // Already Editor.js format
+              editorContent = rawContent as OutputData;
+            } else if (typeof rawContent === "string" && rawContent.trim()) {
+              // HTML string - convert to Editor.js format (simple paragraph)
+              editorContent = {
+                time: Date.now(),
+                blocks: [
+                  {
+                    type: "paragraph",
+                    data: { text: rawContent },
+                  },
+                ],
+                version: "2.28.0",
+              };
+            }
+            
             const loaded: BusinessCardData = {
               id: data.id,
               title: data.name,
               description: (contentJson.description as string) || "",
               image: (contentJson.image as string) || "",
-              content: (contentJson.content as string) || "",
+              content: editorContent,
               categoryId: data.category_id || "",
               // Подставляем город из профиля, если в визитке он пустой
               city: data.city || profile?.city || "",
               location: data.location || profile?.address || "",
             };
             setCardData(loaded);
+            editorKeyRef.current += 1; // Force editor re-mount with new data
           } else {
             toast({
               title: "Ошибка",
@@ -269,8 +231,8 @@ const BusinessCardEditor = () => {
     setCardData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleContentChange = useCallback((value: string) => {
-    setCardData((prev) => ({ ...prev, content: value }));
+  const handleEditorChange = useCallback((data: OutputData) => {
+    setCardData((prev) => ({ ...prev, content: data }));
   }, []);
 
   const handleSave = async () => {
@@ -299,10 +261,11 @@ const BusinessCardEditor = () => {
       // Получаем название категории
       const selectedCategory = categories.find(c => c.id === cardData.categoryId);
       
+      // Convert OutputData to JSON-compatible format
       const contentJson = {
         description: cardData.description,
         image: cardData.image,
-        content: cardData.content,
+        content: cardData.content ? JSON.parse(JSON.stringify(cardData.content)) : null,
       };
 
       if (isNew) {
@@ -449,8 +412,8 @@ const BusinessCardEditor = () => {
     }
   };
 
-  // Upload image for editor drag-and-drop
-  const uploadEditorImage = async (file: File): Promise<string | null> => {
+  // Upload image for editor
+  const uploadEditorImage = useCallback(async (file: File): Promise<string | null> => {
     const validation = validateImage(file);
     if (!validation.valid) {
       toast({
@@ -485,6 +448,11 @@ const BusinessCardEditor = () => {
         .from("product-images")
         .getPublicUrl(fileName);
 
+      toast({
+        title: "Загружено",
+        description: "Изображение добавлено в редактор",
+      });
+
       return publicUrl;
     } catch (error) {
       console.error("Editor image upload error:", error);
@@ -495,86 +463,7 @@ const BusinessCardEditor = () => {
       });
       return null;
     }
-  };
-
-  // Handle drag-and-drop for Quill editor
-  const handleEditorDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsEditorDragging(true);
-  };
-
-  const handleEditorDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsEditorDragging(false);
-  };
-
-  const handleEditorDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsEditorDragging(false);
-
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) {
-      const url = await uploadEditorImage(file);
-      if (url && quillRef.current) {
-        const quill = quillRef.current.getEditor();
-        const range = quill.getSelection(true);
-        quill.insertEmbed(range.index, "image", url);
-        quill.setSelection(range.index + 1);
-        toast({
-          title: "Загружено",
-          description: "Изображение добавлено в редактор",
-        });
-      }
-    } else if (file) {
-      toast({
-        title: "Ошибка",
-        description: "Перетащите файл изображения",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle media deletion from Quill editor
-  const handleDeleteMedia = useCallback((element: HTMLElement) => {
-    if (quillRef.current) {
-      const quill = quillRef.current.getEditor();
-      const blot = (window as any).Quill?.find(element);
-      if (blot) {
-        const index = quill.getIndex(blot);
-        quill.deleteText(index, 1);
-        toast({
-          title: "Удалено",
-          description: "Медиа-элемент удалён из редактора",
-        });
-      } else {
-        // Fallback: remove element directly
-        element.remove();
-        // Sync content
-        setCardData(prev => ({
-          ...prev,
-          content: quill.root.innerHTML,
-        }));
-        toast({
-          title: "Удалено",
-          description: "Медиа-элемент удалён из редактора",
-        });
-      }
-    }
   }, [toast]);
-
-  // Sync content after resize
-  const handleMediaContentChange = useCallback(() => {
-    if (quillRef.current) {
-      const quill = quillRef.current.getEditor();
-      setCardData(prev => ({
-        ...prev,
-        content: quill.root.innerHTML,
-      }));
-    }
-  }, []);
 
   if (isDataLoading) {
     return (
@@ -784,38 +673,20 @@ const BusinessCardEditor = () => {
           )}
         </div>
 
-        {/* Редактор контента - Quill */}
+        {/* Редактор контента - Editor.js */}
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Содержимое</h2>
           <p className="text-sm text-muted-foreground">
-            Перетащите изображения прямо в редактор. Кликните на изображение для перемещения или удаления.
+            Используйте "+" для добавления блоков. Перетаскивайте блоки для изменения порядка. Наведите на изображение для изменения размера.
           </p>
           
-          <div 
-            ref={editorContainerRef}
-            className={cn(
-              "quill-editor-wrapper rounded-lg border transition-all relative",
-              isEditorDragging ? "border-primary bg-primary/5" : "border-border"
-            )}
-            onDragOver={handleEditorDragOver}
-            onDragLeave={handleEditorDragLeave}
-            onDrop={handleEditorDrop}
-          >
-            <ReactQuill
-              ref={quillRef}
-              theme="snow"
-              value={cardData.content}
-              onChange={handleContentChange}
-              modules={quillModules}
-              formats={quillFormats}
-              placeholder="Введите содержимое визитки..."
-            />
-            <QuillMediaOverlay
-              editorContainer={editorContainerEl}
-              onDeleteMedia={handleDeleteMedia}
-              onContentChange={handleMediaContentChange}
-            />
-          </div>
+          <EditorJSComponent
+            key={editorKeyRef.current}
+            initialData={cardData.content || undefined}
+            onChange={handleEditorChange}
+            onImageUpload={uploadEditorImage}
+            placeholder="Введите содержимое визитки..."
+          />
         </div>
       </div>
 
@@ -845,7 +716,7 @@ const BusinessCardEditor = () => {
             {cardData.content && (
               <div
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: cardData.content }}
+                dangerouslySetInnerHTML={{ __html: editorDataToHtml(cardData.content) }}
               />
             )}
           </div>
