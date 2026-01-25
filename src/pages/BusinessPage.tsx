@@ -804,7 +804,7 @@ const BusinessPage = () => {
         )}
 
         {/* Business Cards (Визитки) */}
-        {businessCards.length > 0 && (
+        {businessCards.length > 1 && (
           <div>
             <h2 className="section-title">Визитки</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
