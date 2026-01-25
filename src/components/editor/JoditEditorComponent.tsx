@@ -20,6 +20,7 @@ export const JoditEditorComponent = ({
   className,
 }: JoditEditorComponentProps) => {
   const editorRef = useRef<any>(null);
+  const savedSelectionRef = useRef<unknown>(null);
   const [showVideoDropzone, setShowVideoDropzone] = useState(false);
   const [dropzonePosition, setDropzonePosition] = useState({ top: 0, left: 0 });
 
@@ -44,17 +45,30 @@ export const JoditEditorComponent = ({
       try {
         if (typeof editor.focus === "function") editor.focus();
 
+        // Restore selection saved before opening the portal (prevents selection being undefined)
+        try {
+          const restore = editor?.selection?.restore;
+          if (typeof restore === "function") restore.call(editor.selection, savedSelectionRef.current);
+        } catch (e) {
+          console.warn("JoditEditorComponent: selection restore failed", e);
+        }
+
         const insertViaSelection = editor?.selection?.insertHTML;
         const insertViaS = editor?.s?.insertHTML;
+        const execCommand = editor?.execCommand;
 
         if (typeof insertViaSelection === "function") {
           insertViaSelection.call(editor.selection, videoHtml);
         } else if (typeof insertViaS === "function") {
           insertViaS.call(editor.s, videoHtml);
+        } else if (typeof execCommand === "function") {
+          // Fallback: uses browser command through Jodit
+          execCommand.call(editor, "insertHTML", false, videoHtml);
         } else {
           console.error("JoditEditorComponent: no insertHTML method found", {
             hasSelection: !!editor?.selection,
             hasS: !!editor?.s,
+            hasExecCommand: typeof execCommand === "function",
           });
           setShowVideoDropzone(false);
           return;
@@ -72,6 +86,19 @@ export const JoditEditorComponent = ({
 
   // Video button handler - outside useMemo to avoid stale closures
   const handleVideoButtonClick = useCallback((editor: any, close: () => void) => {
+    // Save selection BEFORE opening portal; otherwise editor may lose selection
+    try {
+      const save = editor?.selection?.save;
+      if (typeof save === "function") {
+        savedSelectionRef.current = save.call(editor.selection);
+      } else {
+        savedSelectionRef.current = null;
+      }
+    } catch (e) {
+      savedSelectionRef.current = null;
+      console.warn("JoditEditorComponent: selection save failed", e);
+    }
+
     const toolbar = editor.container.querySelector(".jodit-toolbar__box");
     const videoBtn = toolbar?.querySelector('[data-ref="video"]') 
       || toolbar?.querySelector('.jodit-toolbar-button_video');
