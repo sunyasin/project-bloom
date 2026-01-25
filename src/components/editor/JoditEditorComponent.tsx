@@ -31,6 +31,20 @@ export const JoditEditorComponent = ({
   const [hoveredMedia, setHoveredMedia] = useState<HTMLElement | null>(null);
   const [deleteButtonPos, setDeleteButtonPos] = useState({ top: 0, left: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const [editorInstance, setEditorInstance] = useState<any>(null);
+
+  const updateDeleteButtonPosition = useCallback((mediaEl: HTMLElement) => {
+    if (!wrapperRef.current) return;
+
+    const mediaRect = mediaEl.getBoundingClientRect();
+    const wrapperRect = wrapperRef.current.getBoundingClientRect();
+
+    // Place toolbar at the top-left of the element so it doesn't go offscreen.
+    setDeleteButtonPos({
+      top: Math.max(8, mediaRect.top - wrapperRect.top + 8),
+      left: Math.max(8, mediaRect.left - wrapperRect.left + 8),
+    });
+  }, []);
 
   useEffect(() => {
     console.log("JoditEditorComponent: onVideoUpload", {
@@ -38,12 +52,27 @@ export const JoditEditorComponent = ({
     });
   }, [onVideoUpload]);
 
-  // Media hover detection for delete overlay
+  // Jodit ref becomes available asynchronously; stash the instance in state so effects run reliably.
   useEffect(() => {
-    const editor = editorRef.current?.editor;
+    let raf = 0;
+    const tick = () => {
+      const ed = editorRef.current?.editor;
+      if (ed && ed !== editorInstance) {
+        setEditorInstance(ed);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [editorInstance]);
+
+  // Media hover detection for overlay toolbar
+  useEffect(() => {
+    const editor = editorInstance;
     if (!editor) return;
 
-    const editorArea = editor.editor as HTMLElement | null;
+    const editorArea = (editor.editor as HTMLElement | null) || (editor.workplace as HTMLElement | null);
     if (!editorArea) return;
 
     const handleMouseOver = (e: MouseEvent) => {
@@ -77,19 +106,7 @@ export const JoditEditorComponent = ({
       editorArea.removeEventListener("mouseover", handleMouseOver);
       editorArea.removeEventListener("mouseout", handleMouseOut);
     };
-  }, [editorRef.current?.editor]);
-
-  const updateDeleteButtonPosition = useCallback((mediaEl: HTMLElement) => {
-    if (!wrapperRef.current) return;
-    
-    const mediaRect = mediaEl.getBoundingClientRect();
-    const wrapperRect = wrapperRef.current.getBoundingClientRect();
-    
-    setDeleteButtonPos({
-      top: mediaRect.top - wrapperRect.top + 8,
-      left: mediaRect.right - wrapperRect.left - 36,
-    });
-  }, []);
+  }, [editorInstance, updateDeleteButtonPosition]);
 
   const handleDeleteMedia = useCallback(() => {
     if (!hoveredMedia) return;
@@ -395,7 +412,6 @@ export const JoditEditorComponent = ({
           style={{
             top: deleteButtonPos.top,
             left: deleteButtonPos.left,
-            transform: "translateX(-100%)",
           }}
           onMouseLeave={() => setHoveredMedia(null)}
         >
