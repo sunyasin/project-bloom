@@ -148,18 +148,37 @@ export const JoditEditorComponent = ({
     // Reset previous alignment styles
     hoveredMedia.style.marginLeft = "";
     hoveredMedia.style.marginRight = "";
+    hoveredMedia.style.float = "";
     hoveredMedia.style.display = "block";
+    
+    // For centering to work with margin: auto, element needs explicit width (not 100%)
+    // If no width is set or it's 100%, set a reasonable default
+    const currentWidth = hoveredMedia.style.width;
+    const computedWidth = window.getComputedStyle(hoveredMedia).width;
+    const parentWidth = hoveredMedia.parentElement?.clientWidth || 0;
+    const elementWidth = parseFloat(computedWidth) || 0;
+    
+    // Check if element takes full width (no explicit width or 100%)
+    const isFullWidth = !currentWidth || currentWidth === "100%" || 
+      (parentWidth > 0 && Math.abs(elementWidth - parentWidth) < 10);
     
     switch (align) {
       case "left":
         hoveredMedia.style.marginRight = "auto";
+        hoveredMedia.style.marginLeft = "0";
         break;
       case "center":
+        // If full width, set to 50% so centering is visible
+        if (isFullWidth) {
+          hoveredMedia.style.width = "50%";
+          hoveredMedia.style.height = "auto";
+        }
         hoveredMedia.style.marginLeft = "auto";
         hoveredMedia.style.marginRight = "auto";
         break;
       case "right":
         hoveredMedia.style.marginLeft = "auto";
+        hoveredMedia.style.marginRight = "0";
         break;
     }
     
@@ -171,7 +190,7 @@ export const JoditEditorComponent = ({
       if (hoveredMedia) {
         updateDeleteButtonPosition(hoveredMedia);
       }
-    }, 10);
+    }, 50);
   }, [hoveredMedia, onChange, updateDeleteButtonPosition]);
 
   const handleVideoInsert = useCallback(
