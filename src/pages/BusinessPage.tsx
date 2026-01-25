@@ -689,12 +689,12 @@ const BusinessPage = () => {
           </div>
         </div>
 
-        {/* Full WYSIWYG content from business card editor */}
-        {description && (
+        {/* Full WYSIWYG content from selected business card */}
+        {(selectedCard?.description || description) && (
           <div className="content-card">
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: description }}
+              dangerouslySetInnerHTML={{ __html: selectedCard?.description || description }}
             />
           </div>
         )}
