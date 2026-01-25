@@ -23,7 +23,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { QuillMediaOverlay } from "@/components/QuillMediaOverlay";
+
 
 interface Category {
   id: string;
@@ -80,12 +80,6 @@ const BusinessCardEditor = () => {
   const [isEditorDragging, setIsEditorDragging] = useState(false);
   const quillRef = useRef<ReactQuill>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
-  const [editorContainerEl, setEditorContainerEl] = useState<HTMLDivElement | null>(null);
-
-  // Sync ref to state for QuillMediaOverlay to receive updated container
-  useEffect(() => {
-    setEditorContainerEl(editorContainerRef.current);
-  }, []);
 
   // Quill modules configuration with custom handlers
   const quillModules = useMemo(() => ({
@@ -809,11 +803,6 @@ const BusinessCardEditor = () => {
               modules={quillModules}
               formats={quillFormats}
               placeholder="Введите содержимое визитки..."
-            />
-            <QuillMediaOverlay
-              editorContainer={editorContainerEl}
-              onDeleteMedia={handleDeleteMedia}
-              onContentChange={handleMediaContentChange}
             />
           </div>
         </div>
