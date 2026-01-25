@@ -148,45 +148,68 @@ export const JoditEditorComponent = ({
     console.log("handleAlignMedia", {
       align,
       tagName: hoveredMedia.tagName,
+      id: hoveredMedia.id,
+      className: hoveredMedia.className,
       currentStyles: {
         width: hoveredMedia.style.width,
         display: hoveredMedia.style.display,
         marginLeft: hoveredMedia.style.marginLeft,
         marginRight: hoveredMedia.style.marginRight,
+        textAlign: hoveredMedia.style.textAlign,
       }
     });
 
+    // Get the actual media element (not a wrapper)
+    const actualMedia = hoveredMedia.tagName === "IMG" || hoveredMedia.tagName === "VIDEO" || hoveredMedia.tagName === "IFRAME" 
+      ? hoveredMedia 
+      : hoveredMedia.querySelector("img, video, iframe") as HTMLElement;
+
+    if (!actualMedia) {
+      console.error("Could not find actual media element");
+      return;
+    }
+
+    console.log("Working with element:", {
+      tagName: actualMedia.tagName,
+      isCorrectElement: actualMedia === hoveredMedia
+    });
+
+    // Clear any text-align from parent elements that might interfere
+    actualMedia.style.textAlign = "";
+    
     // Ensure block display for alignment to work
-    hoveredMedia.style.display = "block";
-    hoveredMedia.style.float = "none";
+    actualMedia.style.display = "block";
+    actualMedia.style.float = "none";
 
     switch (align) {
       case "left":
-        hoveredMedia.style.marginLeft = "0";
-        hoveredMedia.style.marginRight = "auto";
+        actualMedia.style.marginLeft = "0";
+        actualMedia.style.marginRight = "auto";
         break;
       case "center":
         // For centering: ensure element has reasonable width if it's too wide
-        const currentWidth = hoveredMedia.style.width;
+        const currentWidth = actualMedia.style.width;
         if (!currentWidth || currentWidth === "100%" || currentWidth === "auto") {
           console.log("Setting width to 60% for centering");
-          hoveredMedia.style.width = "60%";
-          hoveredMedia.style.height = "auto";
+          actualMedia.style.width = "60%";
+          actualMedia.style.height = "auto";
         }
-        hoveredMedia.style.marginLeft = "auto";
-        hoveredMedia.style.marginRight = "auto";
+        actualMedia.style.marginLeft = "auto";
+        actualMedia.style.marginRight = "auto";
         break;
       case "right":
-        hoveredMedia.style.marginLeft = "auto";
-        hoveredMedia.style.marginRight = "0";
+        actualMedia.style.marginLeft = "auto";
+        actualMedia.style.marginRight = "0";
         break;
     }
 
     console.log("After alignment", {
-      width: hoveredMedia.style.width,
-      display: hoveredMedia.style.display,
-      marginLeft: hoveredMedia.style.marginLeft,
-      marginRight: hoveredMedia.style.marginRight,
+      width: actualMedia.style.width,
+      display: actualMedia.style.display,
+      marginLeft: actualMedia.style.marginLeft,
+      marginRight: actualMedia.style.marginRight,
+      textAlign: actualMedia.style.textAlign,
+      outerHTML: actualMedia.outerHTML.substring(0, 200)
     });
     
     editor.synchronizeValues();
