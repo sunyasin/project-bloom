@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, Filter } from "lucide-react";
+import { Building2, MapPin, Filter, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 // Локальный тип для отображения (не требует все поля из Business)
 interface BusinessDisplay {
   id: string;
@@ -21,6 +22,7 @@ interface BusinessDisplay {
 
 const Businesses = () => {
   const [cityFilter, setCityFilter] = useState("Все города");
+  const [nameFilter, setNameFilter] = useState("");
   const [businesses, setBusinesses] = useState<BusinessDisplay[]>([]);
   const [cities, setCities] = useState<string[]>(["Все города"]);
   const [loading, setLoading] = useState(true);
@@ -49,9 +51,11 @@ const Businesses = () => {
     fetchBusinesses();
   }, []);
 
-  const filteredBusinesses = cityFilter === "Все города"
-    ? businesses
-    : businesses.filter(b => b.city === cityFilter);
+  const filteredBusinesses = businesses.filter(b => {
+    const matchesCity = cityFilter === "Все города" || b.city === cityFilter;
+    const matchesName = nameFilter === "" || b.name.toLowerCase().includes(nameFilter.toLowerCase());
+    return matchesCity && matchesName;
+  });
 
   return (
     <MainLayout>
@@ -64,20 +68,31 @@ const Businesses = () => {
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="w-48 bg-background">
-                <SelectValue placeholder="Выберите город" />
-              </SelectTrigger>
-              <SelectContent className="bg-background border border-border shadow-lg z-50">
-                {cities.map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Поиск по названию..."
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.target.value)}
+                className="pl-9 bg-background"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={cityFilter} onValueChange={setCityFilter}>
+                <SelectTrigger className="w-48 bg-background">
+                  <SelectValue placeholder="Выберите город" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border border-border shadow-lg z-50">
+                  {cities.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
