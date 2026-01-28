@@ -1,12 +1,13 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2, Send } from "lucide-react";
+import { Building2, MapPin, ChevronLeft, ChevronRight, ShoppingCart, Filter, Loader2, Send } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import type { Category, Product as DBProduct } from "@/types/db";
 import type { User } from "@supabase/supabase-js";
 
@@ -195,7 +197,6 @@ const CategoryPage = () => {
     ownerId: string;
   } | null>(null);
   const [productDetailOpen, setProductDetailOpen] = useState(false);
-  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState<string | null>(null);
@@ -455,7 +456,6 @@ const CategoryPage = () => {
 
   const handleProductClick = (product: ProductDisplay, businessName: string, businessId: string, businessPhone: string, ownerId: string) => {
     setSelectedProduct({ product, businessName, businessId, businessPhone, ownerId });
-    setGalleryIndex(0);
     setProductDetailOpen(true);
   };
 
@@ -982,289 +982,33 @@ const CategoryPage = () => {
         )}
       </div>
 
-      {/* Product Dialog */}
-      <Dialog open={!!selectedProduct && !productDetailOpen} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg">{selectedProduct?.product.name}</DialogTitle>
-          </DialogHeader>
-          
-          {selectedProduct && (
-            <div className="space-y-4">
-              <div className="flex justify-center">
-                <img
-                  src={selectedProduct.product.image.replace("w=100&h=100", "w=300&h=300")}
-                  alt={selectedProduct.product.name}
-                  className="w-48 h-48 object-cover rounded-lg"
-                />
-              </div>
-              
-              <div className="text-center">
-                <p className="text-xl font-semibold text-primary">{selectedProduct.product.price}</p>
-              </div>
-
-              <div className="border-t border-border pt-4 space-y-2">
-                <div>
-                  <span className="text-sm text-muted-foreground">Производитель: </span>
-                  <Link
-                    to={`/business/${selectedProduct.businessId}`}
-                    className="text-sm font-medium text-primary hover:underline"
-                    onClick={() => setSelectedProduct(null)}
-                  >
-                    {selectedProduct.businessName}
-                  </Link>
-                </div>
-                
-                {selectedProduct.businessPhone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <a
-                      href={`tel:${selectedProduct.businessPhone}`}
-                      className="text-sm text-foreground hover:text-primary transition-colors"
-                    >
-                      {selectedProduct.businessPhone}
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Order Dialog */}
-      <Dialog open={!!orderDialogOpen} onOpenChange={() => setOrderDialogOpen(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Оформление заказа</DialogTitle>
-          </DialogHeader>
-          
-          {orderDialogOpen && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Выбранные товары:</h4>
-                <div className="max-h-48 overflow-y-auto space-y-2">
-                  {getSelectedForBusiness(orderDialogOpen).map((product) => (
-                    <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-10 h-10 rounded object-cover"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{product.name}</p>
-                        <p className="text-xs text-primary">{product.price}</p>
-                      </div>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={orderQuantities[product.id] || 1}
-                        onChange={(e) => setOrderQuantities(prev => ({
-                          ...prev,
-                          [product.id]: Math.max(1, parseInt(e.target.value) || 1)
-                        }))}
-                        className="w-16 h-8 text-center"
-                      />
-                    </div>
-                  ))}
-                </div>
-                <p className="text-sm font-semibold text-right">
-                  Итого: {getSelectedForBusiness(orderDialogOpen).reduce((sum, p) => sum + p.rawPrice * (orderQuantities[p.id] || 1), 0)} ₽
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Телефон для связи</Label>
-                <Input
-                  id="phone"
-                  value={orderPhone}
-                  onChange={(e) => setOrderPhone(e.target.value)}
-                  placeholder="+7 (___) ___-__-__"
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOrderDialogOpen(null)}>
-              Отмена
-            </Button>
-            <Button
-              onClick={() => orderDialogOpen && handleOrderSubmit(orderDialogOpen)}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Отправка..." : "Отправить заказ"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Product Detail Dialog with Gallery */}
-      <Dialog open={productDetailOpen} onOpenChange={setProductDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedProduct?.product.name || "Товар"}</DialogTitle>
-          </DialogHeader>
-          
-          {selectedProduct && (
-            <div className="space-y-4">
-              {/* Product Image Gallery */}
-              {(() => {
-                const allImages = [
-                  selectedProduct.product.image,
-                  ...selectedProduct.product.galleryUrls
-                ].filter(Boolean);
-                
-                if (allImages.length === 0) return null;
-                
-                return (
-                  <div className="relative">
-                    <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                      <img 
-                        src={allImages[galleryIndex] || allImages[0]} 
-                        alt={selectedProduct.product.name} 
-                        className="w-full h-full object-cover" 
-                      />
-                    </div>
-                    
-                    {/* Navigation arrows */}
-                    {allImages.length > 1 && (
-                      <>
-                        <button
-                          onClick={() => setGalleryIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1)}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
-                        >
-                          <ChevronLeft className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => setGalleryIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-md transition-colors"
-                        >
-                          <ChevronRight className="h-5 w-5" />
-                        </button>
-                        
-                        {/* Dots indicator */}
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-                          {allImages.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setGalleryIndex(idx)}
-                              className={`w-2 h-2 rounded-full transition-colors ${
-                                idx === galleryIndex ? "bg-primary" : "bg-background/60"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Thumbnails */}
-                    {allImages.length > 1 && (
-                      <div className="flex gap-2 mt-2 overflow-x-auto">
-                        {allImages.map((url, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setGalleryIndex(idx)}
-                            className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                              idx === galleryIndex ? "border-primary" : "border-transparent"
-                            }`}
-                          >
-                            <img src={url} alt="" className="w-full h-full object-cover" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Price and Unit */}
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-primary">
-                  {selectedProduct.product.rawPrice || 0} ₽
-                </span>
-                <span className="text-muted-foreground">
-                  / {selectedProduct.product.unit}
-                </span>
-              </div>
-
-              {/* Sale Type Badge */}
-              <div>
-                {selectedProduct.product.saleType === "barter_goods" && (
-                  <span className="inline-block text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-1 rounded">
-                    Бартер товар-товар
-                  </span>
-                )}
-                {selectedProduct.product.saleType === "barter_coin" && (
-                  <span className="inline-block text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded">
-                    Бартер цифровой
-                  </span>
-                )}
-                {(selectedProduct.product.saleType === "sell_only" || !selectedProduct.product.saleType) && (
-                  <span className="inline-block text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded">
-                    Только продажа
-                  </span>
-                )}
-              </div>
-
-              {/* Short Description */}
-              {selectedProduct.product.description && (
-                <div>
-                  <h3 className="font-medium text-foreground mb-1">Описание</h3>
-                  <p className="text-muted-foreground">{selectedProduct.product.description}</p>
-                </div>
-              )}
-
-              {/* Detailed Content */}
-              {selectedProduct.product.content && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="font-medium text-foreground mb-2">Подробнее</h3>
-                  <div 
-                    className="prose prose-sm max-w-none text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: selectedProduct.product.content }}
-                  />
-                </div>
-              )}
-
-              {/* Producer Info */}
-              <div className="border-t border-border pt-4 text-sm text-muted-foreground">
-                <p>Производитель: {selectedProduct.businessName}</p>
-                {selectedProduct.businessPhone && <p>Телефон: {selectedProduct.businessPhone}</p>}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
-                <Button
-                  disabled={!currentUser}
-                  onClick={() => {
-                    const isCurrentlySelected = selectedProducts.some(
-                      p => p.id === selectedProduct.product.id && p.businessId === selectedProduct.businessId
-                    );
-                    handleProductSelect(
-                      selectedProduct.product,
-                      selectedProduct.businessId,
-                      selectedProduct.businessName,
-                      selectedProduct.ownerId,
-                      !isCurrentlySelected
-                    );
-                  }}
-                  variant={selectedProducts.some(
-                    p => p.id === selectedProduct.product.id && p.businessId === selectedProduct.businessId
-                  ) ? "secondary" : "default"}
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  {selectedProducts.some(
-                    p => p.id === selectedProduct.product.id && p.businessId === selectedProduct.businessId
-                  ) ? "Убрать из заказа" : "Добавить в заказ"}
-                </Button>
-                <Button variant="outline" onClick={() => setProductDetailOpen(false)}>
-                  Закрыть
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Unified Product Details Dialog */}
+      <ProductDetailsDialog
+        open={productDetailOpen}
+        onOpenChange={(open) => {
+          setProductDetailOpen(open);
+          if (!open) setSelectedProduct(null);
+        }}
+        product={selectedProduct ? {
+          id: selectedProduct.product.id,
+          name: selectedProduct.product.name,
+          image: selectedProduct.product.image,
+          price: selectedProduct.product.price,
+          rawPrice: selectedProduct.product.rawPrice,
+          coinPrice: selectedProduct.product.coinPrice,
+          saleType: selectedProduct.product.saleType,
+          description: selectedProduct.product.description,
+          content: selectedProduct.product.content,
+          unit: selectedProduct.product.unit,
+          galleryUrls: selectedProduct.product.galleryUrls,
+        } : null}
+        businessId={selectedProduct?.businessId || ""}
+        businessName={selectedProduct?.businessName || ""}
+        ownerId={selectedProduct?.ownerId || ""}
+        currentUser={currentUser}
+        currentUserName={currentUserName}
+        orderPhone={orderPhone}
+      />
 
       {/* Digital Exchange Dialog */}
       <Dialog open={!!digitalExchangeDialogOpen} onOpenChange={() => setDigitalExchangeDialogOpen(null)}>
