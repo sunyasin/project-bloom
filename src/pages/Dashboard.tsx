@@ -118,7 +118,7 @@ interface MessageWithSender {
 }
 
 // Message types for filtering
-type MessageTypeFilter = "all" | "admin_status" | "from_admin" | "chat" | "exchange" | "income";
+type MessageTypeFilter = "all" | "admin_status" | "from_admin" | "chat" | "exchange" | "income" | "coin_request";
 
 const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
   all: "Все",
@@ -127,6 +127,13 @@ const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
   chat: "Чат",
   exchange: "Обмен",
   income: "Кошелёк",
+  coin_request: "Запросы коинов",
+};
+
+// Extract image URLs from message text
+const extractImageUrls = (text: string): string[] => {
+  const urlRegex = /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp))/gi;
+  return text.match(urlRegex) || [];
 };
 
 // ============= End Messages types =============
@@ -282,6 +289,7 @@ const Dashboard = () => {
   const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<{ type: "single" | "chain"; ids: number[] } | null>(
     null,
   );
+  const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [deletingMessages, setDeletingMessages] = useState(false);
   const { toast } = useToast();
 
@@ -2341,7 +2349,39 @@ const Dashboard = () => {
                                               </button>
                                             )}
                                           </div>
-                                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                          {/* Message text with inline images */}
+                                          {(() => {
+                                            const imageUrls = extractImageUrls(msg.message);
+                                            const textWithoutUrls = imageUrls.reduce(
+                                              (text, url) => text.replace(url, '').trim(),
+                                              msg.message
+                                            );
+                                            return (
+                                              <>
+                                                <p className="text-sm whitespace-pre-wrap">{textWithoutUrls}</p>
+                                                {imageUrls.length > 0 && (
+                                                  <div className="flex flex-wrap gap-2 mt-2">
+                                                    {imageUrls.map((url, idx) => (
+                                                      <button
+                                                        key={idx}
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setFullImageUrl(url);
+                                                        }}
+                                                        className="block overflow-hidden rounded-lg border hover:opacity-80 transition-opacity"
+                                                      >
+                                                        <img
+                                                          src={url}
+                                                          alt="Вложение"
+                                                          className="h-20 w-auto max-w-[150px] object-cover"
+                                                        />
+                                                      </button>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </>
+                                            );
+                                          })()}
                                         </div>
                                       </div>
 
@@ -2436,6 +2476,19 @@ const Dashboard = () => {
               {deletingMessages ? "Удаление..." : "Удалить"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Image Preview Dialog */}
+      <Dialog open={!!fullImageUrl} onOpenChange={(open) => !open && setFullImageUrl(null)}>
+        <DialogContent className="max-w-4xl p-2">
+          {fullImageUrl && (
+            <img
+              src={fullImageUrl}
+              alt="Полноразмерное изображение"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+            />
+          )}
         </DialogContent>
       </Dialog>
 
