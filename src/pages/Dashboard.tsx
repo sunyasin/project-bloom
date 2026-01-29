@@ -31,6 +31,7 @@ import {
   Image,
   CornerDownRight,
   Repeat,
+  Check,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -134,6 +135,16 @@ const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
 const extractImageUrls = (text: string): string[] => {
   const urlRegex = /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp))/gi;
   return text.match(urlRegex) || [];
+};
+
+// Parse coin_request message to extract profile ID and amount
+const parseCoinRequest = (message: string): { profileId: string | null; amount: number | null } => {
+  const profileIdMatch = message.match(/ID профиля:\s*([a-f0-9-]+)/i);
+  const amountMatch = message.match(/Сумма:\s*(\d+)/i);
+  return {
+    profileId: profileIdMatch ? profileIdMatch[1] : null,
+    amount: amountMatch ? parseInt(amountMatch[1], 10) : null,
+  };
 };
 
 // ============= End Messages types =============
@@ -291,6 +302,7 @@ const Dashboard = () => {
   );
   const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [deletingMessages, setDeletingMessages] = useState(false);
+  const [approvingCoinRequest, setApprovingCoinRequest] = useState<number | null>(null);
   const { toast } = useToast();
 
   // Categories state for promotions
@@ -1221,6 +1233,70 @@ const Dashboard = () => {
       setReceiveImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Approve coin request (super_admin only)
+  const handleApproveCoinRequest = async (messageId: number, messageText: string) => {
+    const { profileId: targetProfileId, amount } = parseCoinRequest(messageText);
+    
+    if (!targetProfileId || !amount) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось извлечь данные из запроса",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setApprovingCoinRequest(messageId);
+
+    try {
+      // Call coin_exchange RPC to credit coins (is_r2c = true means adding coins)
+      const { data: hashResult, error: rpcError } = await supabase.rpc("coin_exchange", {
+        p_initiator: (await supabase.from("profiles").select("user_id").eq("id", targetProfileId).single()).data?.user_id,
+        is_r2c: true,
+        p_sum: amount,
+      });
+
+      if (rpcError) {
+        throw rpcError;
+      }
+
+      // Get recipient's profile for notification
+      const { data: recipientProfile } = await supabase
+        .from("profiles")
+        .select("user_id, first_name, last_name")
+        .eq("id", targetProfileId)
+        .single();
+
+      if (recipientProfile) {
+        const recipientName = `${recipientProfile.first_name || ""} ${recipientProfile.last_name || ""}`.trim() || "Пользователь";
+        
+        // Send confirmation message to user
+        await supabase.from("messages").insert({
+          from_id: user!.id,
+          to_id: recipientProfile.user_id,
+          message: `✅ Ваш запрос на ${amount} долей одобрен!\nБаланс пополнен.\nHash: ${hashResult}`,
+          type: "wallet" as const,
+        });
+      }
+
+      toast({
+        title: "Запрос одобрен",
+        description: `Начислено ${amount} долей`,
+      });
+
+      // Reload messages to reflect any changes
+      await loadMessages();
+    } catch (err: any) {
+      toast({
+        title: "Ошибка",
+        description: err.message || "Не удалось одобрить запрос",
+        variant: "destructive",
+      });
+    } finally {
+      setApprovingCoinRequest(null);
+    }
   };
 
   // Hash decode handler
@@ -2378,6 +2454,23 @@ const Dashboard = () => {
                                                       </button>
                                                     ))}
                                                   </div>
+                                                )}
+                                                
+                                                {/* Approve button for super_admin on coin_request messages */}
+                                                {msg.type === "coin_request" && user?.roles?.includes("super_admin") && (
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="mt-2 bg-green-500/10 border-green-500/30 hover:bg-green-500/20 text-green-700"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleApproveCoinRequest(msg.id, msg.message);
+                                                    }}
+                                                    disabled={approvingCoinRequest === msg.id}
+                                                  >
+                                                    <Check className="h-4 w-4 mr-1" />
+                                                    {approvingCoinRequest === msg.id ? "Обработка..." : "Одобрить"}
+                                                  </Button>
                                                 )}
                                               </>
                                             );
