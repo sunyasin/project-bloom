@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { KASSA_PAYMENT_INSTRUCTION } from "@/config/kassa_payment";
 import {
   User,
   Tag,
@@ -2564,9 +2565,8 @@ const Dashboard = () => {
                     Инструкция
                   </button>
                   {showReceiveInstruction && (
-                    <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-                      Сделайте перевод СБП по номеру <span className="font-medium text-foreground">+7(978)ххх-хх-хх</span>. 
-                      Прикрепите скриншот квитанции ниже.
+                    <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground whitespace-pre-wrap">
+                      {KASSA_PAYMENT_INSTRUCTION}
                     </div>
                   )}
                 </div>
