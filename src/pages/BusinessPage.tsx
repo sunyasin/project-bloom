@@ -307,7 +307,7 @@ const BusinessPage = () => {
   };
 
   const handleSubscribe = async () => {
-    if (!business?.owner_id) return;
+    if (!business?.owner_id || !currentUser?.email) return;
 
     setIsSubscribing(true);
     try {
@@ -315,7 +315,7 @@ const BusinessPage = () => {
       const { data: existing } = await supabase
         .from("newsletter_subscriptions")
         .select("id, send_profiles")
-        .eq("email", subscribeEmail)
+        .eq("email", currentUser.email)
         .maybeSingle();
 
       if (existing) {
@@ -335,7 +335,7 @@ const BusinessPage = () => {
       } else {
         // Create new subscription
         const { error } = await supabase.from("newsletter_subscriptions").insert({
-          email: subscribeEmail,
+          email: currentUser.email,
           send_profiles: [business.owner_id],
           enabled: true,
         });
@@ -1037,9 +1037,9 @@ const BusinessPage = () => {
               <Input
                 id="subscribe-email"
                 type="email"
-                value={subscribeEmail}
-                onChange={(e) => setSubscribeEmail(e.target.value)}
-                placeholder="example@mail.ru"
+                value={currentUser?.email || subscribeEmail}
+                readOnly
+                className="bg-muted"
               />
             </div>
           </div>
@@ -1047,7 +1047,7 @@ const BusinessPage = () => {
             <Button variant="outline" onClick={() => setIsSubscribeDialogOpen(false)}>
               Отмена
             </Button>
-            <Button onClick={handleSubscribe} disabled={isSubscribing || !subscribeEmail}>
+            <Button onClick={handleSubscribe} disabled={isSubscribing || !currentUser?.email}>
               {isSubscribing ? "Подписка..." : "Подписаться"}
             </Button>
           </DialogFooter>

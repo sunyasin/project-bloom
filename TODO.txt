@@ -3,7 +3,7 @@ E:\work\project-bloom\supabase\migrations\20260115173551_ba8551d5-457a-4925-a2c6
 (-- Add sum column for coin exchanges)
 
 ====== TODO =======
-/dashboard окно Кошелек - добавь переключатель для формы "Перевести"-"Получить". "Перевести" - это текущая форма перевода (без изменений). "Получить" - вместо поля "кому перевести" - текст-ссылка "Инструкция", она по нажатию скрывает-разворачивает текст (текст бери из файла настроек kassa_payment - содержимое файла: Сделайте перевод СБП по номеру +7(978)ххх-хх-хх. Или по номеру карты 1234 1234 1234 1234 ВТБ.  Прикрепите скриншот квитанции ниже"). Ниже - кнопка для загрузки изображения (обязательное + ограничение на размер 10 мб). под изображением - необязательное сообщение. Кнопка "отправить" отправляет сообщение суперадмину "[имя ] запрашивает Х коинов" (подстввь имя и ID пользователя и введенную сумму). картинки храни в отдельном backet. Тип сообщения "coin_request" (добавь тип в БД).
+
 
 -картинка товара после загрузки растянутая
 
@@ -19,7 +19,54 @@ E:\work\project-bloom\supabase\migrations\20260115173551_ba8551d5-457a-4925-a2c6
 переименовать производители - предприниматели
 категории - товары/услуги
 
-рассылка новостей
+====== рассылка новостей
+Mail.ru for Business (biz.mail.ru) предлагает корпоративную почту на вашем .ru-домене с SMTP/IMAP, но полноценного REST API для транзакционной отправки (как у Resend) нет — в основном управление доменами/пользователями через `https://biz.mail.ru/api/v1/` с OAuth 2.0. Для отправки email из React используйте SMTP с nodemailer (бесплатно до 100 писем/день в тесте, без ЕГРЮЛ). [biz.mail](https://biz.mail.ru/developer/api.html)
+
+## Настройка
+1. Зарегистрируйтесь на biz.mail.ru, добавьте .ru-домен (TXT/DKIM без документов).
+2. Создайте почтовый ящик (no-reply@your.ru).
+3. В ЛК: "Почта" → "IMAP/SMTP" → скопируйте credentials: host `smtp.biz.mail.ru`, port 587/465, login/password. [biz.mail](https://biz.mail.ru/developer/api.html)
+
+## Отправка через SMTP (Next.js)
+Установите `nodemailer`: `npm i nodemailer @react-email/render`.
+
+API route:
+```javascript
+import nodemailer from 'nodemailer';
+import { render } from '@react-email/render';
+
+const transporter = nodemailer.createTransport({
+  host: 'smtp.biz.mail.ru',
+  port: 587,
+  secure: false, // true для 465
+  auth: {
+    user: process.env.MAILRU_USER, // no-reply@your.ru
+    pass: process.env.MAILRU_PASS  // пароль приложения из ЛК
+  }
+});
+
+export default async function handler(req, res) {
+  const { to, subject } = req.body;
+  const html = render(<YourTemplate name="Пользователь" />);
+
+  await transporter.sendMail({
+    from: '"Ваш сервис" <no-reply@your.ru>',
+    to,
+    subject,
+    html,
+    text: 'Текстовая версия'
+  });
+  res.json({ status: 'sent' });
+}
+```
+Из React: `fetch('/api/mail', { method: 'POST', body: JSON.stringify({ to: 'user@ru', subject: 'Привет' }) })`. [biz.mail](https://biz.mail.ru/developer/api.html)
+
+## Лимиты
+- Тест: неограниченно для малого объёма (~100/день).
+- OAuth API: для админки (`/domains`, `/users`), не для отправки.
+Доки устаревшие (2013), но SMTP стабильно работает на РФ-серверах. [biz.mail](https://biz.mail.ru/developer/)
+
+========================
 
 список городов - по мере добавления пользователей (выбор из справочника городов и сел)
 
@@ -196,6 +243,9 @@ The 'profiles' table is readable by all authenticated users and contains sensiti
 
 
 ====== DONE
+/dashboard окно Кошелек - добавь переключатель для формы "Перевести"-"Получить". "Перевести" - это текущая форма перевода (без изменений). "Получить" - вместо поля "кому перевести" - текст-ссылка "Инструкция", она по нажатию скрывает-разворачивает текст (текст бери из файла настроек kassa_payment - содержимое файла: Сделайте перевод СБП по номеру +7(978)ххх-хх-хх. Или по номеру карты 1234 1234 1234 1234 ВТБ.  Прикрепите скриншот квитанции ниже"). Ниже - кнопка для загрузки изображения (обязательное + ограничение на размер 10 мб). под изображением - необязательное сообщение. Кнопка "отправить" отправляет сообщение суперадмину "[имя ] запрашивает Х коинов" (подстввь имя и ID пользователя и введенную сумму). картинки храни в отдельном backet. Тип сообщения "coin_request" (добавь тип в БД).
+
+
 webhook https://api.telegram.org/bot8463475565:AAHc6vvKxuV55DF-qlqbvIRRp5He-rqu-HM/setWebhook?url=https://njrhaqycomfsluefnkec.supabase.co/functions/v1/get-telegram-id
 
 

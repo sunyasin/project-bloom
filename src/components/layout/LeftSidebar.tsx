@@ -14,7 +14,7 @@ const navItems: NavItem[] = [
   { label: "Акции", href: "/promotions", icon: Tag },
   { label: "События", href: "/events", icon: Calendar },
   { label: "Новости долины", href: "/news", icon: Newspaper },
-  { label: "Категории", href: "/categories", icon: LayoutGrid },
+  { label: "Товары и услуги", href: "/categories", icon: LayoutGrid },
   { label: "Все производители", href: "/businesses", icon: FolderTree },
   // { label: "Бартерон", href: "/barter", icon: ArrowLeftRight, disabled: true },
 ];

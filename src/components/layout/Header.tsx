@@ -17,7 +17,7 @@ import type { User } from "@supabase/supabase-js";
 
 // Пункты главного меню
 const mainMenuItems = [
-  { label: "Категории", href: "/categories" },
+  { label: "Товары и услуги", href: "/categories" },
   { label: "Производители", href: "/businesses" },
   { label: "Акции", href: "/promotions" },
   { label: "События", href: "/events" },
