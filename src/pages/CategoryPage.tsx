@@ -1,6 +1,9 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2, Send } from "lucide-react";
+
+// Дефолтное изображение для визиток
+const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Dialog,
@@ -54,6 +57,7 @@ interface BusinessWithProducts {
   city: string;
   phone: string;
   ownerId: string;
+  image: string;
   products: ProductDisplay[];
 }
 
@@ -435,6 +439,7 @@ const CategoryPage = () => {
       // Формируем массив визиток с товарами
       const businessesWithProducts: BusinessWithProducts[] = allBusinesses.map(b => {
         const contentJson = b.content_json as Record<string, unknown> || {};
+        const image = (contentJson.image as string) || DEFAULT_BUSINESS_IMAGE;
         return {
           id: b.id,
           name: b.name,
@@ -442,6 +447,7 @@ const CategoryPage = () => {
           city: b.city,
           phone: (contentJson.phone as string) || "",
           ownerId: b.owner_id || "",
+          image,
           products: b.owner_id ? (productsMap[b.owner_id] || []) : [],
         };
       });
@@ -903,8 +909,12 @@ const CategoryPage = () => {
                         to={`/business/${business.id}`}
                         className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
                       >
-                        <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                          <Building2 className="h-6 w-6 text-muted-foreground" />
+                        <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden shrink-0">
+                          <img
+                            src={business.image}
+                            alt={business.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-foreground">{business.name}</h3>

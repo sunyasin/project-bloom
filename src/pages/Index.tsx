@@ -25,23 +25,6 @@ import type { Promotion, Category } from "@/types/db";
 import type { NewsItem } from "@/hooks/use-news";
 import type { User } from "@supabase/supabase-js";
 
-// Category image mapping
-const categoryImages: Record<string, string> = {
-  "Выпечка": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop",
-  "Колбасы": "https://images.unsplash.com/photo-1558030006-450675393462?w=200&h=200&fit=crop",
-  "Консервы": "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200&h=200&fit=crop",
-  "Крупы": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&h=200&fit=crop",
-  "Молочные продукты": "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop",
-  "Мёд": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=200&h=200&fit=crop",
-  "Мясо": "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200&h=200&fit=crop",
-  "Овощи": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&h=200&fit=crop",
-  "Птица": "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200&h=200&fit=crop",
-  "Рыба": "https://images.unsplash.com/photo-1544943910-4c1dc44aab44?w=200&h=200&fit=crop",
-  "Сыры": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop",
-  "Фрукты": "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=200&h=200&fit=crop",
-  "Яйца": "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop",
-};
-
 const DEFAULT_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop";
 
 
@@ -337,7 +320,7 @@ const Index = () => {
                 >
                   <div className="w-full aspect-square rounded-md overflow-hidden mb-2">
                     <img
-                      src={categoryImages[category.name] || DEFAULT_CATEGORY_IMAGE}
+                      src={category.image_url || DEFAULT_CATEGORY_IMAGE}
                       alt={category.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />

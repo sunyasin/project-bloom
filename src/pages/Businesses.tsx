@@ -10,6 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+// Дефолтное изображение для визиток без картинки
+const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
+
 // Локальный тип для отображения (не требует все поля из Business)
 interface BusinessDisplay {
   id: string;
@@ -17,6 +21,7 @@ interface BusinessDisplay {
   category: string;
   location: string;
   city: string;
+  content_json: Record<string, unknown> | null;
 }
 
 const Businesses = () => {
@@ -29,7 +34,7 @@ const Businesses = () => {
     const fetchBusinesses = async () => {
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, name, category, location, city")
+        .select("id, name, category, location, city, content_json")
         .eq("status", "published");
       
       if (error) {
@@ -38,7 +43,7 @@ const Businesses = () => {
       }
       
       if (data) {
-        setBusinesses(data);
+        setBusinesses(data as BusinessDisplay[]);
         // Extract unique cities
         const uniqueCities = [...new Set(data.map(b => b.city))];
         setCities(["Все города", ...uniqueCities.sort()]);
@@ -83,15 +88,21 @@ const Businesses = () => {
 
         {filteredBusinesses.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredBusinesses.map((business) => (
+            {filteredBusinesses.map((business) => {
+              const imageUrl = (business.content_json as { image?: string } | null)?.image || DEFAULT_BUSINESS_IMAGE;
+              return (
               <Link
                 key={business.id}
                 to={`/business/${business.id}`}
                 className="content-card hover:border-primary/30 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <Building2 className="h-6 w-6 text-muted-foreground" />
+                  <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden shrink-0">
+                    <img
+                      src={imageUrl}
+                      alt={business.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-medium text-foreground">{business.name}</h3>
@@ -103,7 +114,7 @@ const Businesses = () => {
                   </div>
                 </div>
               </Link>
-            ))}
+            )})}
           </div>
         ) : (
           <div className="content-card">

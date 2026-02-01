@@ -1,22 +1,12 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Link } from "react-router-dom";
-import { Milk, Apple, Wheat, Droplets, Egg, Cookie, Salad, Package, Filter, Loader2 } from "lucide-react";
+import { Package, Loader2, Filter } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Category } from "@/types/db";
 
-// Маппинг имён иконок на компоненты
-const iconMap: Record<string, React.ElementType> = {
-  Milk,
-  Apple,
-  Wheat,
-  Droplets,
-  Egg,
-  Cookie,
-  Salad,
-  Package,
-};
+const DEFAULT_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop";
 
 interface CategoryWithCount extends Category {
   count: number;
@@ -103,14 +93,14 @@ const Categories = () => {
       });
 
       // Фильтруем категории — оставляем только те, где есть производители
-      const categoriesWithContent = allCategories
+      const categoriesWithContent = (allCategories as (Category & { count?: number })[])
         .filter((cat) => producersByCategory.has(cat.id) && producersByCategory.get(cat.id)!.size > 0)
         .map((cat) => ({
           ...cat,
           count: producersByCategory.get(cat.id)?.size || 0,
         }));
 
-      setCategories(categoriesWithContent);
+      setCategories(categoriesWithContent as CategoryWithCount[]);
       setLoading(false);
     };
 
@@ -172,25 +162,26 @@ const [categories, setCategories] = useState<CategoryWithCount[]>([]);
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : categories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {categories.map((category) => {
-              const Icon = iconMap[category.icon] || Package;
               return (
                 <Link
                   key={category.id}
                   to={`/category/${category.id}${cityFilter !== "Все города" ? `?city=${encodeURIComponent(cityFilter)}` : ""}`}
                   className="content-card hover:border-primary/30 transition-colors group"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
-                        {category.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">{category.count} производителей</p>
-                    </div>
+                  <div className="aspect-square overflow-hidden rounded-t-lg">
+                    <img
+                      src={category.image_url || DEFAULT_CATEGORY_IMAGE}
+                      alt={category.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <h3 className="font-medium text-foreground group-hover:text-primary transition-colors text-center">
+                      {category.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground text-center mt-1">{category.count} производителей</p>
                   </div>
                 </Link>
               );

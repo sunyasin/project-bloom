@@ -667,7 +667,7 @@ const BusinessCardEditor = () => {
               <img
                 src={cardData.image}
                 alt="Обложка"
-                className="w-full h-48 object-cover rounded-lg"
+                className="w-full h-48 object-contain rounded-lg"
               />
               <Button
                 variant="destructive"
@@ -751,7 +751,7 @@ const BusinessCardEditor = () => {
               <img
                 src={cardData.image}
                 alt={cardData.title}
-                className="w-full h-48 object-cover rounded-lg"
+                className="w-full h-48 object-contain rounded-lg"
               />
             )}
             <h2 className="text-2xl font-bold">{cardData.title || "Без названия"}</h2>

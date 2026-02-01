@@ -36,6 +36,7 @@ export interface Category {
   id: string;
   name: string;
   icon: string;
+  image_url: string | null;
   count: number;
   position: number;
   is_hidden: boolean;

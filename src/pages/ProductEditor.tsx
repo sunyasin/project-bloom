@@ -754,7 +754,7 @@ const ProductEditor = () => {
             >
               {productData.image ? (
                 <div className="relative group">
-                  <img src={productData.image} alt="Товар" className="w-full max-h-48 object-cover rounded-lg" />
+                  <img src={productData.image} alt="Товар" className="w-full h-48 object-contain rounded-lg" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                     <label className="cursor-pointer">
                       <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
