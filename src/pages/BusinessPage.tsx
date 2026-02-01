@@ -74,6 +74,13 @@ const BusinessPage = () => {
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Lazy load phone/email states
+  const [showPhone, setShowPhone] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [loadedPhone, setLoadedPhone] = useState<string | null>(null);
+  const [loadedEmail, setLoadedEmail] = useState<string | null>(null);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderPhone, setOrderPhone] = useState("");
@@ -168,8 +175,8 @@ const BusinessPage = () => {
         // 3. Товары этого владельца
         supabase.from("products").select("*").eq("producer_id", ownerId).eq("is_available", true),
 
-        // 4. Профиль владельца для контактов
-        supabase.from("profiles").select("phone, email, logo_url").eq("user_id", ownerId).maybeSingle(),
+        // 4. Профиль владельца (только logo_url, phone/email загружаем по требованию)
+        supabase.from("profiles").select("logo_url").eq("user_id", ownerId).maybeSingle(),
 
         // 5. Акции владельца
         supabase.from("promotions").select("*").eq("owner_id", ownerId).eq("is_active", true),
@@ -194,12 +201,6 @@ const BusinessPage = () => {
       // Установить выбранную карточку
       const mainCard = cards.find((c) => c.isMain) || cards[0];
       setSelectedCard(mainCard || null);
-
-      // Установить контактные данные пользователя для заказа/подписки
-      if (profileResult.data) {
-        setOrderPhone(profileResult.data.phone || "");
-        setSubscribeEmail(profileResult.data.email || "");
-      }
 
       setLoading(false);
     };
@@ -234,6 +235,43 @@ const BusinessPage = () => {
     };
     fetchCurrentUserData();
   }, []);
+
+  // Function to load contacts on demand
+  const loadContacts = async () => {
+    if (!business?.owner_id || isLoadingContacts) return;
+    
+    setIsLoadingContacts(true);
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("phone, email")
+        .eq("user_id", business.owner_id)
+        .maybeSingle();
+      
+      if (data) {
+        setLoadedPhone(data.phone);
+        setLoadedEmail(data.email);
+      }
+    } catch (error) {
+      console.error("Error loading contacts:", error);
+    } finally {
+      setIsLoadingContacts(false);
+    }
+  };
+
+  const handleShowPhone = async () => {
+    setShowPhone(true);
+    if (!loadedPhone) {
+      await loadContacts();
+    }
+  };
+
+  const handleShowEmail = async () => {
+    setShowEmail(true);
+    if (!loadedEmail) {
+      await loadContacts();
+    }
+  };
 
   const handleProductSelect = (product: SelectedProduct, selected: boolean) => {
     if (selected) {
@@ -673,18 +711,44 @@ const BusinessPage = () => {
                 <p className="text-sm text-muted-foreground mt-2">{contentJson.shortDescription}</p>
               )}
               <div className="space-y-3">
-                {ownerProfile?.phone && (
-                  <p className="flex items-center gap-3 text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    <span>{ownerProfile.phone}</span>
-                  </p>
-                )}
-                {ownerProfile?.email && (
-                  <p className="flex items-center gap-3 text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                    <span>{ownerProfile.email}</span>
-                  </p>
-                )}
+                <p className="flex items-center gap-3 text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  {showPhone ? (
+                    isLoadingContacts ? (
+                      <span className="text-sm">Загрузка...</span>
+                    ) : loadedPhone ? (
+                      <span>{loadedPhone}</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Не указан</span>
+                    )
+                  ) : (
+                    <button
+                      onClick={handleShowPhone}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Показать телефон
+                    </button>
+                  )}
+                </p>
+                <p className="flex items-center gap-3 text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                  {showEmail ? (
+                    isLoadingContacts ? (
+                      <span className="text-sm">Загрузка...</span>
+                    ) : loadedEmail ? (
+                      <span>{loadedEmail}</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Не указан</span>
+                    )
+                  ) : (
+                    <button
+                      onClick={handleShowEmail}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Показать email
+                    </button>
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -1322,7 +1386,21 @@ const BusinessPage = () => {
               {/* Producer Info */}
               <div className="border-t border-border pt-4 text-sm text-muted-foreground">
                 <p>Производитель: {business?.name}</p>
-                {ownerProfile?.phone && <p>Телефон: {ownerProfile.phone}</p>}
+                <p className="mt-1">
+                  {showPhone ? (
+                    isLoadingContacts ? (
+                      "Загрузка..."
+                    ) : loadedPhone ? (
+                      <>Телефон: {loadedPhone}</>
+                    ) : (
+                      "Телефон не указан"
+                    )
+                  ) : (
+                    <button onClick={handleShowPhone} className="text-primary hover:underline">
+                      Показать телефон
+                    </button>
+                  )}
+                </p>
               </div>
 
               {/* Action Buttons */}
