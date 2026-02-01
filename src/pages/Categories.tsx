@@ -1,9 +1,13 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Link } from "react-router-dom";
-import { Package, Loader2, Filter } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Milk, Apple, Wheat, Droplets, Egg, Cookie, Salad, Package, Filter, Loader2, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import type { Category } from "@/types/db";
 
 const DEFAULT_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop";
@@ -13,10 +17,25 @@ interface CategoryWithCount extends Category {
 }
 
 const Categories = () => {
+  const navigate = useNavigate();
   const [cityFilter, setCityFilter] = useState("Все города");
   const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   const [cities, setCities] = useState<string[]>(["Все города"]);
   const [loading, setLoading] = useState(true);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [barterOnly, setBarterOnly] = useState(false);
+
+  const canSearch = searchQuery.length >= 3;
+
+  const handleSearch = () => {
+    if (!canSearch) return;
+    const params = new URLSearchParams();
+    params.set("q", searchQuery);
+    if (barterOnly) params.set("barter", "true");
+    navigate(`/products/search?${params.toString()}`);
+  };
 
   // Загрузка списка городов (один раз)
   useEffect(() => {
@@ -134,6 +153,36 @@ const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Search Section */}
+        <div className="content-card space-y-4">
+          <h2 className="font-medium text-foreground">Поиск товаров</h2>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 flex gap-2">
+              <Input
+                placeholder="Введите название товара (мин. 3 буквы)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && canSearch && handleSearch()}
+                className="flex-1"
+              />
+              <Button onClick={handleSearch} disabled={!canSearch}>
+                <Search className="h-4 w-4 mr-2" />
+                Искать
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="barter-only"
+                checked={barterOnly}
+                onCheckedChange={(checked) => setBarterOnly(checked as boolean)}
+              />
+              <Label htmlFor="barter-only" className="cursor-pointer whitespace-nowrap">
+                Только бартер
+              </Label>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Категории</h1>

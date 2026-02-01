@@ -11,6 +11,7 @@ import Events from "./pages/Events";
 import Promotions from "./pages/Promotions";
 import Categories from "./pages/Categories";
 import CategoryPage from "./pages/CategoryPage";
+import ProductSearch from "./pages/ProductSearch";
 import Businesses from "./pages/Businesses";
 import Auth from "./pages/Auth";
 import BusinessPage from "./pages/BusinessPage";
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/category/:id" element={<CategoryPage />} />
+          <Route path="/products/search" element={<ProductSearch />} />
           <Route path="/businesses" element={<Businesses />} />
           <Route path="/business/:id" element={<BusinessPage />} />
           <Route path="/barter" element={<Barter />} />

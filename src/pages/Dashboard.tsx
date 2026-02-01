@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { KASSA_PAYMENT_INSTRUCTION } from "@/config/kassa_payment";
 import {
   User,
   Tag,
@@ -26,8 +27,11 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Reply,
+  ChevronRight,
+  Image,
   CornerDownRight,
   Repeat,
+  Check,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useRef, DragEvent, useEffect } from "react";
@@ -115,7 +119,7 @@ interface MessageWithSender {
 }
 
 // Message types for filtering
-type MessageTypeFilter = "all" | "admin_status" | "from_admin" | "chat" | "exchange" | "income";
+type MessageTypeFilter = "all" | "admin_status" | "from_admin" | "chat" | "exchange" | "income" | "coin_request";
 
 const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
   all: "Все",
@@ -124,6 +128,23 @@ const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
   chat: "Чат",
   exchange: "Обмен",
   income: "Кошелёк",
+  coin_request: "Запросы коинов",
+};
+
+// Extract image URLs from message text
+const extractImageUrls = (text: string): string[] => {
+  const urlRegex = /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp))/gi;
+  return text.match(urlRegex) || [];
+};
+
+// Parse coin_request message to extract profile ID and amount
+const parseCoinRequest = (message: string): { profileId: string | null; amount: number | null } => {
+  const profileIdMatch = message.match(/ID профиля:\s*([a-f0-9-]+)/i);
+  const amountMatch = message.match(/Сумма:\s*(\d+)/i);
+  return {
+    profileId: profileIdMatch ? profileIdMatch[1] : null,
+    amount: amountMatch ? parseInt(amountMatch[1], 10) : null,
+  };
 };
 
 // ============= End Messages types =============
@@ -279,7 +300,9 @@ const Dashboard = () => {
   const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<{ type: "single" | "chain"; ids: number[] } | null>(
     null,
   );
+  const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [deletingMessages, setDeletingMessages] = useState(false);
+  const [approvingCoinRequest, setApprovingCoinRequest] = useState<number | null>(null);
   const { toast } = useToast();
 
   // Categories state for promotions
@@ -295,6 +318,15 @@ const Dashboard = () => {
   const [transferError, setTransferError] = useState("");
   const [profileId, setProfileId] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
+  
+  // Wallet mode: "transfer" or "receive"
+  type WalletMode = "transfer" | "receive";
+  const [walletMode, setWalletMode] = useState<WalletMode>("transfer");
+  const [showReceiveInstruction, setShowReceiveInstruction] = useState(false);
+  const [receiveImageFile, setReceiveImageFile] = useState<File | null>(null);
+  const [receiveImagePreview, setReceiveImagePreview] = useState<string | null>(null);
+  const [receiveImageError, setReceiveImageError] = useState<string | null>(null);
+  const receiveImageInputRef = useRef<HTMLInputElement>(null);
 
   // Hash decode state
   const [hashDialogOpen, setHashDialogOpen] = useState(false);
@@ -1081,6 +1113,190 @@ const Dashboard = () => {
     setTransferMessage("");
     setSelectedRecipient("");
     setTransferring(false);
+  };
+
+  // Handle receive coin request (upload image and send message to super_admin)
+  const handleReceiveCoinRequest = async () => {
+    setTransferError("");
+
+    const amount = parseInt(transferAmount, 10);
+    if (!amount || amount <= 0) {
+      setTransferError("Введите корректную сумму");
+      return;
+    }
+    if (!receiveImageFile) {
+      setTransferError("Прикрепите скриншот квитанции");
+      return;
+    }
+    if (!profileId || !user?.id) {
+      setTransferError("Профиль не найден");
+      return;
+    }
+
+    setTransferring(true);
+
+    try {
+      // Upload image to coin-requests bucket
+      const fileExt = receiveImageFile.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("coin-requests")
+        .upload(fileName, receiveImageFile, { upsert: true });
+
+      if (uploadError) {
+        setTransferError("Ошибка загрузки изображения: " + uploadError.message);
+        setTransferring(false);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("coin-requests")
+        .getPublicUrl(fileName);
+
+      // Find super_admin user_id
+      const { data: adminRoles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "super_admin")
+        .limit(1);
+
+      if (!adminRoles || adminRoles.length === 0) {
+        setTransferError("Администратор не найден");
+        setTransferring(false);
+        return;
+      }
+
+      const adminUserId = adminRoles[0].user_id;
+      const senderName = formData.name || "Пользователь";
+
+      // Send message to super_admin
+      const requestMessage = `🪙 Запрос на получение коинов\n` +
+        `От: ${senderName}\n` +
+        `ID профиля: ${profileId}\n` +
+        `Сумма: ${amount} долей\n` +
+        `Квитанция: ${publicUrl}` +
+        (transferMessage ? `\nСообщение: ${transferMessage}` : "");
+
+      await supabase.from("messages").insert({
+        from_id: user.id,
+        to_id: adminUserId,
+        message: requestMessage,
+        type: "coin_request" as const,
+      });
+
+      setWalletDialogOpen(false);
+      toast({
+        title: "Запрос отправлен",
+        description: `Запрос на ${amount} долей отправлен администратору`,
+      });
+
+      // Reset form
+      setTransferAmount("");
+      setTransferMessage("");
+      setReceiveImageFile(null);
+      setReceiveImagePreview(null);
+      setWalletMode("transfer");
+    } catch (err) {
+      setTransferError("Ошибка отправки запроса");
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  // Handle receive image selection
+  const handleReceiveImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setReceiveImageError(null);
+    
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      setReceiveImageError("Допустимые форматы: JPEG, PNG, WebP, GIF");
+      return;
+    }
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setReceiveImageError("Максимальный размер файла: 10MB");
+      return;
+    }
+
+    setReceiveImageFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setReceiveImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Approve coin request (super_admin only)
+  const handleApproveCoinRequest = async (messageId: number, messageText: string) => {
+    const { profileId: targetProfileId, amount } = parseCoinRequest(messageText);
+    
+    if (!targetProfileId || !amount) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось извлечь данные из запроса",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setApprovingCoinRequest(messageId);
+
+    try {
+      // Call coin_exchange RPC to credit coins (is_r2c = true means adding coins)
+      const { data: hashResult, error: rpcError } = await supabase.rpc("coin_exchange", {
+        p_initiator: (await supabase.from("profiles").select("user_id").eq("id", targetProfileId).single()).data?.user_id,
+        is_r2c: true,
+        p_sum: amount,
+      });
+
+      if (rpcError) {
+        throw rpcError;
+      }
+
+      // Get recipient's profile for notification
+      const { data: recipientProfile } = await supabase
+        .from("profiles")
+        .select("user_id, first_name, last_name")
+        .eq("id", targetProfileId)
+        .single();
+
+      if (recipientProfile) {
+        const recipientName = `${recipientProfile.first_name || ""} ${recipientProfile.last_name || ""}`.trim() || "Пользователь";
+        
+        // Send confirmation message to user
+        await supabase.from("messages").insert({
+          from_id: user!.id,
+          to_id: recipientProfile.user_id,
+          message: `✅ Ваш запрос на ${amount} долей одобрен!\nБаланс пополнен.\nHash: ${hashResult}`,
+          type: "wallet" as const,
+        });
+      }
+
+      toast({
+        title: "Запрос одобрен",
+        description: `Начислено ${amount} долей`,
+      });
+
+      // Reload messages to reflect any changes
+      await loadMessages();
+    } catch (err: any) {
+      toast({
+        title: "Ошибка",
+        description: err.message || "Не удалось одобрить запрос",
+        variant: "destructive",
+      });
+    } finally {
+      setApprovingCoinRequest(null);
+    }
   };
 
   // Hash decode handler
@@ -2209,7 +2425,56 @@ const Dashboard = () => {
                                               </button>
                                             )}
                                           </div>
-                                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                          {/* Message text with inline images */}
+                                          {(() => {
+                                            const imageUrls = extractImageUrls(msg.message);
+                                            const textWithoutUrls = imageUrls.reduce(
+                                              (text, url) => text.replace(url, '').trim(),
+                                              msg.message
+                                            );
+                                            return (
+                                              <>
+                                                <p className="text-sm whitespace-pre-wrap">{textWithoutUrls}</p>
+                                                {imageUrls.length > 0 && (
+                                                  <div className="flex flex-wrap gap-2 mt-2">
+                                                    {imageUrls.map((url, idx) => (
+                                                      <button
+                                                        key={idx}
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setFullImageUrl(url);
+                                                        }}
+                                                        className="block overflow-hidden rounded-lg border hover:opacity-80 transition-opacity"
+                                                      >
+                                                        <img
+                                                          src={url}
+                                                          alt="Вложение"
+                                                          className="h-20 w-auto max-w-[150px] object-cover"
+                                                        />
+                                                      </button>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                                
+                                                {/* Approve button for super_admin on coin_request messages */}
+                                                {msg.type === "coin_request" && user?.roles?.includes("super_admin") && (
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="mt-2 bg-green-500/10 border-green-500/30 hover:bg-green-500/20 text-green-700"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleApproveCoinRequest(msg.id, msg.message);
+                                                    }}
+                                                    disabled={approvingCoinRequest === msg.id}
+                                                  >
+                                                    <Check className="h-4 w-4 mr-1" />
+                                                    {approvingCoinRequest === msg.id ? "Обработка..." : "Одобрить"}
+                                                  </Button>
+                                                )}
+                                              </>
+                                            );
+                                          })()}
                                         </div>
                                       </div>
 
@@ -2307,8 +2572,31 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Full Image Preview Dialog */}
+      <Dialog open={!!fullImageUrl} onOpenChange={(open) => !open && setFullImageUrl(null)}>
+        <DialogContent className="max-w-4xl p-2">
+          {fullImageUrl && (
+            <img
+              src={fullImageUrl}
+              alt="Полноразмерное изображение"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Wallet Dialog */}
-      <Dialog open={walletDialogOpen} onOpenChange={setWalletDialogOpen}>
+      <Dialog open={walletDialogOpen} onOpenChange={(open) => {
+        setWalletDialogOpen(open);
+        if (!open) {
+          // Reset state when closing
+          setWalletMode("transfer");
+          setShowReceiveInstruction(false);
+          setReceiveImageFile(null);
+          setReceiveImagePreview(null);
+          setReceiveImageError(null);
+        }
+      }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Кошелёк</DialogTitle>
@@ -2336,50 +2624,175 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label>Кому перевести:</Label>
-              <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите получателя" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allUsers.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Сумма:</Label>
-              <Input
-                type="number"
-                min="1"
-                max={walletBalance}
-                value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
-                placeholder="Введите сумму"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Сообщение (необязательно):</Label>
-              <Input
-                value={transferMessage}
-                onChange={(e) => setTransferMessage(e.target.value)}
-                placeholder="Комментарий к переводу"
-                maxLength={200}
-              />
-            </div>
-
-            {transferError && <p className="text-sm text-destructive">{transferError}</p>}
-
-            <Button onClick={handleTransfer} className="w-full" disabled={transferring}>
-              {transferring ? "Отправка..." : "Отправить"}
+          {/* Mode Toggle */}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg mt-2">
+            <Button
+              variant={walletMode === "transfer" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                setWalletMode("transfer");
+                setTransferError("");
+              }}
+            >
+              Перевести
             </Button>
+            <Button
+              variant={walletMode === "receive" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                setWalletMode("receive");
+                setTransferError("");
+              }}
+            >
+              Получить
+            </Button>
+          </div>
+
+          <div className="space-y-4 mt-4">
+            {walletMode === "transfer" ? (
+              <>
+                {/* Transfer Mode */}
+                <div className="space-y-2">
+                  <Label>Кому перевести:</Label>
+                  <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите получателя" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Сумма:</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={walletBalance}
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    placeholder="Введите сумму"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Сообщение (необязательно):</Label>
+                  <Input
+                    value={transferMessage}
+                    onChange={(e) => setTransferMessage(e.target.value)}
+                    placeholder="Комментарий к переводу"
+                    maxLength={200}
+                  />
+                </div>
+
+                {transferError && <p className="text-sm text-destructive">{transferError}</p>}
+
+                <Button onClick={handleTransfer} className="w-full" disabled={transferring}>
+                  {transferring ? "Отправка..." : "Отправить"}
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Receive Mode */}
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-sm text-primary hover:underline"
+                    onClick={() => setShowReceiveInstruction(!showReceiveInstruction)}
+                  >
+                    <ChevronRight className={`h-4 w-4 transition-transform ${showReceiveInstruction ? "rotate-90" : ""}`} />
+                    Инструкция
+                  </button>
+                  {showReceiveInstruction && (
+                    <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground whitespace-pre-wrap">
+                      {KASSA_PAYMENT_INSTRUCTION}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Сумма:</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    placeholder="Введите сумму для получения"
+                  />
+                </div>
+
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <Label>Скриншот квитанции (обязательно):</Label>
+                  <input
+                    type="file"
+                    ref={receiveImageInputRef}
+                    onChange={handleReceiveImageSelect}
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                  />
+                  
+                  {receiveImagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={receiveImagePreview}
+                        alt="Квитанция"
+                        className="w-full h-32 object-cover rounded-lg border"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => {
+                          setReceiveImageFile(null);
+                          setReceiveImagePreview(null);
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full h-20 border-dashed"
+                      onClick={() => receiveImageInputRef.current?.click()}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <Image className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Нажмите для загрузки (до 10MB)</span>
+                      </div>
+                    </Button>
+                  )}
+                  
+                  {receiveImageError && (
+                    <p className="text-sm text-destructive">{receiveImageError}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Сообщение (необязательно):</Label>
+                  <Input
+                    value={transferMessage}
+                    onChange={(e) => setTransferMessage(e.target.value)}
+                    placeholder="Комментарий к запросу"
+                    maxLength={200}
+                  />
+                </div>
+
+                {transferError && <p className="text-sm text-destructive">{transferError}</p>}
+
+                <Button onClick={handleReceiveCoinRequest} className="w-full" disabled={transferring}>
+                  {transferring ? "Отправка..." : "Отправить запрос"}
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
