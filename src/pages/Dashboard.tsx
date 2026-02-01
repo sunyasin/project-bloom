@@ -1154,20 +1154,22 @@ const Dashboard = () => {
         .from("coin-requests")
         .getPublicUrl(fileName);
 
-      // Find super_admin user_id
-      const { data: adminRoles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "super_admin")
-        .limit(1);
+      // Find super_admin user_id using secure function
+      const { data: adminUserId, error: adminError } = await supabase.rpc("find_super_admin");
 
-      if (!adminRoles || adminRoles.length === 0) {
-        setTransferError("Администратор не найден");
+      console.log("[DEBUG] Admin query result:", { adminUserId, adminError });
+
+      if (adminError) {
+        setTransferError("Ошибка запроса к базе данных: " + adminError.message);
         setTransferring(false);
         return;
       }
 
-      const adminUserId = adminRoles[0].user_id;
+      if (!adminUserId) {
+        setTransferError("Администратор не найден в базе данных");
+        setTransferring(false);
+        return;
+      }
       const senderName = formData.name || "Пользователь";
 
       // Send message to super_admin
