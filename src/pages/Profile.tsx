@@ -9,7 +9,8 @@ import {
   Save,
   Map,
   ImageIcon,
-  Pencil
+  Pencil,
+  Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,12 +77,23 @@ const Profile = () => {
   const { user, loading: userLoading } = useCurrentUserWithRole();
   
   const isNewUser = searchParams.get("new") === "true";
+  const viewUserId = searchParams.get("id"); // Чужой профиль
+  const isOwnProfile = !viewUserId || (user && viewUserId === user.id);
+  
   const [dialogOpen, setDialogOpen] = useState(isNewUser);
   const [formData, setFormData] = useState<ProfileFormData>(emptyFormData);
   const [profileData, setProfileData] = useState<ProfileFormData | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
+  
+  // Состояния для отложенной загрузки контактов (для чужих профилей)
+  const [showEmail, setShowEmail] = useState(false);
+  const [showPhone, setShowPhone] = useState(false);
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingPhone, setLoadingPhone] = useState(false);
+  const [emailValue, setEmailValue] = useState<string | null>(null);
+  const [phoneValue, setPhoneValue] = useState<string | null>(null);
 
   const isProducer = user?.roles?.some(r => ["moderator", "news_editor", "super_admin"].includes(r));
   const isClient = user?.roles?.includes("client");
@@ -93,19 +105,30 @@ const Profile = () => {
     }
   }, [user, userLoading, navigate]);
 
-  // Load profile data
+  // Load profile data (без email и phone для чужих профилей)
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
       
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        console.error("Error loading profile:", error);
+      const targetUserId = viewUserId || user.id;
+      let data;
+      
+      if (viewUserId) {
+        // Чужой профиль - не запрашиваем email и phone
+        const result = await supabase
+          .from("profiles")
+          .select("id, user_id, first_name, last_name, city, address, logo_url")
+          .eq("user_id", targetUserId)
+          .single();
+        data = result.data;
+      } else {
+        // Свой профиль - запрашиваем все данные
+        const result = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", targetUserId)
+          .single();
+        data = result.data;
       }
 
       if (data) {
@@ -129,7 +152,45 @@ const Profile = () => {
     if (user) {
       loadProfile();
     }
-  }, [user]);
+  }, [user, viewUserId]);
+
+  // Функция загрузки email по клику
+  const handleShowEmail = async () => {
+    if (!viewUserId || emailValue) return;
+    setLoadingEmail(true);
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("user_id", viewUserId)
+        .single();
+      setEmailValue(data?.email || null);
+      setShowEmail(true);
+    } catch (error) {
+      console.error("Error loading email:", error);
+    } finally {
+      setLoadingEmail(false);
+    }
+  };
+
+  // Функция загрузки телефона по клику
+  const handleShowPhone = async () => {
+    if (!viewUserId || phoneValue) return;
+    setLoadingPhone(true);
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("phone")
+        .eq("user_id", viewUserId)
+        .single();
+      setPhoneValue(data?.phone || null);
+      setShowPhone(true);
+    } catch (error) {
+      console.error("Error loading phone:", error);
+    } finally {
+      setLoadingPhone(false);
+    }
+  };
 
   // Show dialog for new users
   useEffect(() => {
@@ -264,15 +325,19 @@ const Profile = () => {
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Мой профиль</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isOwnProfile ? "Мой профиль" : "Профиль"}
+            </h1>
             <p className="text-muted-foreground mt-1">
-              Ваши личные данные
+              {isOwnProfile ? "Ваши личные данные" : "Информация о пользователе"}
             </p>
           </div>
-          <Button onClick={openEditDialog}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Редактировать
-          </Button>
+          {isOwnProfile && (
+            <Button onClick={openEditDialog}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Редактировать
+            </Button>
+          )}
         </div>
 
         {/* Profile Display */}
@@ -296,14 +361,65 @@ const Profile = () => {
               <Label className="text-muted-foreground text-xs">Фамилия</Label>
               <p className="font-medium">{profileData?.last_name || "—"}</p>
             </div>
+            
+            {/* Email - отложенная загрузка для чужих профилей */}
             <div>
               <Label className="text-muted-foreground text-xs">Email</Label>
-              <p className="font-medium">{profileData?.email || "—"}</p>
+              {!isOwnProfile ? (
+                showEmail || emailValue ? (
+                  <p className="font-medium">{emailValue || profileData?.email || "—"}</p>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleShowEmail}
+                    disabled={loadingEmail}
+                    className="h-auto p-0 hover:bg-transparent hover:text-primary"
+                  >
+                    {loadingEmail ? (
+                      <span className="text-muted-foreground">Загрузка...</span>
+                    ) : (
+                      <>
+                        <Eye className="h-4 w-4 mr-1" />
+                        <span className="text-primary">Показать email</span>
+                      </>
+                    )}
+                  </Button>
+                )
+              ) : (
+                <p className="font-medium">{profileData?.email || "—"}</p>
+              )}
             </div>
+            
+            {/* Phone - отложенная загрузка для чужих профилей */}
             <div>
               <Label className="text-muted-foreground text-xs">Телефон</Label>
-              <p className="font-medium">{profileData?.phone || "—"}</p>
+              {!isOwnProfile ? (
+                showPhone || phoneValue ? (
+                  <p className="font-medium">{phoneValue || profileData?.phone || "—"}</p>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleShowPhone}
+                    disabled={loadingPhone}
+                    className="h-auto p-0 hover:bg-transparent hover:text-primary"
+                  >
+                    {loadingPhone ? (
+                      <span className="text-muted-foreground">Загрузка...</span>
+                    ) : (
+                      <>
+                        <Eye className="h-4 w-4 mr-1" />
+                        <span className="text-primary">Показать телефон</span>
+                      </>
+                    )}
+                  </Button>
+                )
+              ) : (
+                <p className="font-medium">{profileData?.phone || "—"}</p>
+              )}
             </div>
+            
             <div>
               <Label className="text-muted-foreground text-xs">Город/Село</Label>
               <p className="font-medium">{profileData?.city || "—"}</p>
@@ -500,30 +616,29 @@ const Profile = () => {
                     id="gps_lng"
                     type="number"
                     step="any"
-                    placeholder="33.8565"
+                    placeholder="33.1234"
                     value={formData.gps_lng}
                     onChange={(e) => updateField("gps_lng", e.target.value)}
                   />
                 </div>
-              </div>
-              {errors.gps_lat && (
-                <p className="text-xs text-destructive">{errors.gps_lat}</p>
-              )}
-
-              {/* Save button */}
-              <div className="flex justify-end gap-3 pt-4">
-                {!isNewUser && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setDialogOpen(false)}
-                  >
-                    Отмена
-                  </Button>
+                {errors.gps_lat && (
+                  <p className="text-xs text-destructive">{errors.gps_lat}</p>
                 )}
-                <Button onClick={handleSave} disabled={saving}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? "Сохранение..." : "Сохранить"}
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-4">
+                <Button onClick={handleSave} disabled={saving} className="w-full">
+                  {saving ? (
+                    <>
+                      <span className="animate-pulse">Сохранение...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Сохранить
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
