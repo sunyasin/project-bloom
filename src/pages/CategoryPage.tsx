@@ -320,7 +320,7 @@ const CategoryPage = () => {
       if (categoryError) {
         console.error("[Supabase] Error fetching category:", categoryError);
       } else if (categoryData) {
-        setCategory(categoryData);
+        setCategory(categoryData as Category);
       }
 
       // 1. Загружаем визитки с category_id = id
