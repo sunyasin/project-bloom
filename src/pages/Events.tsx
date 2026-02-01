@@ -1,8 +1,9 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Calendar as CalendarIcon, Loader2, X } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, User } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, isSameDay, endOfMonth, addMonths, isWithinInterval } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -13,32 +14,63 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import type { NewsItem } from "@/hooks/use-news";
-import type { DateRange } from "react-day-picker";
+
+interface Profile {
+  id: string;
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+interface EventWithAuthor extends NewsItem {
+  author?: Profile;
+}
 
 const Events = () => {
-  const [events, setEvents] = useState<NewsItem[]>([]);
+  const navigate = useNavigate();
+  const [events, setEvents] = useState<EventWithAuthor[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
-  const [selectedEvent, setSelectedEvent] = useState<NewsItem | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedEvent, setSelectedEvent] = useState<EventWithAuthor | null>(null);
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchEventsAndProfiles = async () => {
       try {
-        const { data, error } = await supabase
+        // Получаем все события
+        const { data: eventsData, error: eventsError } = await supabase
           .from("news")
           .select("*")
           .eq("is_published", true)
           .eq("is_event", true)
           .order("event_date", { ascending: true });
 
-        if (error) throw error;
-        setEvents((data as NewsItem[]) || []);
+        if (eventsError) throw eventsError;
+
+        // Получаем уникальные owner_id
+        const ownerIds = [...new Set(eventsData?.map((e) => e.owner_id) || [])];
+
+        // Получаем профили авторов
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("id, user_id, first_name, last_name")
+          .in("user_id", ownerIds);
+
+        // Создаём словарь профилей
+        const profilesMap: Record<string, Profile> = {};
+        profilesData?.forEach((p) => {
+          profilesMap[p.user_id] = p as Profile;
+        });
+        setProfiles(profilesMap);
+
+        // Привязываем профили к событиям
+        const eventsWithAuthors = (eventsData || []).map((e) => ({
+          ...e,
+          author: profilesMap[e.owner_id],
+        })) as EventWithAuthor[];
+
+        setEvents(eventsWithAuthors);
       } catch (error) {
         console.error("Error fetching events:", error);
       } finally {
@@ -46,27 +78,41 @@ const Events = () => {
       }
     };
 
-    fetchEvents();
+    fetchEventsAndProfiles();
   }, []);
 
-  // Filter events by date range
-  const filteredEvents = useMemo(() => {
-    if (!dateRange?.from) return events;
+  // Подсчёт событий по датам
+  const eventsCountByDate = useMemo(() => {
+    const count: Record<string, number> = {};
+    events.forEach((event) => {
+      if (event.event_date) {
+        const dateKey = format(new Date(event.event_date), "yyyy-MM-dd");
+        count[dateKey] = (count[dateKey] || 0) + 1;
+      }
+    });
+    return count;
+  }, [events]);
 
+  // Определение отображаемых событий
+  const displayedEvents = useMemo(() => {
+    const now = new Date();
+    const endOfNextMonth = addMonths(endOfMonth(now), 1);
+
+    if (selectedDate) {
+      return events.filter((event) => {
+        if (!event.event_date) return false;
+        const eventDate = new Date(event.event_date);
+        return isSameDay(eventDate, selectedDate);
+      });
+    }
+
+    // Показать все будущие события текущего и следующего месяца
     return events.filter((event) => {
       if (!event.event_date) return false;
       const eventDate = new Date(event.event_date);
-      const from = dateRange.from!;
-      const to = dateRange.to || dateRange.from!;
-
-      // Reset hours for comparison
-      eventDate.setHours(0, 0, 0, 0);
-      from.setHours(0, 0, 0, 0);
-      to.setHours(23, 59, 59, 999);
-
-      return eventDate >= from && eventDate <= to;
+      return isWithinInterval(eventDate, { start: now, end: endOfNextMonth });
     });
-  }, [events, dateRange]);
+  }, [events, selectedDate]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Дата не указана";
@@ -86,8 +132,34 @@ const Events = () => {
     };
   };
 
-  const clearFilter = () => {
-    setDateRange(undefined);
+  const formatAuthorName = (event: EventWithAuthor) => {
+    if (event.author?.first_name || event.author?.last_name) {
+      return `${event.author.first_name || ""} ${event.author.last_name || ""}`.trim();
+    }
+    return "Неизвестный автор";
+  };
+
+  const handleAuthorClick = (event: EventWithAuthor) => {
+    if (event.author?.id) {
+      navigate(`/profile?id=${event.author.id}`);
+    }
+  };
+
+  // Кастомный компонент для отображения дня с количеством событий
+  const DayContent = ({ date }: { date: Date }) => {
+    const dateKey = format(date, "yyyy-MM-dd");
+    const count = eventsCountByDate[dateKey];
+
+    return (
+      <div className="relative w-full h-full flex items-center justify-center">
+        <span>{format(date, "d")}</span>
+        {count !== undefined && count > 0 && (
+          <span className="absolute bottom-0 right-0 text-[10px] font-bold text-primary">
+            {count}
+          </span>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -100,77 +172,55 @@ const Events = () => {
           </p>
         </div>
 
-        {/* Date Range Filter */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "justify-start text-left font-normal",
-                  !dateRange?.from && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "d MMM", { locale: ru })} —{" "}
-                      {format(dateRange.to, "d MMM yyyy", { locale: ru })}
-                    </>
-                  ) : (
-                    format(dateRange.from, "d MMMM yyyy", { locale: ru })
-                  )
-                ) : (
-                  <span>Выберите даты</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={2}
-                locale={ru}
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
+        {/* Calendar */}
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={setSelectedDate}
+          numberOfMonths={2}
+          locale={ru}
+          className="p-4 border rounded-lg"
+          components={{
+            DayContent,
+          }}
+        />
 
-          {dateRange?.from && (
-            <Button variant="ghost" size="sm" onClick={clearFilter}>
-              <X className="h-4 w-4 mr-1" />
-              Сбросить
-            </Button>
-          )}
-
-          <span className="text-sm text-muted-foreground">
-            Найдено: {filteredEvents.length} из {events.length}
-          </span>
-        </div>
+        {selectedDate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedDate(undefined)}
+          >
+            Показать все события
+          </Button>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : filteredEvents.length === 0 ? (
+        ) : displayedEvents.length === 0 ? (
           <div className="content-card text-center py-12">
             <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              {dateRange?.from ? "Событий в выбранном диапазоне нет" : "Предстоящих событий нет"}
+              {selectedDate
+                ? `Событий на ${formatDate(events[0]?.event_date || "")} нет`
+                : "Предстоящих событий нет"}
             </p>
-            {dateRange?.from && (
-              <Button variant="link" onClick={clearFilter} className="mt-2">
-                Сбросить фильтр
+            {selectedDate && (
+              <Button variant="link" onClick={() => setSelectedDate(undefined)} className="mt-2">
+                Показать все события
               </Button>
             )}
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredEvents.map((event) => {
+            <h2 className="text-lg font-semibold">
+              {selectedDate
+                ? `События на ${formatDate(selectedDate.toISOString())}`
+                : `События (${displayedEvents.length})`}
+            </h2>
+            {displayedEvents.map((event) => {
               const shortDate = formatShortDate(event.event_date);
               return (
                 <article
@@ -206,6 +256,19 @@ const Events = () => {
                           {formatDate(event.event_date)}
                         </span>
                       </div>
+                      <div className="flex items-center gap-1 mt-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Инициатор: </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAuthorClick(event);
+                          }}
+                          className="text-primary hover:underline font-medium"
+                        >
+                          {formatAuthorName(event)}
+                        </button>
+                      </div>
                       {event.content && (
                         <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                           {event.content.replace(/<[^>]*>/g, "").slice(0, 100)}...
@@ -240,6 +303,25 @@ const Events = () => {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CalendarIcon className="h-4 w-4" />
                 <span>{formatDate(selectedEvent.event_date)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Инициатор: </span>
+                {selectedEvent.author ? (
+                  <button
+                    onClick={() => {
+                      setSelectedEvent(null);
+                      if (selectedEvent.author?.id) {
+                        navigate(`/profile?id=${selectedEvent.author.id}`);
+                      }
+                    }}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    {formatAuthorName(selectedEvent)}
+                  </button>
+                ) : (
+                  <span className="text-muted-foreground">Неизвестный автор</span>
+                )}
               </div>
               {selectedEvent.content && (
                 <div

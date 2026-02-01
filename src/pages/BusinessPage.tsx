@@ -799,29 +799,31 @@ const BusinessPage = () => {
                       <SelectValue placeholder="Тип продажи" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border border-border shadow-lg z-50">
-                      <SelectItem value="all">Все типы</SelectItem>
+                      <SelectItem value="all">Все</SelectItem>
                       <SelectItem value="sell_only">Только продажа</SelectItem>
                       <SelectItem value="barter_goods">Бартер товар-товар</SelectItem>
                       <SelectItem value="barter_coin">Бартер цифровой</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button disabled={selectedProducts.length === 0} onClick={handleOpenOrderDialog}>
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Заказать
-                  {selectedProducts.length > 0 && (
-                    <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
-                      {selectedProducts.length}
-                    </span>
-                  )}
-                </Button>
-                <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenGoodsExchange}>
-                  Обмен на товары
-                </Button>
-                <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenDigitalExchange}>
-                  Обмен цифровой
-                </Button>
               </div>
+            </div>
+            <div className="flex gap-2 flex-wrap mb-4">
+              <Button disabled={selectedProducts.length === 0} onClick={handleOpenOrderDialog}>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Заказать
+                {selectedProducts.length > 0 && (
+                  <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
+                    {selectedProducts.length}
+                  </span>
+                )}
+              </Button>
+              <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenGoodsExchange}>
+                Обмен на товары
+              </Button>
+              <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenDigitalExchange}>
+                Обмен цифровой
+              </Button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {products
