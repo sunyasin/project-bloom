@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+const apiSecretKey = Deno.env.get("SUPAPI_SECRET_KEY") ?? "";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -96,13 +97,23 @@ serve(async (req: Request) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, content-type, apikey",
+    "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-api-key",
   };
 
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
       headers: corsHeaders,
+    });
+  }
+
+  // Проверка API secret key
+  const requestApiKey = req.headers.get("x-api-key");
+  if (requestApiKey !== apiSecretKey) {
+    console.error("[SECURITY] Unauthorized: invalid or missing x-api-key");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
 
