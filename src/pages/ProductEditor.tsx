@@ -281,7 +281,7 @@ const ProductEditor = () => {
     try {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const API_SECRET_KEY = import.meta.env.VITE_SUPAPI_SECRET_KEY || "T7k9Lm2Np4R8vXy3Bz5Wd6Hc0PqAsDfG";
+      const API_SECRET_KEY = import.meta.env.VITE_SUPAPI_SECRET_KEY || "no_api_key_found";
       await fetch(`${SUPABASE_URL}/functions/v1/process-notifications`, {
         method: "POST",
         headers: {
