@@ -500,3 +500,17 @@ webhook https://api.telegram.org/bot8463475565:AAHc6vvKxuV55DF-qlqbvIRRp5He-rqu-
 либо
 
 покупатель создает qr код со своим счетом и суммой и отсылает продавцу. 
+
+
+
+
+
+===================================== полезный код
+
+--обновление edge 
+cd e:/work/project-bloom && npx supabase functions deploy process-notifications --project-ref bcoraetbfyxxpifavfpd
+
+-- отправка сообщения через бот 
+curl -X POST "https://api.telegram.org/bot8476283888:AAGLzWghKR2n1ynv5Hgvu0eooOdig7oM7jg/sendMessage" \
+  -H "Content-Type: application/json" \
+  -d '{"chat_id": "274151371", "text": "После настройки токена", "parse_mode": "HTML"}'

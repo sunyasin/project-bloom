@@ -276,38 +276,21 @@ const ProductEditor = () => {
     setProductData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Notify subscribers about new/updated product via Telegram
-  const notifySubscribers = async (producerId: string, updateType: string, product: any) => {
+  // Фоновый вызов уведомлений (с обработкой ошибок)
+  const triggerNotifications = async () => {
     try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-producer-update`, {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      await fetch(`${SUPABASE_URL}/functions/v1/process-notifications`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          "apikey": `${SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({
-          producerId,
-          updateType,
-          title: updateType === "new_product" ? "Новый товар" : "Товар обновлён",
-          message: product.name,
-          entityId: product.id,
-          link: `${window.location.origin}/dashboard/product/${product.id}`,
-        }),
       });
-      
-      const result = await response.json();
-      console.log("Notify result:", result);
-      
-      if (!response.ok) {
-        console.error("Failed to send notification:", result);
-      } else if (result.sent === 0) {
-        console.log("No subscribers for this producer");
-      } else {
-        console.log(`Sent ${result.sent} notifications`);
-      }
-    } catch (error) {
-      console.error("Error sending notification:", error);
+    } catch (e) {
+      console.log("[Notifications] Отложены - будут обработаны при следующем запуске");
     }
   };
 
@@ -340,16 +323,14 @@ const ProductEditor = () => {
         const newProduct = await createProduct(saveData);
         if (newProduct) {
           setProductId(newProduct.id);
-          // Send Telegram notification to subscribers
-          const { data: { session } } = await supabase.auth.getSession();
-          await notifySubscribers(session?.user?.id || "", "new_product", newProduct);
+          // Запускаем фоновую обработку уведомлений
+          triggerNotifications();
           navigate(`/dashboard/product/${newProduct.id}`, { replace: true });
         }
       } else {
         await updateProduct(productId, saveData);
-        // Send Telegram notification to subscribers
-        const { data: { session } } = await supabase.auth.getSession();
-        await notifySubscribers(session?.user?.id || "", "new_product", { id: productId, ...saveData });
+        // Запускаем фоновую обработку уведомлений
+        triggerNotifications();
       }
     } catch (error) {
       toast({

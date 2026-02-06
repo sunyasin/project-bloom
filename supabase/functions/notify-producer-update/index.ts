@@ -16,6 +16,55 @@ interface ProducerUpdateRequest {
   link?: string;
 }
 
+// Database Webhook payload interface
+interface DatabaseWebhookPayload {
+  type: "INSERT" | "UPDATE" | "DELETE";
+  table: string;
+  record: {
+    id: string;
+    producer_id: string;
+    name: string;
+    [key: string]: any;
+  };
+  old_record?: {
+    id: string;
+    producer_id: string;
+    [key: string]: any;
+  };
+}
+
+function extractProducerData(payload: any): ProducerUpdateRequest | null {
+  // Check if it's a Database Webhook payload
+  if (payload.type && payload.record) {
+    const record = payload.record;
+    const producerId = record.producer_id;
+    
+    if (!producerId) {
+      console.log("[notify-producer-update] No producer_id in record");
+      return null;
+    }
+
+    const updateType = payload.type === "INSERT" ? "new_product" : "price_change";
+    const baseUrl = Deno.env.get("APP_BASE_URL") ?? "https://project-bloom.com";
+
+    return {
+      producerId,
+      updateType,
+      title: payload.type === "INSERT" ? "Новый товар" : "Товар обновлён",
+      message: record.name || "Обновление товара",
+      entityId: record.id,
+      link: `${baseUrl}/dashboard/product/${record.id}`,
+    };
+  }
+
+  // Direct call payload
+  if (payload.producerId) {
+    return payload as ProducerUpdateRequest;
+  }
+
+  return null;
+}
+
 async function sendTelegramMessage(chatId: string, text: string) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   
@@ -91,8 +140,25 @@ serve(async (req: Request) => {
     });
   }
 
+  console.log("[notify-producer-update] Function called");
+  console.log("[notify-producer-update] Method:", req.method);
+
   try {
-    const update: ProducerUpdateRequest = await req.json();
+    const rawPayload = await req.json();
+    console.log("[notify-producer-update] Raw payload:", JSON.stringify(rawPayload, null, 2));
+
+    // Extract producer update data from either direct call or webhook payload
+    const update = extractProducerData(rawPayload);
+    
+    if (!update) {
+      console.error("[notify-producer-update] Could not extract producer data from payload");
+      return new Response(JSON.stringify({ error: "Invalid payload format" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    
+    console.log("[notify-producer-update] Extracted update:", update);
 
     // Get producer name
     const producerName = await getProducerInfo(update.producerId);
@@ -119,16 +185,20 @@ serve(async (req: Request) => {
     text = text.replace("<b>📢 Обновление", `<b>${typeEmoji[update.updateType] || "📢"} Обновление`);
 
     // Get subscribers
-    const subscriptions = await getSubscriptionsForProducer(update.producerId);
+  const subscriptions = await getSubscriptionsForProducer(update.producerId);
+  
+  console.log("[notify-producer-update] Found subscriptions:", subscriptions.length);
+  console.log("[notify-producer-update] Subscriptions:", subscriptions);
 
-    if (subscriptions.length === 0) {
-      return new Response(JSON.stringify({ 
-        message: "No subscribers for this producer",
-        sent: 0 
-      }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  if (subscriptions.length === 0) {
+    console.log("[notify-producer-update] No subscribers for producer:", update.producerId);
+    return new Response(JSON.stringify({ 
+      message: "No subscribers for this producer",
+      sent: 0 
+    }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
     // Send notifications
     let sentCount = 0;
