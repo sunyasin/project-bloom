@@ -1,7 +1,8 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Mail } from "lucide-react";
+import { Mail, Send } from "lucide-react";
+import { TELEGRAM_BOT_USERNAME } from "@/config/telegram";
 import {
   Carousel,
   CarouselContent,
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Promotion, Category } from "@/types/db";
@@ -47,6 +47,7 @@ const Index = () => {
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
 
@@ -68,6 +69,42 @@ const Index = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Poll for subscription result when pending token exists
+  useEffect(() => {
+    if (!pendingToken) return;
+
+    const checkSubscription = async () => {
+      const { data: tokenData } = await supabase
+        .from("telegram_subscription_tokens")
+        .select("id")
+        .eq("token", pendingToken)
+        .single();
+
+      if (!tokenData) {
+        // Token was used - subscription completed
+        toast({
+          title: "Успешно!",
+          description: "Вы подписались на новости и события портала",
+        });
+        setPendingToken(null);
+      }
+    };
+
+    // Check immediately, then every 2 seconds
+    checkSubscription();
+    const interval = setInterval(checkSubscription, 2000);
+
+    // Stop polling after 60 seconds
+    const timeout = setTimeout(() => {
+      setPendingToken(null);
+    }, 60000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [pendingToken]);
 
   // Load promotions from database
   useEffect(() => {
@@ -436,56 +473,73 @@ const Index = () => {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Подпишитесь на рассылку и получайте новости долины и производителей на вашу почту.
+              Подпишитесь на новости и события долины и получайте уведомления в Telegram.
             </p>
-            <div className="space-y-2">
-              <Label htmlFor="subscribe-email">Email</Label>
-              <Input
-                id="subscribe-email"
-                type="email"
-                value={subscribeEmail}
-                onChange={(e) => setSubscribeEmail(e.target.value)}
-                placeholder="your@email.com"
-              />
+            <div className="bg-muted p-4 rounded-lg space-y-3">
+              <p className="text-sm font-medium">Подписка через Telegram:</p>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={async () => {
+                  const email = currentUser?.email || subscribeEmail;
+                  if (!email) {
+                    toast({
+                      title: "Ошибка",
+                      description: "Введите email для подписки",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  try {
+                    // Generate unique token
+                    const token = crypto.randomUUID();
+                    
+                    // Save token to database
+                    const { error: tokenError } = await supabase
+                      .from("telegram_subscription_tokens")
+                      .insert({
+                        email,
+                        token,
+                        type: "common",
+                      });
+
+                    if (tokenError) throw tokenError;
+
+                    // Store token for polling
+                    setPendingToken(token);
+
+                    // Open Telegram bot
+                    window.open(
+                      `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${token}`,
+                      "_blank"
+                    );
+
+                    toast({
+                      title: "Перейдите в Telegram",
+                      description: "Нажмите /start в боте для подтверждения подписки",
+                    });
+                    setIsSubscribeDialogOpen(false);
+                  } catch (error) {
+                    console.error("Error creating Telegram subscription:", error);
+                    toast({
+                      title: "Ошибка",
+                      description: "Не удалось создать ссылку для подписки",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <Send className="h-4 w-4" />
+                Подписаться через Telegram
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Вы получите уведомления о новостях и событиях в Telegram
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsSubscribeDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button 
-              onClick={async () => {
-                setIsSubscribing(true);
-                try {
-                  // Upsert subscription with send_common = true
-                  const { error } = await supabase
-                    .from("newsletter_subscriptions")
-                    .upsert(
-                      { email: subscribeEmail, send_common: true, enabled: true },
-                      { onConflict: "email" }
-                    );
-
-                  if (error) throw error;
-
-                  toast({
-                    title: "Успешно!",
-                    description: "Вы подписаны на новости",
-                  });
-                  setIsSubscribeDialogOpen(false);
-                } catch (error) {
-                  console.error("Error subscribing:", error);
-                  toast({
-                    title: "Ошибка",
-                    description: "Не удалось оформить подписку",
-                    variant: "destructive",
-                  });
-                } finally {
-                  setIsSubscribing(false);
-                }
-              }}
-              disabled={isSubscribing || !subscribeEmail}
-            >
-              {isSubscribing ? "Подписка..." : "Подписаться"}
+              Закрыть
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -495,3 +549,4 @@ const Index = () => {
 };
 
 export default Index;
+

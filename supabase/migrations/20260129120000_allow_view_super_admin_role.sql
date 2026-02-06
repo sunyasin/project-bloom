@@ -21,15 +21,15 @@ END;
 $$;
 
 -- Create a view for super_admin lookup that bypasses RLS
-CREATE OR REPLACE VIEW public.super_admin_lookup AS
-SELECT user_id FROM public.user_roles WHERE role = 'super_admin';
+-- CREATE OR REPLACE VIEW public.super_admin_lookup AS
+-- SELECT user_id FROM public.user_roles WHERE role = 'super_admin';
 
--- Grant SELECT on view to authenticated users
-GRANT SELECT ON public.super_admin_lookup TO authenticated;
+-- -- Grant SELECT on view to authenticated users
+-- GRANT SELECT ON public.super_admin_lookup TO authenticated;
 
--- Policy to allow reading from the view (bypasses table RLS)
-CREATE POLICY "All users can view super_admin from lookup"
-ON public.super_admin_lookup
-FOR SELECT
-TO authenticated
-USING (true);
+-- -- Policy to allow reading from the view (bypasses table RLS)
+-- CREATE POLICY "All users can view super_admin from lookup"
+-- ON public.super_admin_lookup
+-- FOR SELECT
+-- TO authenticated
+-- USING (true);

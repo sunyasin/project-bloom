@@ -284,6 +284,7 @@ export type Database = {
           send_common: boolean
           send_profiles: string[] | null
           subscribed_at: string
+          telegram_chat_id: string | null
           updated_at: string
         }
         Insert: {
@@ -297,6 +298,7 @@ export type Database = {
           send_common?: boolean
           send_profiles?: string[] | null
           subscribed_at?: string
+          telegram_chat_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -310,7 +312,79 @@ export type Database = {
           send_common?: boolean
           send_profiles?: string[] | null
           subscribed_at?: string
+          telegram_chat_id?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      telegram_notifications: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          error_message: string | null
+          id: string
+          sent_at: string
+          status: "sent" | "failed"
+          subscription_id: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status: "sent" | "failed"
+          subscription_id?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status?: "sent" | "failed"
+          subscription_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_notifications_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "newsletter_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      telegram_subscription_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          entity_id: string | null
+          expires_at: string
+          id: string
+          token: string
+          type: "common" | "producer"
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          entity_id?: string | null
+          expires_at?: string
+          id?: string
+          token: string
+          type: "common" | "producer"
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          entity_id?: string | null
+          expires_at?: string
+          id?: string
+          token?: string
+          type?: "common" | "producer"
         }
         Relationships: []
       }

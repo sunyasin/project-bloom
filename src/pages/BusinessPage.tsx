@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { TELEGRAM_BOT_USERNAME } from "@/config/telegram";
 import { MainLayout } from "@/components/layout/MainLayout";
 import {
   Building2,
@@ -92,6 +93,7 @@ const BusinessPage = () => {
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
 
   const [selectedCard, setSelectedCard] = useState<BusinessCard | null>(null);
 
@@ -236,6 +238,42 @@ const BusinessPage = () => {
     fetchCurrentUserData();
   }, []);
 
+  // Poll for subscription result when pending token exists
+  useEffect(() => {
+    if (!pendingToken) return;
+
+    const checkSubscription = async () => {
+      const { data: tokenData } = await supabase
+        .from("telegram_subscription_tokens")
+        .select("id")
+        .eq("token", pendingToken)
+        .single();
+
+      if (!tokenData) {
+        // Token was used - subscription completed
+        toast({
+          title: "Успешно!",
+          description: `Вы подписаны на новости ${business?.name}`,
+        });
+        setPendingToken(null);
+      }
+    };
+
+    // Check immediately, then every 2 seconds
+    checkSubscription();
+    const interval = setInterval(checkSubscription, 2000);
+
+    // Stop polling after 60 seconds
+    const timeout = setTimeout(() => {
+      setPendingToken(null);
+    }, 60000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [pendingToken]);
+
   // Function to load contacts on demand
   const loadContacts = async () => {
     if (!business?.owner_id || isLoadingContacts) return;
@@ -311,48 +349,58 @@ const BusinessPage = () => {
 
     setIsSubscribing(true);
     try {
-      // Check if subscription exists
-      const { data: existing } = await supabase
-        .from("newsletter_subscriptions")
-        .select("id, send_profiles")
-        .eq("email", currentUser.email)
-        .maybeSingle();
-
-      if (existing) {
-        // Update existing subscription - add profile to send_profiles array
-        const currentProfiles = (existing.send_profiles as string[]) || [];
-        if (!currentProfiles.includes(business.owner_id)) {
-          const { error } = await supabase
-            .from("newsletter_subscriptions")
-            .update({
-              send_profiles: [...currentProfiles, business.owner_id],
-              enabled: true,
-            })
-            .eq("id", existing.id);
-
-          if (error) throw error;
-        }
-      } else {
-        // Create new subscription
-        const { error } = await supabase.from("newsletter_subscriptions").insert({
-          email: currentUser.email,
-          send_profiles: [business.owner_id],
-          enabled: true,
+      const email = currentUser.email || subscribeEmail;
+      if (!email) {
+        toast({
+          title: "Ошибка",
+          description: "Введите email для подписки",
+          variant: "destructive",
         });
-
-        if (error) throw error;
+        return;
       }
 
+      // Check for existing token and delete it
+      await supabase
+        .from("telegram_subscription_tokens")
+        .delete()
+        .eq("email", email)
+        .eq("type", "producer")
+        .eq("entity_id", business.owner_id);
+
+      // Generate unique token
+      const token = crypto.randomUUID();
+      
+      // Save token to database
+      const { error: tokenError } = await supabase
+        .from("telegram_subscription_tokens")
+        .insert({
+          email,
+          token,
+          type: "producer",
+          entity_id: business.owner_id,
+        });
+
+      if (tokenError) throw tokenError;
+
+      // Store token for polling
+      setPendingToken(token);
+
+      // Open Telegram bot
+      window.open(
+        `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${token}`,
+        "_blank"
+      );
+
       toast({
-        title: "Успешно!",
-        description: `Вы подписаны на новости ${business?.name}`,
+        title: "Перейдите в Telegram",
+        description: "Нажмите /start в боте для подтверждения подписки",
       });
       setIsSubscribeDialogOpen(false);
     } catch (error) {
-      console.error("Subscription error:", error);
+      console.error("Error creating Telegram subscription:", error);
       toast({
         title: "Ошибка",
-        description: "Не удалось оформить подписку",
+        description: "Не удалось создать ссылку для подписки",
         variant: "destructive",
       });
     } finally {
@@ -1032,25 +1080,27 @@ const BusinessPage = () => {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Подпишитесь на новости производителя "{business.name}" и получайте уведомления о новых товарах и акциях.
+              Подпишитесь на новости производителя "{business.name}" и получайте уведомления о новых товарах и акциях в Telegram.
             </p>
-            <div className="space-y-2">
-              <Label htmlFor="subscribe-email">Ваш email</Label>
-              <Input
-                id="subscribe-email"
-                type="email"
-                value={currentUser?.email || subscribeEmail}
-                readOnly
-                className="bg-muted"
-              />
+            <div className="bg-muted p-4 rounded-lg space-y-3">
+              <p className="text-sm font-medium">Подписка через Telegram:</p>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                disabled={isSubscribing}
+                onClick={handleSubscribe}
+              >
+                <Send className="h-4 w-4" />
+                Подписаться через Telegram
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Вы будете получать уведомления о новостях производителя в Telegram
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsSubscribeDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button onClick={handleSubscribe} disabled={isSubscribing || !currentUser?.email}>
-              {isSubscribing ? "Подписка..." : "Подписаться"}
+              Закрыть
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1438,3 +1488,4 @@ const BusinessPage = () => {
 };
 
 export default BusinessPage;
+

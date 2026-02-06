@@ -2,7 +2,7 @@ Supabase last migration applied 15/01/26
 E:\work\project-bloom\supabase\migrations\20260115173551_ba8551d5-457a-4925-a2c6-6c7c2f32112d.sql
 (-- Add sum column for coin exchanges)
 
-====== TODO =======
+====== TODO ======= DOLINABIZ
 
 
 -плашка события 2) текстовое поле в 1 строку "Задать вопрос" и иконку "отправить" в концеч
@@ -243,6 +243,49 @@ The 'profiles' table is readable by all authenticated users and contains sensiti
 
 
 ====== DONE
+
+==== рассылка в Телеграм
+Реализация Telegram бота для подписки на новости завершена.
+
+**Созданные файлы:**
+
+1. **Миграция БД** - [`supabase/migrations/20260206140000_add_telegram_subscription_support.sql`](supabase/migrations/20260206140000_add_telegram_subscription_support.sql)
+   - Поле `telegram_chat_id` в таблице подписок
+   - Таблица `telegram_subscription_tokens` для временных токенов
+   - Таблица `telegram_notifications` для логирования
+
+2. **Edge Functions:**
+   - [`supabase/functions/telegram-webhook/index.ts`](supabase/functions/telegram-webhook/index.ts) - обработка команд /start, /stop, /status
+   - [`supabase/functions/send-telegram-notification/index.ts`](supabase/functions/send-telegram-notification/index.ts) - отправка уведомлений
+   - [`supabase/functions/notify-producer-update/index.ts`](supabase/functions/notify-producer-update/index.ts) - уведомления об обновлениях производителя
+
+3. **Frontend:**
+   - [`src/pages/Index.tsx`](src/pages/Index.tsx) - добавлена кнопка подписки через Telegram
+   - [`src/pages/BusinessPage.tsx`](src/pages/BusinessPage.tsx) - добавлена кнопка подписки на производителя через Telegram
+
+4. **Типы:**
+   - [`src/integrations/supabase/types.ts`](src/integrations/supabase/types.ts) - добавлены типы для новых таблиц
+
+**Настройка webhook после деплоя:**
+
+```bash
+# Установить webhook для бота
+curl -F "url=https://YOUR_PROJECT.functions.supabase.co/telegram-webhook" \
+  https://api.telegram.org/bot8476283888:AAGLzWghKR2n1ynv5Hgvu0eooOdig7oM7jg/setWebhook
+```
+
+**Как это работает:**
+1. Пользователь нажимает "Подписаться через Telegram"
+2. Создаётся временный токен в БД
+3. Открывается ссылка `t.me/dol_biz_bot?start=TOKEN`
+4. При /start бот привязывает chat_id к подписке
+5. При новых новостях - отправляются уведомления
+
+
+
+
+
+=======================
 /dashboard окно Кошелек - добавь переключатель для формы "Перевести"-"Получить". "Перевести" - это текущая форма перевода (без изменений). "Получить" - вместо поля "кому перевести" - текст-ссылка "Инструкция", она по нажатию скрывает-разворачивает текст (текст бери из файла настроек kassa_payment - содержимое файла: Сделайте перевод СБП по номеру +7(978)ххх-хх-хх. Или по номеру карты 1234 1234 1234 1234 ВТБ.  Прикрепите скриншот квитанции ниже"). Ниже - кнопка для загрузки изображения (обязательное + ограничение на размер 10 мб). под изображением - необязательное сообщение. Кнопка "отправить" отправляет сообщение суперадмину "[имя ] запрашивает Х коинов" (подстввь имя и ID пользователя и введенную сумму). картинки храни в отдельном backet. Тип сообщения "coin_request" (добавь тип в БД).
 
 
