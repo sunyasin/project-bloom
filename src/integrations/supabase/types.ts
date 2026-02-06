@@ -74,6 +74,7 @@ export type Database = {
           created_at: string
           icon: string
           id: string
+          image_url: string | null
           is_hidden: boolean
           name: string
           position: number
@@ -84,6 +85,7 @@ export type Database = {
           created_at?: string
           icon?: string
           id?: string
+          image_url?: string | null
           is_hidden?: boolean
           name: string
           position?: number
@@ -94,6 +96,7 @@ export type Database = {
           created_at?: string
           icon?: string
           id?: string
+          image_url?: string | null
           is_hidden?: boolean
           name?: string
           position?: number
@@ -140,6 +143,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      content_updates_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_data: Json | null
+          notification_sent: boolean | null
+          old_data: Json | null
+          processed_at: string | null
+          producer_id: string | null
+        }
+        Insert: {
+          action?: string
+          created_at?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_data?: Json | null
+          notification_sent?: boolean | null
+          old_data?: Json | null
+          processed_at?: string | null
+          producer_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_data?: Json | null
+          notification_sent?: boolean | null
+          old_data?: Json | null
+          processed_at?: string | null
+          producer_id?: string | null
+        }
+        Relationships: []
       }
       exchange: {
         Row: {
@@ -317,77 +359,6 @@ export type Database = {
         }
         Relationships: []
       }
-      telegram_notifications: {
-        Row: {
-          created_at: string
-          entity_id: string | null
-          error_message: string | null
-          id: string
-          sent_at: string
-          status: "sent" | "failed"
-          subscription_id: string | null
-          type: string
-        }
-        Insert: {
-          created_at?: string
-          entity_id?: string | null
-          error_message?: string | null
-          id?: string
-          sent_at?: string
-          status: "sent" | "failed"
-          subscription_id?: string | null
-          type: string
-        }
-        Update: {
-          created_at?: string
-          entity_id?: string | null
-          error_message?: string | null
-          id?: string
-          sent_at?: string
-          status?: "sent" | "failed"
-          subscription_id?: string | null
-          type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "telegram_notifications_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "newsletter_subscriptions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      telegram_subscription_tokens: {
-        Row: {
-          created_at: string
-          email: string
-          entity_id: string | null
-          expires_at: string
-          id: string
-          token: string
-          type: "common" | "producer"
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          entity_id?: string | null
-          expires_at?: string
-          id?: string
-          token: string
-          type: "common" | "producer"
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          entity_id?: string | null
-          expires_at?: string
-          id?: string
-          token?: string
-          type?: "common" | "producer"
-        }
-        Relationships: []
-      }
       products: {
         Row: {
           category_id: string | null
@@ -546,6 +517,74 @@ export type Database = {
           },
         ]
       }
+      telegram_notifications: {
+        Row: {
+          entity_id: string | null
+          error_message: string | null
+          id: string
+          sent_at: string
+          status: string
+          subscription_id: string | null
+          type: string
+        }
+        Insert: {
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status: string
+          subscription_id?: string | null
+          type: string
+        }
+        Update: {
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          subscription_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_notifications_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "newsletter_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      telegram_subscription_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          entity_id: string | null
+          expires_at: string
+          id: string
+          token: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          entity_id?: string | null
+          expires_at?: string
+          id?: string
+          token: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          entity_id?: string | null
+          expires_at?: string
+          id?: string
+          token?: string
+          type?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -620,6 +659,7 @@ export type Database = {
       }
       dearmor: { Args: { "": string }; Returns: string }
       decode_coin_hash: { Args: { p_hash_text: string }; Returns: string }
+      find_super_admin: { Args: never; Returns: string }
       gen_random_uuid: { Args: never; Returns: string }
       gen_salt: { Args: { "": string }; Returns: string }
       get_user_role: {
@@ -637,6 +677,7 @@ export type Database = {
         Args: { "": string }
         Returns: Record<string, unknown>[]
       }
+      telegram_webhook: { Args: { request: Json }; Returns: Json }
       transfer_coins: {
         Args: { p_amount: number; p_from_profile: string; p_to_profile: string }
         Returns: string
