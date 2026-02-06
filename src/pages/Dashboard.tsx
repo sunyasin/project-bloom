@@ -1155,7 +1155,7 @@ const Dashboard = () => {
         .getPublicUrl(fileName);
 
       // Find super_admin user_id using secure function
-      const { data: adminUserId, error: adminError } = await supabase.rpc("find_super_admin");
+      const { data: adminUserId, error: adminError } = await supabase.rpc("find_super_admin" as any);
 
       console.log("[DEBUG] Admin query result:", { adminUserId, adminError });
 
