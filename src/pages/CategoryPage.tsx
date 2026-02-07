@@ -1,6 +1,6 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2, Send, ArrowLeftRight, RefreshCw } from "lucide-react";
+import { Building2, MapPin, Phone, ShoppingCart, Filter, Loader2, Send, ArrowLeftRight, RefreshCw } from "lucide-react";
 
 // Дефолтное изображение для визиток
 const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
@@ -22,7 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import type { Category, Product as DBProduct } from "@/types/db";
 import type { User } from "@supabase/supabase-js";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin' | 'all';
 
@@ -80,99 +80,47 @@ const ProductGrid = ({
   onProductClick, 
   onProductSelect 
 }: ProductGridProps) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(products.length > 5);
-
-  const updateScrollButtons = () => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  const scroll = (direction: "left" | "right") => {
-    if (scrollRef.current) {
-      const scrollAmount = 200;
-      scrollRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
-      setTimeout(updateScrollButtons, 300);
-    }
-  };
-
   const isSelected = (productId: string) => 
     selectedProducts.some(p => p.id === productId && p.businessId === businessId);
 
   return (
-    <div className="relative flex items-center gap-2">
-      {canScrollLeft && (
-        <button
-          onClick={() => scroll("left")}
-          className="absolute left-0 z-10 h-8 w-8 flex items-center justify-center bg-background/90 border border-border rounded-full shadow-sm hover:bg-muted transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-      )}
-      
-      <div
-        ref={scrollRef}
-        onScroll={updateScrollButtons}
-        className="flex gap-3 overflow-x-auto scrollbar-hide px-1 py-1"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-      >
-        {products.map((product) => {
-          const selected = isSelected(product.id);
-          return (
-            <div
-              key={product.id}
-              className={`flex-shrink-0 flex flex-col items-center gap-1 p-1 rounded-lg transition-all ${
-                selected ? "ring-2 ring-primary bg-primary/5" : ""
-              }`}
-            >
-              <div className="flex items-start gap-1">
-                <Checkbox
-                  checked={selected}
-                  disabled={!currentUser}
-                  onCheckedChange={(checked) => 
-                    onProductSelect(product, businessId, businessName, ownerId, checked as boolean)
-                  }
-                  className="mt-1"
-                />
-                <button
-                  onClick={() => onProductClick(product, businessName, businessId, businessPhone, ownerId)}
-                  className="flex flex-col items-center gap-1 group cursor-pointer"
-                >
-                  <div className="w-14 h-14 rounded-lg overflow-hidden border border-border group-hover:border-primary/50 transition-colors">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors w-14 text-center truncate">
-                    {product.name}
-                  </span>
-                  <span className="text-xs font-medium text-primary w-14 text-center truncate">
-                    {product.price}
-                  </span>
-                </button>
-              </div>
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {products.map((product) => {
+        const selected = isSelected(product.id);
+        return (
+          <div
+            key={product.id}
+            className={`content-card hover:border-primary/30 transition-all hover:shadow-md p-3 ${
+              selected ? "ring-2 ring-primary" : ""
+            }`}
+          >
+            <div className="flex items-start gap-2 mb-2">
+              <Checkbox
+                checked={selected}
+                disabled={!currentUser}
+                onCheckedChange={(checked) => 
+                  onProductSelect(product, businessId, businessName, ownerId, checked as boolean)
+                }
+              />
+              <span className={`text-xs ${!currentUser ? "text-muted-foreground/50" : "text-muted-foreground"}`}>
+                {!currentUser ? "Войдите" : "Выбрать"}
+              </span>
             </div>
-          );
-        })}
-      </div>
-
-      {canScrollRight && (
-        <button
-          onClick={() => scroll("right")}
-          className="absolute right-0 z-10 h-8 w-8 flex items-center justify-center bg-background/90 border border-border rounded-full shadow-sm hover:bg-muted transition-colors"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      )}
+            <button
+              onClick={() => onProductClick(product, businessName, businessId, businessPhone, ownerId)}
+              className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted cursor-pointer hover:opacity-90 transition-opacity w-full"
+            >
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            </button>
+            <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+            <p className="text-sm text-primary font-semibold">{product.price}</p>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -867,9 +815,6 @@ ${productsList}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">{categoryName}</h1>
-            <p className="text-muted-foreground mt-1">
-              Производители в категории «{categoryName}»
-            </p>
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
