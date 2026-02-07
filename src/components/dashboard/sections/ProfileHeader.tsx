@@ -41,8 +41,12 @@ export function ProfileHeader({
             )}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-foreground">{formData.name}</h1>
-            <p className="text-muted-foreground">{formData.email}</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-foreground">{formData.name}</h1>
+              <Button variant="ghost" size="icon" onClick={onOpenEdit} className="h-8 w-8">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
             <span className="inline-block mt-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
               {userRoles?.[0] || "visitor"}
             </span>
@@ -51,7 +55,7 @@ export function ProfileHeader({
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={onOpenExchangeRequests}>
             <Repeat className="h-4 w-4 mr-1" />
-            Запросы на обмен ({exchangeCount})
+            Обмены ({exchangeCount})
           </Button>
           <Button variant="outline" size="sm" onClick={onOpenWallet}>
             <Wallet className="h-4 w-4 mr-1" />
@@ -66,10 +70,7 @@ export function ProfileHeader({
               </span>
             )}
           </Button>
-          <Button variant="outline" size="sm" onClick={onOpenEdit}>
-            <Pencil className="h-4 w-4 mr-1" />
-            Редактировать
-          </Button>
+
         </div>
       </div>
     </div>
