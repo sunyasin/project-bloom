@@ -801,34 +801,37 @@ const BusinessPage = () => {
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
+        {/* DEBUG: Mobile layout test - add responsive classes */}
         <div className="content-card">
-          <div className="flex items-start gap-6">
-            <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+            {/* Logo */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-muted flex items-center justify-center shrink-0 overflow-hidden">
               {ownerProfile?.logo_url ? (
                 <img src={ownerProfile.logo_url} alt={business.name} className="w-full h-full object-cover" />
               ) : (
                 <Building2 className="h-10 w-10 text-muted-foreground" />
               )}
             </div>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-foreground">{business.name}</h1>
-              <p className="text-primary mt-1">{business.category}</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">{business.name}</h1>
+              <p className="text-primary mt-1 text-sm sm:text-base">{business.category}</p>
               <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                {business.location}, {business.city}
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span className="truncate">{business.location}, {business.city}</span>
               </div>
               {/* Short description from content_json - moved here from separate section */}
               {contentJson.shortDescription && (
-                <p className="text-sm text-muted-foreground mt-2">{contentJson.shortDescription}</p>
+                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{contentJson.shortDescription}</p>
               )}
-              <div className="space-y-3">
-                <p className="flex items-center gap-3 text-muted-foreground">
-                  <Phone className="h-4 w-4" />
+              {/* Contact info - под лого */}
+              <div className="space-y-2 mt-3">
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-4 w-4 shrink-0" />
                   {showPhone ? (
                     isLoadingContacts ? (
                       <span className="text-sm">Загрузка...</span>
                     ) : loadedPhone ? (
-                      <span>{loadedPhone}</span>
+                      <span className="text-foreground font-medium">{loadedPhone}</span>
                     ) : (
                       <span className="text-sm text-muted-foreground">Не указан</span>
                     )
@@ -841,20 +844,20 @@ const BusinessPage = () => {
                     </button>
                   )}
                 </p>
-                <p className="flex items-center gap-3 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-4 w-4 shrink-0" />
                   {showEmail ? (
                     isLoadingContacts ? (
                       <span className="text-sm">Загрузка...</span>
                     ) : loadedEmail ? (
-                      <span>{loadedEmail}</span>
+                      <span className="text-foreground font-medium truncate">{loadedEmail}</span>
                     ) : (
                       <span className="text-sm text-muted-foreground">Не указан</span>
                     )
                   ) : (
                     <button
                       onClick={handleShowEmail}
-                      className="text-sm text-primary hover:underline"
+                      className="text-sm text-primary hover:underline truncate"
                     >
                       Показать email
                     </button>
@@ -862,23 +865,26 @@ const BusinessPage = () => {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
+            {/* Action buttons - под контактами */}
+            <div className="flex gap-2 shrink-0 mt-4 sm:mt-0 sm:self-center">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => setIsSubscribeDialogOpen(true)}
                 disabled={!currentUser}
                 title={!currentUser ? "Войдите, чтобы подписаться" : undefined}
               >
                 <Bell className="h-4 w-4 mr-1" />
-                Подписка
+                <span className="hidden sm:inline">Подписка</span>
               </Button>
               <Button
+                size="sm"
                 onClick={() => setContactDialogOpen(true)}
                 disabled={!currentUser}
                 title={!currentUser ? "Войдите, чтобы связаться" : undefined}
               >
                 <MessageCircle className="h-4 w-4 mr-1" />
-                Связаться
+                <span className="hidden sm:inline">Связаться</span>
               </Button>
             </div>
           </div>
