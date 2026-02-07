@@ -149,7 +149,7 @@ interface MessageWithSender {
 }
 
 // Message types for filtering
-type MessageTypeFilter = "all" | "admin_status" | "from_admin" | "chat" | "exchange" | "income" | "coin_request";
+type MessageTypeFilter = "all" | "admin_status" | "from_admin" | "chat" | "exchange" | "income" | "coin_request" | "order";
 
 const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
   all: "Все",
@@ -158,7 +158,8 @@ const MESSAGE_TYPE_LABELS: Record<MessageTypeFilter, string> = {
   chat: "Чат",
   exchange: "Обмен",
   income: "Кошелёк",
-  coin_request: "Запросы коинов",
+  coin_request: "Запросы койнов",
+  order: "Заказы",
 };
 
 // Extract image URLs from message text
@@ -332,6 +333,16 @@ const Dashboard = () => {
   const [replyText, setReplyText] = useState<Record<number, string>>({});
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [messageTypeFilter, setMessageTypeFilter] = useState<MessageTypeFilter>("all");
+  const [unreadCountByType, setUnreadCountByType] = useState<Record<MessageTypeFilter, number>>({
+    all: 0,
+    admin_status: 0,
+    from_admin: 0,
+    chat: 0,
+    exchange: 0,
+    income: 0,
+    coin_request: 0,
+    order: 0,
+  });
   const [replyingToMessageId, setReplyingToMessageId] = useState<number | null>(null);
   const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<{ type: "single" | "chain"; ids: number[] } | null>(
     null,
@@ -1059,12 +1070,35 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Recalculate unread count when messages change
+  // Recalculate unread counts when messages change
   useEffect(() => {
     if (user?.id) {
-      const count = messages.filter((m) => m.to_id === user.id && !m.is_read).length;
-      console.log("[DEBUG] Updating unreadCount:", count, "messages:", messages.length);
-      setUnreadCount(count);
+      // Calculate total unread
+      const totalCount = messages.filter((m) => m.to_id === user.id && !m.is_read).length;
+      setUnreadCount(totalCount);
+      
+      // Calculate unread by type (only for received messages)
+      const byType: Record<MessageTypeFilter, number> = {
+        all: 0,
+        admin_status: 0,
+        from_admin: 0,
+        chat: 0,
+        exchange: 0,
+        income: 0,
+        coin_request: 0,
+        order: 0,
+      };
+      
+      messages
+        .filter((m) => m.to_id === user.id && !m.is_read)
+        .forEach((m) => {
+          if (m.type in byType) {
+            byType[m.type as MessageTypeFilter]++;
+          }
+        });
+      
+      setUnreadCountByType(byType);
+      console.log("[DEBUG] Updating unread counts:", totalCount, "byType:", byType);
     }
   }, [messages, user?.id]);
 
@@ -2404,17 +2438,25 @@ const Dashboard = () => {
 
           {/* Filter tabs */}
           <div className="flex flex-wrap gap-1 border-b border-border pb-2">
-            {(Object.keys(MESSAGE_TYPE_LABELS) as MessageTypeFilter[]).map((type) => (
-              <Button
-                key={type}
-                variant={messageTypeFilter === type ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setMessageTypeFilter(type)}
-                className="text-xs h-7"
-              >
-                {MESSAGE_TYPE_LABELS[type]}
-              </Button>
-            ))}
+            {(Object.keys(MESSAGE_TYPE_LABELS) as MessageTypeFilter[]).map((type) => {
+              const count = unreadCountByType[type] || 0;
+              return (
+                <Button
+                  key={type}
+                  variant={messageTypeFilter === type ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setMessageTypeFilter(type)}
+                  className="text-xs h-7 relative"
+                >
+                  {MESSAGE_TYPE_LABELS[type]}
+                  {count > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground rounded-full">
+                      {count}
+                    </span>
+                  )}
+                </Button>
+              );
+            })}
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-3 pr-2">
