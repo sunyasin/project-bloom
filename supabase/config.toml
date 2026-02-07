@@ -1,1 +1,4 @@
 project_id = "gchrpuqivmsdeiavhifi"
+
+[functions.process-notifications]
+verify_jwt = false
