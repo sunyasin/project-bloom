@@ -17,6 +17,8 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  ArrowLeftRight,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -926,20 +928,38 @@ const BusinessPage = () => {
               </div>
             </div>
             <div className="flex gap-2 flex-wrap mb-4">
-              <Button disabled={selectedProducts.length === 0} onClick={handleOpenOrderDialog}>
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Заказать
+              <Button 
+                disabled={selectedProducts.length === 0} 
+                onClick={handleOpenOrderDialog} 
+                size="sm" 
+                variant="outline" 
+                className="relative"
+                title="Заказать"
+              >
+                <ShoppingCart className="h-4 w-4 shrink-0" />
                 {selectedProducts.length > 0 && (
-                  <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
+                  <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center">
                     {selectedProducts.length}
                   </span>
                 )}
               </Button>
-              <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenGoodsExchange}>
-                Обмен на товары
+              <Button 
+                variant="outline" 
+                disabled={selectedProducts.length === 0} 
+                onClick={handleOpenGoodsExchange} 
+                size="sm"
+                title="Обмен на товары"
+              >
+                <ArrowLeftRight className="h-4 w-4 shrink-0" />
               </Button>
-              <Button variant="outline" disabled={selectedProducts.length === 0} onClick={handleOpenDigitalExchange}>
-                Обмен цифровой
+              <Button 
+                variant="outline" 
+                disabled={selectedProducts.length === 0} 
+                onClick={handleOpenDigitalExchange} 
+                size="sm"
+                title="Обмен цифровой"
+              >
+                <RefreshCw className="h-4 w-4 shrink-0" />
               </Button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

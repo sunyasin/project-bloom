@@ -1,18 +1,10 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2, Send } from "lucide-react";
+import { Building2, MapPin, ChevronLeft, ChevronRight, Phone, ShoppingCart, Filter, Loader2, Send, ArrowLeftRight, RefreshCw } from "lucide-react";
 
 // Дефолтное изображение для визиток
 const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
-import { useState, useRef, useEffect, useCallback } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -25,10 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import type { Category, Product as DBProduct } from "@/types/db";
 import type { User } from "@supabase/supabase-js";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin' | 'all';
 
@@ -945,12 +939,12 @@ ${productsList}
                           size="sm"
                           disabled={selectedForBusiness.length === 0 || !currentUser}
                           onClick={() => handleOpenOrderDialog(business.id)}
-                          title={!currentUser ? "Войдите для заказа" : undefined}
+                          className="relative"
+                          title="Заказать"
                         >
-                          <ShoppingCart className="h-4 w-4 mr-1" />
-                          Заказать
+                          <ShoppingCart className="h-4 w-4 shrink-0" />
                           {selectedForBusiness.length > 0 && (
-                            <span className="ml-1 bg-primary-foreground/20 px-1.5 rounded-full text-xs">
+                            <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center">
                               {selectedForBusiness.length}
                             </span>
                           )}
@@ -960,18 +954,18 @@ ${productsList}
                           variant="outline"
                           disabled={selectedForBusiness.length === 0 || !currentUser}
                           onClick={() => handleOpenGoodsExchange(business.id)}
-                          title={!currentUser ? "Войдите для обмена" : undefined}
+                          title="Обмен на товары"
                         >
-                          Обмен на товары
+                          <ArrowLeftRight className="h-4 w-4 shrink-0" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={selectedForBusiness.length === 0 || !currentUser}
                           onClick={() => handleOpenDigitalExchange(business.id)}
-                          title={!currentUser ? "Войдите для обмена" : undefined}
+                          title="Обмен цифровой"
                         >
-                          Обмен цифровой
+                          <RefreshCw className="h-4 w-4 shrink-0" />
                         </Button>
                       </div>
                     </div>
