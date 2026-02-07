@@ -216,7 +216,7 @@ const CategoryPage = () => {
         }
         
         if (productsResult.data) {
-          setUserProducts();
+          setUserProducts(productsResult.data as unknown as DBProduct[]);
         }
       }
     };

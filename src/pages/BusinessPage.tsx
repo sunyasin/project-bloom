@@ -289,7 +289,7 @@ const BusinessPage = () => {
         }
 
         if (productsResult.data) {
-          setUserProducts();
+          setUserProducts((productsResult.data || []) as Product[]);
         }
       }
     };
