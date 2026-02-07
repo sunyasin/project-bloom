@@ -430,17 +430,17 @@ const Dashboard = () => {
     }
   };
 
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
   };
 
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     const files = e.dataTransfer.files;
@@ -522,17 +522,17 @@ const Dashboard = () => {
     setPromotionFormData((prev) => ({ ...prev, image_url: publicUrl }));
   };
 
-  const handlePromotionDragOver = (e: DragEvent<HTMLDivElement>) => {
+  const handlePromotionDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setPromotionDragging(true);
   };
 
-  const handlePromotionDragLeave = (e: DragEvent<HTMLDivElement>) => {
+  const handlePromotionDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setPromotionDragging(false);
   };
 
-  const handlePromotionDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handlePromotionDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setPromotionDragging(false);
     const files = e.dataTransfer.files;

@@ -216,7 +216,7 @@ const CategoryPage = () => {
         }
         
         if (productsResult.data) {
-          setUserProducts(productsResult.data as DBProduct[]);
+          setUserProducts();
         }
       }
     };
@@ -365,6 +365,11 @@ const CategoryPage = () => {
           if (productsError) {
             console.error("[Supabase] Error fetching products for business", b.id, productsError);
           }
+          
+          // DEBUG: Log products data structure
+          console.log("[DEBUG] Products for business", b.id, "keys:", productsData?.[0] ? Object.keys(productsData[0]) : "no data");
+          console.log("[DEBUG] business_card_id present:", productsData?.[0]?.hasOwnProperty("business_card_id"));
+          console.log("[DEBUG] coin_price present:", productsData?.[0]?.hasOwnProperty("coin_price"));
           
           const products: ProductDisplay[] = (productsData || []).map(p => ({
             id: p.id,

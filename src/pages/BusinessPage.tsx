@@ -252,6 +252,10 @@ const BusinessPage = () => {
       }));
       //no image -> https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop
 
+      // DEBUG: Log products data structure
+      console.log("[DEBUG] Products data keys:", productsResult.data?.[0] ? Object.keys(productsResult.data[0]) : "no data");
+      console.log("[DEBUG] business_card_id present:", productsResult.data?.[0]?.hasOwnProperty("business_card_id"));
+      
       setBusinessCards(cards);
       setProducts((productsResult.data || []) as Product[]);
       setOwnerProfile(profileResult.data as Profile | null);
@@ -285,7 +289,7 @@ const BusinessPage = () => {
         }
 
         if (productsResult.data) {
-          setUserProducts(productsResult.data as Product[]);
+          setUserProducts();
         }
       }
     };
