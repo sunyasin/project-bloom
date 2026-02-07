@@ -90,6 +90,11 @@ const uploadAvatar = async (
   }
 };
 
+// Проверка URL на blob (нельзя сохранять в БД)
+const isBlobUrl = (url: string): boolean => {
+  return url.startsWith('blob:');
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -264,6 +269,12 @@ const Dashboard = () => {
       }
 
       if (data) {
+        let avatarUrl = data.logo_url || "";
+        // Проверка на blob URL - очищаем если найден
+        if (isBlobUrl(avatarUrl)) {
+          avatarUrl = "";
+        }
+        
         const loaded: ProfileData = {
           first_name: data.first_name || "",
           last_name: data.last_name || "",
@@ -273,7 +284,7 @@ const Dashboard = () => {
           address: data.address || "",
           gps_lat: data.gps_lat?.toString() || "",
           gps_lng: data.gps_lng?.toString() || "",
-          logo_url: data.logo_url || "",
+          logo_url: avatarUrl,
         };
         setProfileData(loaded);
         setWalletBalance(data.wallet || 0);
@@ -286,7 +297,7 @@ const Dashboard = () => {
           address: loaded.address,
           lat: loaded.gps_lat,
           lng: loaded.gps_lng,
-          avatar: loaded.logo_url,
+          avatar: avatarUrl,
           telegram: "",
           vk: "",
           instagram: "",
@@ -356,6 +367,16 @@ const Dashboard = () => {
 
     setFormErrors({});
 
+    // Проверка на blob URL перед сохранением
+    if (isBlobUrl(formData.avatar)) {
+      toast({
+        title: "Ошибка изображения",
+        description: "Изображение аватара не загружено корректно. Пожалуйста, загрузите изображение заново.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const profileDataUpdate = {
       user_id: user.id,
       first_name,
@@ -395,6 +416,12 @@ const Dashboard = () => {
   const handleFileUpload = async (file: File) => {
     if (!user) return;
     setUploadError(null);
+    
+    // Проверка на blob URL в текущем аватаре
+    if (formData.avatar && isBlobUrl(formData.avatar)) {
+      setFormData((prev) => ({ ...prev, avatar: "" }));
+    }
+    
     const result = await uploadAvatar(user.id, file);
     if (result.success && result.url) {
       setFormData((prev) => ({ ...prev, avatar: result.url }));
@@ -474,6 +501,12 @@ const Dashboard = () => {
   const handlePromotionFileUpload = async (file: File) => {
     if (!user) return;
     setPromotionUploadError(null);
+    
+    // Проверка на blob URL в текущем изображении акции
+    if (promotionFormData.image_url && isBlobUrl(promotionFormData.image_url)) {
+      setPromotionFormData((prev) => ({ ...prev, image_url: "" }));
+    }
+    
     const fileExt = file.name.split(".").pop();
     const fileName = `promo_${Date.now()}.${fileExt}`;
     const filePath = `${user.id}/${fileName}`;

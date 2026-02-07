@@ -30,7 +30,11 @@ export function ProfileHeader({
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
           {formData.avatar ? (
-            <img src={formData.avatar} alt={formData.name} className="w-full h-full object-cover" />
+            <img 
+              src={formData.avatar} 
+              alt={formData.name} 
+              className="w-full h-full object-cover"
+            />
           ) : (
             <User className="h-8 w-8 text-primary" />
           )}

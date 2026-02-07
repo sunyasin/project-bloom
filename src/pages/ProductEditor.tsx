@@ -58,6 +58,11 @@ const validateProductImage = (file: File): { valid: boolean; error?: string } =>
   return { valid: true };
 };
 
+// Проверка URL на blob (нельзя сохранять в БД)
+const isBlobUrl = (url: string): boolean => {
+  return url.startsWith('blob:');
+};
+
 // Данные для предпросмотра
 const mockAPIProductPreviewData = {
   producerName: "Фермерское хозяйство «Заря»",
@@ -234,12 +239,17 @@ const ProductEditor = () => {
         try {
           const data = await getProduct(id);
           if (data) {
+            let imageUrl = data.image_url || "";
+            // Проверка на blob URL - очищаем если найден
+            if (isBlobUrl(imageUrl)) {
+              imageUrl = "";
+            }
             setProductData({
               name: data.name,
               description: data.description || "",
               price: data.price || 0,
               unit: data.unit || "шт",
-              image: data.image_url || "",
+              image: imageUrl,
               galleryUrls: (data as any).gallery_urls || [],
               content: data.content || "",
               categoryId: data.category_id || "",
@@ -301,6 +311,16 @@ const ProductEditor = () => {
       toast({
         title: "Ошибка",
         description: "Укажите название товара",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Проверка на blob URL перед сохранением
+    if (isBlobUrl(productData.image)) {
+      toast({
+        title: "Ошибка изображения",
+        description: "Изображение не загружено корректно. Пожалуйста, загрузите изображение заново.",
         variant: "destructive",
       });
       return;
