@@ -348,18 +348,18 @@ const Index = () => {
           ) : categories.length === 0 ? (
             <p className="text-muted-foreground">Нет категорий с товарами</p>
           ) : (
-            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
+            <div className="grid grid-cols-2 gap-3">
               {categories.map((category) => (
                 <Link
                   key={category.id}
                   to={`/category/${category.id}`}
-                  className="flex flex-col items-center p-2 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors group"
+                  className="flex flex-col items-center p-2 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
                 >
                   <div className="w-full aspect-square rounded-md overflow-hidden mb-2">
                     <img
                       src={category.image_url || DEFAULT_CATEGORY_IMAGE}
                       alt={category.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                   <p className="text-xs text-foreground text-center truncate w-full">
