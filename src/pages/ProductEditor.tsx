@@ -279,17 +279,8 @@ const ProductEditor = () => {
   // Фоновый вызов уведомлений (с обработкой ошибок)
   const triggerNotifications = async () => {
     try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const API_SECRET_KEY = import.meta.env.VITE_SUPAPI_SECRET_KEY || "no_api_key_found";
-      await fetch(`${SUPABASE_URL}/functions/v1/process-notifications`, {
+      await supabase.functions.invoke("process-notifications", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "apikey": SUPABASE_ANON_KEY,
-          "x-api-key": API_SECRET_KEY,
-        },
       });
     } catch (e) {
       console.log("[Notifications] Отложены - будут обработаны при следующем запуске");
