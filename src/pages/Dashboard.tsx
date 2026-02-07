@@ -230,6 +230,7 @@ const Dashboard = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<UserOption[]>([]);
+  const [exchangeRequestsOpen, setExchangeRequestsOpen] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
@@ -702,6 +703,10 @@ const Dashboard = () => {
     setWalletDialogOpen(true);
   };
 
+  const handleOpenExchangeRequests = () => {
+    setExchangeRequestsOpen(true);
+  };
+
   const handleTransfer = async (recipientId: string, amount: number, message: string) => {
     if (!profileId) return;
 
@@ -867,7 +872,7 @@ const Dashboard = () => {
           onOpenWallet={openWalletDialog}
           onOpenMessages={handleOpenMessagesDialog}
           onOpenEdit={handleOpenEditDialog}
-          onOpenExchangeRequests={() => {}}
+          onOpenExchangeRequests={handleOpenExchangeRequests}
         />
 
         {/* Business Cards */}
@@ -976,6 +981,12 @@ const Dashboard = () => {
           decoding={decoding}
           onViewTransactionHash={setSelectedTransactionHash}
           selectedTransactionHash={selectedTransactionHash}
+        />
+
+        <ExchangeRequestsDialog
+          open={exchangeRequestsOpen}
+          onOpenChange={setExchangeRequestsOpen}
+          profileId={profileId}
         />
 
         <EditProfileDialog
