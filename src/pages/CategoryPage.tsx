@@ -287,12 +287,13 @@ const CategoryPage = () => {
         console.error("[Supabase] Error fetching businesses by category:", err1);
       }
 
-      // 2. Загружаем товары с category_id = id
+      // 2. Загружаем товары с category_id = id (без привязки к визитке)
       const { data: productsInCat, error: err2 } = await supabase
         .from("products")
         .select("*")
         .eq("category_id", id)
-        .eq("is_available", true);
+        .eq("is_available", true)
+        .is("business_card_id", null); // Только товары без привязки к визитке
       
       if (err2) {
         console.error("[Supabase] Error fetching products by category:", err2);
@@ -346,58 +347,51 @@ const CategoryPage = () => {
 
       const allBusinesses = Array.from(byOwner.values());
 
-      // 5. Загружаем ВСЕ товары владельцев
-      const ownerIds = allBusinesses.map(b => b.owner_id).filter(Boolean) as string[];
-      
-      let productsMap: Record<string, ProductDisplay[]> = {};
-      
-      if (ownerIds.length > 0) {
-        const { data: productsData, error: productsError } = await supabase
-          .from("products")
-          .select("*")
-          .in("producer_id", ownerIds)
-          .eq("is_available", true);
-        
-        if (productsError) {
-          console.error("[Supabase] Error fetching products:", productsError);
-        } else if (productsData) {
-          // Группируем товары по producer_id
-          productsData.forEach(p => {
-            if (!productsMap[p.producer_id]) {
-              productsMap[p.producer_id] = [];
-            }
-            productsMap[p.producer_id].push({
-              id: p.id,
-              name: p.name,
-              image: p.image_url || DEFAULT_PRODUCT_IMAGE,
-              price: p.price ? `${p.price} ₽${p.unit ? `/${p.unit}` : ""}` : "Цена по запросу",
-              saleType: (p as any).sale_type || "sell_only",
-              galleryUrls: (p as any).gallery_urls || [],
-              description: p.description || "",
-              content: (p as any).content || "",
-              unit: p.unit || "шт",
-              rawPrice: p.price || 0,
-              coinPrice: (p as any).coin_price || null,
-            });
-          });
-        }
-      }
-
-      // Формируем массив визиток с товарами
-      const businessesWithProducts: BusinessWithProducts[] = allBusinesses.map(b => {
-        const contentJson = b.content_json as Record<string, unknown> || {};
-        const image = (contentJson.image as string) || DEFAULT_BUSINESS_IMAGE;
-        return {
-          id: b.id,
-          name: b.name,
-          location: b.location,
-          city: b.city,
-          phone: (contentJson.phone as string) || "",
-          ownerId: b.owner_id || "",
-          image,
-          products: b.owner_id ? (productsMap[b.owner_id] || []) : [],
-        };
-      });
+      // 5. Загружаем товары для каждой визитки
+      // Показываем: товары с business_card_id = визитка.id ИЛИ business_card_id IS NULL
+      const businessesWithProducts: BusinessWithProducts[] = await Promise.all(
+        allBusinesses.map(async (b) => {
+          const contentJson = b.content_json as Record<string, unknown> || {};
+          const image = (contentJson.image as string) || DEFAULT_BUSINESS_IMAGE;
+          
+          // Загружаем товары для этой визитки
+          const { data: productsData, error: productsError } = await supabase
+            .from("products")
+            .select("*")
+            .eq("producer_id", b.owner_id)
+            .eq("is_available", true)
+            .or(`business_card_id.eq.${b.id},business_card_id.is.null`);
+          
+          if (productsError) {
+            console.error("[Supabase] Error fetching products for business", b.id, productsError);
+          }
+          
+          const products: ProductDisplay[] = (productsData || []).map(p => ({
+            id: p.id,
+            name: p.name,
+            image: p.image_url || DEFAULT_PRODUCT_IMAGE,
+            price: p.price ? `${p.price} ₽${p.unit ? `/${p.unit}` : ""}` : "Цена по запросу",
+            saleType: (p as any).sale_type || "sell_only",
+            galleryUrls: (p as any).gallery_urls || [],
+            description: p.description || "",
+            content: (p as any).content || "",
+            unit: p.unit || "шт",
+            rawPrice: p.price || 0,
+            coinPrice: (p as any).coin_price || null,
+          }));
+          
+          return {
+            id: b.id,
+            name: b.name,
+            location: b.location,
+            city: b.city,
+            phone: (contentJson.phone as string) || "",
+            ownerId: b.owner_id || "",
+            image,
+            products,
+          };
+        })
+      );
 
       setBusinesses(businessesWithProducts);
       setLoading(false);

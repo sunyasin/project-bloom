@@ -29,6 +29,11 @@ interface Category {
   name: string;
 }
 
+interface BusinessCard {
+  id: string;
+  name: string;
+}
+
 type ProductSaleType = 'sell_only' | 'barter_goods' | 'barter_coin';
 
 interface ProductFormData {
@@ -40,6 +45,7 @@ interface ProductFormData {
   galleryUrls: string[];
   content: string;
   categoryId: string;
+  businessCardId: string; // Если пустая строка - товар для всех визиток
   saleType: ProductSaleType;
   coinPrice: number | null;
 }
@@ -86,6 +92,7 @@ const ProductEditor = () => {
     galleryUrls: [],
     content: "",
     categoryId: "",
+    businessCardId: "", // Пустая строка = товар для всех визиток
     saleType: "sell_only",
     coinPrice: null,
   });
@@ -97,6 +104,8 @@ const ProductEditor = () => {
   const [productId, setProductId] = useState<string | null>(isNew ? null : id || null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [businessCards, setBusinessCards] = useState<BusinessCard[]>([]);
+  const [businessCardOpen, setBusinessCardOpen] = useState(false);
 
   // Загрузка категорий из БД
   useEffect(() => {
@@ -109,6 +118,35 @@ const ProductEditor = () => {
     };
     loadCategories();
   }, []);
+
+  // Загрузка бизнес-карт пользователя
+  const loadBusinessCards = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("businesses")
+      .select("id, name")
+      .eq("owner_id", user.id)
+      .in("status", ["published", "draft"])
+      .order("name");
+
+    if (data) {
+      setBusinessCards(data);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBusinessCards();
+  }, [loadBusinessCards]);
+
+  // Перезагружать бизнес-карты при открытии выпадающего списка
+  const handleBusinessCardOpenChange = async (open: boolean) => {
+    setBusinessCardOpen(open);
+    if (open) {
+      await loadBusinessCards();
+    }
+  };
 
   const quillRef = useRef<ReactQuill>(null);
   const [isEditorDragging, setIsEditorDragging] = useState(false);
@@ -253,6 +291,7 @@ const ProductEditor = () => {
               galleryUrls: (data as any).gallery_urls || [],
               content: data.content || "",
               categoryId: data.category_id || "",
+              businessCardId: data.business_card_id || "",
               saleType: (data as any).sale_type || "sell_only",
               coinPrice: (data as any).coin_price || null,
             });
@@ -339,6 +378,8 @@ const ProductEditor = () => {
         content: productData.content,
         sale_type: productData.saleType,
         coin_price: productData.saleType === "barter_coin" ? productData.coinPrice : null,
+        // business_card_id: null если товар для всех визиток, иначе ID визитки
+        business_card_id: productData.businessCardId || null,
       };
 
       if (isNew || !productId) {
@@ -717,6 +758,79 @@ const ProductEditor = () => {
                 </Command>
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* Business Card Selection */}
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Визитка (необязательно)</label>
+            <Popover open={businessCardOpen} onOpenChange={handleBusinessCardOpenChange}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={businessCardOpen}
+                  className="w-full justify-between"
+                >
+                  {productData.businessCardId
+                    ? businessCards.find((c) => c.id === productData.businessCardId)?.name
+                    : "Товар для всех визиток"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command shouldFilter={false}>
+                  <CommandInput 
+                    placeholder="Поиск визитки..." 
+                    onKeyDown={(e) => {
+                      if (e.key === " ") {
+                        e.stopPropagation();
+                      }
+                    }}
+                  />
+                  <CommandList>
+                    <CommandEmpty>Визитка не найдена</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value=""
+                        onSelect={() => {
+                          updateField("businessCardId", "");
+                          setBusinessCardOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            !productData.businessCardId ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        Товар для всех визиток
+                      </CommandItem>
+                      {businessCards.map((card) => (
+                        <CommandItem
+                          key={card.id}
+                          value={card.name}
+                          onSelect={() => {
+                            updateField("businessCardId", card.id);
+                            setBusinessCardOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              productData.businessCardId === card.id ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {card.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground mt-1">
+              Если визитка не выбрана, товар будет показываться на всех ваших визитках
+            </p>
           </div>
 
           {/* Sale Type Selection */}

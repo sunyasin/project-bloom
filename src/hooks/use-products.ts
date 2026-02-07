@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface Product {
   id: string;
   producer_id: string;
+  business_card_id: string | null;
   name: string;
   description: string | null;
   price: number | null;
@@ -24,6 +25,7 @@ export interface ProductInsert {
   unit?: string | null;
   image_url?: string | null;
   category_id?: string | null;
+  business_card_id?: string | null;
   is_available?: boolean;
 }
 
@@ -34,6 +36,7 @@ export interface ProductUpdate {
   unit?: string | null;
   image_url?: string | null;
   category_id?: string | null;
+  business_card_id?: string | null;
   is_available?: boolean;
 }
 
@@ -73,7 +76,7 @@ export function useProducts() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setProducts((data as Product[]) || []);
+      setProducts((data as unknown as Product[]) || []);
     } catch (error) {
       console.error("Error fetching products:", error);
       toast({
@@ -95,7 +98,7 @@ export function useProducts() {
         .maybeSingle();
 
       if (error) throw error;
-      return data as Product | null;
+      return data as unknown as Product | null;
     } catch (error) {
       console.error("Error fetching product:", error);
       toast({
@@ -130,7 +133,7 @@ export function useProducts() {
 
       if (error) throw error;
 
-      const product = newProduct as Product;
+      const product = newProduct as unknown as Product;
       setProducts((prev) => [product, ...prev]);
       toast({
         title: "Успешно",
@@ -284,6 +287,51 @@ export function useProducts() {
     fetchProducts();
   }, [fetchProducts]);
 
+  // Fetch products for a specific business card
+  // Shows products where business_card_id = cardId OR business_card_id IS NULL
+  const fetchProductsByBusinessCard = useCallback(async (cardId: string): Promise<Product[]> => {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_available", true)
+        .or(`business_card_id.eq.${cardId},business_card_id.is.null`)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return (data as unknown as Product[]) || [];
+    } catch (error) {
+      console.error("Error fetching products by business card:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить товары",
+        variant: "destructive",
+      });
+      return [];
+    }
+  }, [toast]);
+
+  // Fetch business cards for current user
+  const fetchBusinessCards = useCallback(async (): Promise<{ id: string; name: string }[]> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("id, name")
+        .eq("owner_id", user.id)
+        .eq("status", "published")
+        .order("name");
+
+      if (error) throw error;
+      return (data as { id: string; name: string }[]) || [];
+    } catch (error) {
+      console.error("Error fetching business cards:", error);
+      return [];
+    }
+  }, []);
+
   return {
     products,
     loading,
@@ -294,5 +342,7 @@ export function useProducts() {
     deleteProduct,
     uploadProductImage,
     deleteProductImage,
+    fetchProductsByBusinessCard,
+    fetchBusinessCards,
   };
 }

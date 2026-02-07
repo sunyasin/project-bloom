@@ -67,6 +67,7 @@ export interface Business {
 export interface Product {
   id: string;
   producer_id: string;
+  business_card_id: string | null; // Если null - товар показывается на всех визитках
   name: string;
   description: string | null;
   content: string | null;
