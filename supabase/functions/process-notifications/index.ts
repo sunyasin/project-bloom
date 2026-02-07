@@ -5,6 +5,7 @@ const supabaseUrl   = Deno.env.get("SUPABASE_URL") ?? "";
 const supabaseKey   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const botToken      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const apiBaseUrl    = Deno.env.get("APP_BASE_URL") ?? ""
+const apiSecretKey  = Deno.env.get("SUPAPI_SECRET_KEY") ?? "";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
