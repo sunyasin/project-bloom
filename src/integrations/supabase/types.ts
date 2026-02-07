@@ -707,6 +707,7 @@ export type Database = {
         | "deleted"
         | "wallet"
         | "coin_request"
+        | "order"
       product_sale_type: "sell_only" | "barter_goods" | "barter_coin"
     }
     CompositeTypes: {
@@ -860,6 +861,7 @@ export const Constants = {
         "deleted",
         "wallet",
         "coin_request",
+        "order",
       ],
       product_sale_type: ["sell_only", "barter_goods", "barter_coin"],
     },

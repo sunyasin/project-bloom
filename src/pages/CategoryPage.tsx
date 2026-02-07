@@ -207,6 +207,7 @@ const CategoryPage = () => {
   const [orderPhone, setOrderPhone] = useState("");
   const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPhoneWarning, setShowPhoneWarning] = useState(false);
   
   const initialCity = searchParams.get("city") || "Все города";
   const [cityFilter, setCityFilter] = useState(initialCity);
@@ -501,6 +502,12 @@ const CategoryPage = () => {
       return;
     }
 
+    // Check if phone is provided
+    if (!orderPhone.trim()) {
+      setShowPhoneWarning(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const now = new Date();
@@ -521,13 +528,20 @@ const CategoryPage = () => {
 
       const total = products.reduce((sum, p) => sum + p.rawPrice * (orderQuantities[p.id] || 1), 0);
 
-      const message = `🛒 Новый заказ!\n${dateStr}\n\nТовары:\n${productsList}\n\nИтого: ${total} ₽\nТелефон: ${orderPhone}\n\nОт: ${currentUserName || "Аноним"}`;
+      const message = `🛒 Новый заказ!
+${dateStr}
+
+Товары:
+${productsList}
+
+Итого: ${total} ₽
+Телефон: ${orderPhone}\n\nОт: ${currentUserName || "Аноним"}`;
 
       const { error } = await supabase.from("messages").insert({
         from_id: user.id,
         to_id: business.ownerId,
         message,
-        type: "chat" as const,
+        type: "order" as const,
       });
 
       if (error) throw error;
@@ -1213,6 +1227,112 @@ const CategoryPage = () => {
           <DialogFooter>
             <Button onClick={() => setExchangeMessageSent(false)}>
               Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Dialog */}
+      <Dialog open={!!orderDialogOpen} onOpenChange={() => setOrderDialogOpen(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Оформление заказа</DialogTitle>
+          </DialogHeader>
+          {orderDialogOpen && (() => {
+            const business = businesses.find(b => b.id === orderDialogOpen);
+            const products = getSelectedForBusiness(orderDialogOpen);
+            return (
+              <div className="space-y-4">
+                {/* Business info */}
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="font-medium">{business?.name}</p>
+                  <p className="text-sm text-muted-foreground">{business?.location}</p>
+                </div>
+
+                {/* Products list */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Выбранные товары:</h4>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {products.map((product) => (
+                      <div key={product.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                        <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">{product.rawPrice} ₽/{product.unit}</p>
+                        </div>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={orderQuantities[product.id] || 1}
+                          onChange={(e) => {
+                            const newQty = parseInt(e.target.value) || 1;
+                            setOrderQuantities(prev => ({
+                              ...prev,
+                              [product.id]: newQty
+                            }));
+                          }}
+                          className="w-16 h-8 text-center"
+                        />
+                        <span className="text-sm text-muted-foreground">шт.</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Total */}
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Итого:</p>
+                  <p className="text-xl font-bold">
+                    {products.reduce((sum, p) => sum + p.rawPrice * (orderQuantities[p.id] || 1), 0)} ₽
+                  </p>
+                </div>
+
+                {/* Phone input */}
+                <div className="space-y-2">
+                  <Label htmlFor="order-phone">Телефон для связи</Label>
+                  <Input
+                    id="order-phone"
+                    value={orderPhone}
+                    onChange={(e) => setOrderPhone(e.target.value)}
+                    placeholder="+7 (___) ___-__-__"
+                  />
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOrderDialogOpen(null)}>
+              Отмена
+            </Button>
+            <Button onClick={() => orderDialogOpen && handleOrderSubmit(orderDialogOpen)} disabled={isSubmitting}>
+              {isSubmitting ? "Отправка..." : "Отправить заказ"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phone Warning Dialog */}
+      <Dialog open={showPhoneWarning} onOpenChange={setShowPhoneWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Внимание</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Без номера телефона поставщик сможет ответить вам только в чате.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPhoneWarning(false)}>
+              Вернуться
+            </Button>
+            <Button onClick={() => {
+              setShowPhoneWarning(false);
+              if (orderDialogOpen) {
+                handleOrderSubmit(orderDialogOpen);
+              }
+            }}>
+              Отправить
             </Button>
           </DialogFooter>
         </DialogContent>

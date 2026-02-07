@@ -90,7 +90,7 @@ export const ProductDetailsDialog = ({
       from_id: currentUser.id,
       to_id: ownerId,
       message,
-      type: "chat" as const,
+      type: "order" as const,
     });
 
     setIsSubmitting(false);

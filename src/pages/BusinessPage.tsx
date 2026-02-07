@@ -56,11 +56,59 @@ interface SelectedProduct {
   coinPrice: number | null;
 }
 
-// Mock order API (оставляем по просьбе пользователя)
-const mockAPISendOrder = async (order: { products: any[]; phone: string; businessId: string }) => {
-  console.log("Sending order:", order);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  return { success: true, orderId: `ORD-${Date.now()}` };
+// Real order API - saves message to database
+const sendOrderToOwner = async (order: {
+  products: SelectedProduct[];
+  quantities: Record<string, number>;
+  phone: string;
+  address: string;
+  businessId: string;
+  businessOwnerId: string;
+}) => {
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Пользователь не авторизован");
+  }
+
+  // Get user profile for name
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("first_name, last_name, phone")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const userName = profile
+    ? [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Клиент"
+    : "Клиент";
+
+  // Format products list with quantities
+  const productsList = order.products
+    .map((p) => {
+      const qty = order.quantities[p.id] || 1;
+      return `${p.name} - ${qty} шт.`;
+    })
+    .join(", ");
+
+  // Build message text
+  const message = `${userName} сделал заказ: ${productsList}. Тел: ${order.phone || "не указан"}, Адрес: ${order.address || "не указан"}`;
+
+  // Insert message into database
+  const { error } = await supabase.from("messages").insert({
+    from_id: user.id,
+    to_id: order.businessOwnerId,
+    message: message,
+    type: "order" as const,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return { success: true };
 };
 
 const BusinessPage = () => {
@@ -88,6 +136,7 @@ const BusinessPage = () => {
   const [orderAddress, setOrderAddress] = useState("");
   const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPhoneWarning, setShowPhoneWarning] = useState(false);
 
   // Subscribe to producer news state
   const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
@@ -218,7 +267,7 @@ const BusinessPage = () => {
       } = await supabase.auth.getUser();
       if (user) {
         const [profileResult, productsResult] = await Promise.all([
-          supabase.from("profiles").select("first_name, last_name, email").eq("user_id", user.id).maybeSingle(),
+          supabase.from("profiles").select("first_name, last_name, email, phone").eq("user_id", user.id).maybeSingle(),
           supabase.from("products").select("*").eq("producer_id", user.id).eq("is_available", true),
         ]);
 
@@ -228,6 +277,7 @@ const BusinessPage = () => {
             profileResult.data.email ||
             "Аноним";
           setCurrentUserName(name);
+            setOrderPhone(profileResult.data.phone || "");
         }
 
         if (productsResult.data) {
@@ -324,9 +374,22 @@ const BusinessPage = () => {
   const handleOrderSubmit = async () => {
     if (selectedProducts.length === 0) return;
 
+    // Check if phone is provided
+    if (!orderPhone.trim()) {
+      setShowPhoneWarning(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await mockAPISendOrder({ products: selectedProducts, phone: orderPhone, businessId: id || "" });
+      await sendOrderToOwner({
+      products: selectedProducts,
+      quantities: orderQuantities,
+      phone: orderPhone,
+      address: orderAddress,
+      businessId: id || "",
+      businessOwnerId: business?.owner_id || "",
+    });
       toast({
         title: "Заказ отправлен",
         description: `Заказ на ${selectedProducts.length} товар(ов) успешно отправлен производителю`,
@@ -1067,6 +1130,31 @@ const BusinessPage = () => {
             </Button>
             <Button onClick={handleOrderSubmit} disabled={isSubmitting}>
               {isSubmitting ? "Отправка..." : "Отправить заказ"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phone Warning Dialog */}
+      <Dialog open={showPhoneWarning} onOpenChange={setShowPhoneWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Внимание</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Без номера телефона поставщик сможет ответить вам только в чате.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPhoneWarning(false)}>
+              Вернуться
+            </Button>
+            <Button onClick={() => {
+              setShowPhoneWarning(false);
+              handleOrderSubmit();
+            }}>
+              Отправить
             </Button>
           </DialogFooter>
         </DialogContent>
