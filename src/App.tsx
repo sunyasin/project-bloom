@@ -21,6 +21,7 @@ import Profile from "./pages/Profile";
 import BusinessCardEditor from "./pages/BusinessCardEditor";
 import ProductEditor from "./pages/ProductEditor";
 import Admin from "./pages/Admin";
+import AdminNews from "./pages/AdminNews";
 import ModeratorAdmin from "./pages/ModeratorAdmin";
 import NewsEditorAdmin from "./pages/NewsEditorAdmin";
 import Barter from "./pages/Barter";
@@ -62,6 +63,7 @@ const App = () => (
           
           {/* Admin panels */}
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/news" element={<AdminNews />} />
           <Route path="/admin/*" element={<Admin />} />
           <Route path="/moderator" element={<ModeratorAdmin />} />
           <Route path="/news-editor" element={<NewsEditorAdmin />} />

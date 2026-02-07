@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
+import AdminNews from "./AdminNews";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,10 +51,10 @@ import {
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-type AdminRole = "super_admin";
+type AdminRole = "super_admin" | "news_editor";
 
-// Only super_admin can access admin panel
-const ADMIN_ROLES: AdminRole[] = ["super_admin"];
+// Only super_admin and news_editor can access admin panel
+const ADMIN_ROLES: AdminRole[] = ["super_admin", "news_editor"];
 
 interface AdminMenuItem {
   label: string;
@@ -67,7 +68,7 @@ const adminMenu: AdminMenuItem[] = [
   { label: "Производители", icon: Building2, roles: ["super_admin"] },
   { label: "Акции", icon: Tag, roles: ["super_admin"] },
   { label: "Заявки", icon: FileText, roles: ["super_admin"] },
-  { label: "Новости", icon: Newspaper, roles: ["super_admin"] },
+  { label: "Новости", icon: Newspaper, roles: ["super_admin", "news_editor"] },
   { label: "Коины", icon: Coins, roles: ["super_admin"] },
   { label: "Роли и права", icon: Shield, roles: ["super_admin"] },
   { label: "Настройки", icon: Settings, roles: ["super_admin"] },
@@ -1151,6 +1152,8 @@ const AdminContent = () => {
 
   const renderContent = () => {
     switch (activeSection) {
+      case "Новости":
+        return <AdminNews />;
       case "Коины":
         return <CoinExchangeSection />;
       case "Роли и права":
