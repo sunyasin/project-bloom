@@ -35,6 +35,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type ProductSaleType = "sell_only" | "barter_goods" | "barter_coin" | "all";
 
+// Дефолтное изображение для товаров
+const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=200&h=200&fit=crop";
+
 interface BusinessCard {
   id: string;
   name: string;
@@ -986,7 +989,7 @@ const BusinessPage = () => {
                                 price: product.price || 0,
                                 image:
                                   product.image_url ||
-                                  "https://images.unsplash.com/photo-472354-b33ff0c44a43?w=200&h=200&fit=crop",
+                                  DEFAULT_PRODUCT_IMAGE,
                                 coinPrice: (product as any).coin_price || null,
                               },
                               checked as boolean,
@@ -1007,7 +1010,7 @@ const BusinessPage = () => {
                         }}
                         className="aspect-square rounded-lg overflow-hidden mb-2 bg-muted cursor-pointer hover:opacity-90 transition-opacity w-full"
                       >
-                        <img src={product.image_url || ""} alt={product.name} className="w-full h-full object-cover" />
+                        <img src={product.image_url || DEFAULT_PRODUCT_IMAGE} alt={product.name} className="w-full h-full object-cover" />
                       </button>
                       <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
                       <p className="text-sm text-primary font-semibold">
@@ -1578,7 +1581,7 @@ const BusinessPage = () => {
                         id: selectedProductDetail.id,
                         name: selectedProductDetail.name,
                         price: selectedProductDetail.price || 0,
-                        image: selectedProductDetail.image_url || "",
+                        image: selectedProductDetail.image_url || DEFAULT_PRODUCT_IMAGE,
                         coinPrice: (selectedProductDetail as any).coin_price || null,
                       },
                       !isSelected(selectedProductDetail.id),

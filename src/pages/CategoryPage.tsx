@@ -5,6 +5,9 @@ import { Building2, MapPin, Phone, ShoppingCart, Filter, Loader2, Send, ArrowLef
 // Дефолтное изображение для визиток
 const DEFAULT_BUSINESS_IMAGE = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=200&h=200&fit=crop";
 
+// Дефолтное изображение для товаров
+const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=200&h=200&fit=crop";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -366,7 +369,7 @@ const CategoryPage = () => {
             productsMap[p.producer_id].push({
               id: p.id,
               name: p.name,
-              image: p.image_url || "/placeholder.svg",
+              image: p.image_url || DEFAULT_PRODUCT_IMAGE,
               price: p.price ? `${p.price} ₽${p.unit ? `/${p.unit}` : ""}` : "Цена по запросу",
               saleType: (p as any).sale_type || "sell_only",
               galleryUrls: (p as any).gallery_urls || [],
