@@ -309,7 +309,7 @@ const Index = () => {
               {events.map((event) => (
                 <Link
                   key={event.id}
-                  to={`/news/${event.id}`}
+                  to={`/events/${event.id}`}
                   className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
                 >
                   <img

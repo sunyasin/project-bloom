@@ -1,7 +1,7 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Calendar as CalendarIcon, Loader2, User } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, User, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, isSameDay, endOfMonth, addMonths, isWithinInterval } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -28,6 +28,7 @@ interface EventWithAuthor extends NewsItem {
 }
 
 const Events = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [events, setEvents] = useState<EventWithAuthor[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
@@ -38,6 +39,35 @@ const Events = () => {
   useEffect(() => {
     const fetchEventsAndProfiles = async () => {
       try {
+        // Если передан id, получаем одно событие
+        if (id) {
+          const { data: eventData, error: eventError } = await supabase
+            .from("news")
+            .select("*")
+            .eq("id", id)
+            .eq("is_published", true)
+            .eq("is_event", true)
+            .single();
+
+          if (eventError) throw eventError;
+          
+          // Получаем профиль автора
+          let author: Profile | undefined;
+          if (eventData?.owner_id) {
+            const { data: profileData } = await supabase
+              .from("profiles")
+              .select("id, user_id, first_name, last_name")
+              .eq("user_id", eventData.owner_id)
+              .single();
+            author = profileData as Profile;
+          }
+          
+          const eventWithAuthor = { ...eventData, author } as EventWithAuthor;
+          setEvents([eventWithAuthor]);
+          setLoading(false);
+          return;
+        }
+
         // Получаем все события
         const { data: eventsData, error: eventsError } = await supabase
           .from("news")
@@ -79,7 +109,7 @@ const Events = () => {
     };
 
     fetchEventsAndProfiles();
-  }, []);
+  }, [id]);
 
   // Подсчёт событий по датам
   const eventsCountByDate = useMemo(() => {
@@ -95,6 +125,11 @@ const Events = () => {
 
   // Определение отображаемых событий
   const displayedEvents = useMemo(() => {
+    // Если это страница одного события, показываем только его
+    if (id && events.length > 0) {
+      return events;
+    }
+    
     const now = new Date();
     const endOfNextMonth = addMonths(endOfMonth(now), 1);
 
@@ -112,7 +147,7 @@ const Events = () => {
       const eventDate = new Date(event.event_date);
       return isWithinInterval(eventDate, { start: now, end: endOfNextMonth });
     });
-  }, [events, selectedDate]);
+  }, [events, selectedDate, id]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Дата не указана";
@@ -161,6 +196,72 @@ const Events = () => {
       </div>
     );
   };
+
+  // Показ одного события
+  if (id && events.length > 0 && !selectedEvent) {
+    const event = events[0];
+    const shortDate = formatShortDate(event.event_date);
+    
+    return (
+      <MainLayout>
+        <div className="space-y-6">
+          <Link to="/events" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            К событиям
+          </Link>
+          
+          <article className="content-card">
+            <div className="flex gap-4 mb-4">
+              <div className="w-16 text-center shrink-0">
+                {event.image_url ? (
+                  <div className="w-14 h-14 mx-auto rounded-lg overflow-hidden">
+                    <img
+                      src={event.image_url}
+                      alt={event.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 mx-auto rounded-lg bg-primary/10 flex flex-col items-center justify-center">
+                    <span className="text-lg font-bold text-primary">{shortDate.day}</span>
+                    <span className="text-xs text-primary">{shortDate.month}</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
+                  Событие
+                </span>
+                <h1 className="text-2xl font-bold text-foreground mt-2">{event.title}</h1>
+                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                  <CalendarIcon className="h-4 w-4" />
+                  <span>{formatDate(event.event_date)}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1 mt-4 text-sm">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Инициатор: </span>
+              <button
+                onClick={() => handleAuthorClick(event)}
+                className="text-primary hover:underline font-medium"
+              >
+                {formatAuthorName(event)}
+              </button>
+            </div>
+            
+            {event.content && (
+              <div
+                className="prose prose-sm max-w-none text-foreground mt-4"
+                dangerouslySetInnerHTML={{ __html: event.content }}
+              />
+            )}
+          </article>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -223,10 +324,10 @@ const Events = () => {
             {displayedEvents.map((event) => {
               const shortDate = formatShortDate(event.event_date);
               return (
-                <article
+                <Link
                   key={event.id}
-                  onClick={() => setSelectedEvent(event)}
-                  className="content-card hover:border-primary/30 transition-colors cursor-pointer"
+                  to={`/events/${event.id}`}
+                  className="block content-card hover:border-primary/30 transition-colors cursor-pointer"
                 >
                   <div className="flex gap-4">
                     <div className="w-16 text-center shrink-0">
@@ -276,7 +377,7 @@ const Events = () => {
                       )}
                     </div>
                   </div>
-                </article>
+                </Link>
               );
             })}
           </div>
