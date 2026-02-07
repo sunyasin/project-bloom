@@ -51,7 +51,7 @@ export function ProfileHeader({
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={onOpenExchangeRequests}>
             <Repeat className="h-4 w-4 mr-1" />
-            Запросы на обмен{exchangeCount > 0 && ` (${exchangeCount})`}
+            Запросы на обмен ({exchangeCount})
           </Button>
           <Button variant="outline" size="sm" onClick={onOpenWallet}>
             <Wallet className="h-4 w-4 mr-1" />
