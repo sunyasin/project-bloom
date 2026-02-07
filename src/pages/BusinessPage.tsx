@@ -257,7 +257,7 @@ const BusinessPage = () => {
       console.log("[DEBUG] business_card_id present:", productsResult.data?.[0]?.hasOwnProperty("business_card_id"));
       
       setBusinessCards(cards);
-      setProducts((productsResult.data || []) as Product[]);
+      setProducts((productsResult.data || []) as unknown as Product[]);
       setOwnerProfile(profileResult.data as Profile | null);
       setPromotions((promotionsResult.data || []) as Promotion[]);
 
@@ -289,7 +289,16 @@ const BusinessPage = () => {
         }
 
         if (productsResult.data) {
-          setUserProducts((productsResult.data || []) as Product[]);
+          // Transform products data to ensure business_card_id is properly typed
+          // The field may not be present in older records or during migration
+          const products = (productsResult.data || []).map(p => {
+            const product = p as Partial<Product>;
+            return {
+              ...p,
+              business_card_id: product.business_card_id ?? null,
+            };
+          }) as Product[];
+          setUserProducts(products);
         }
       }
     };
