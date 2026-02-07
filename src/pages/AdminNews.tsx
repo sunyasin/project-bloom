@@ -26,6 +26,11 @@ import { Badge } from "@/components/ui/badge";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import type { Tables } from "@/integrations/supabase/types";
 
+// URL для Edge Function process-notifications
+const EDGE_FUNCTION_URL = import.meta.env.VITE_SUPABASE_URL 
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-notifications`
+  : "";
+
 type News = Tables<"news">;
 
 interface NewsFormData {
@@ -160,10 +165,54 @@ const AdminNewsContent = ({ onBack }: AdminNewsProps) => {
         setDialogOpen(false);
         resetForm();
         loadNews();
+        
+        // Вызываем Edge Function для отправки уведомлений
+        triggerNotifications();
       }
     }
 
     setProcessing(false);
+  };
+
+  // Функция вызова Edge Function для отправки уведомлений
+  const triggerNotifications = async () => {
+    console.log("[DEBUG] triggerNotifications called");
+    
+    if (!EDGE_FUNCTION_URL) {
+      console.log("[DEBUG] Edge Function URL not configured");
+      return;
+    }
+    
+    console.log("[DEBUG] Edge Function URL:", EDGE_FUNCTION_URL);
+    
+    try {
+      // Получаем токен из сессии
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || "";
+      
+      console.log("[DEBUG] Auth token present:", !!token);
+      
+      const response = await fetch(EDGE_FUNCTION_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "",
+        },
+      });
+      
+      console.log("[DEBUG] Response status:", response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log("[DEBUG] Notifications sent successfully:", result);
+      } else {
+        const error = await response.text();
+        console.error("[DEBUG] Failed to send notifications:", response.status, error);
+      }
+    } catch (error) {
+      console.error("[DEBUG] Error sending notifications:", error);
+    }
   };
 
   const handleDelete = async (item: News) => {

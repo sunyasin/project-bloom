@@ -23,7 +23,6 @@ import ProductEditor from "./pages/ProductEditor";
 import Admin from "./pages/Admin";
 import AdminNews from "./pages/AdminNews";
 import ModeratorAdmin from "./pages/ModeratorAdmin";
-import NewsEditorAdmin from "./pages/NewsEditorAdmin";
 import Barter from "./pages/Barter";
 import NotFound from "./pages/NotFound";
 
@@ -66,7 +65,6 @@ const App = () => (
           <Route path="/admin/news" element={<AdminNews />} />
           <Route path="/admin/*" element={<Admin />} />
           <Route path="/moderator" element={<ModeratorAdmin />} />
-          <Route path="/news-editor" element={<NewsEditorAdmin />} />
           
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

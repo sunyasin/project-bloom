@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface NewsItem {
   id: string;
   owner_id: string;
+  producer_id: string | null;
   title: string;
   content: string | null;
   image_url: string | null;
@@ -67,6 +68,7 @@ export function useNews(userId: string | null) {
         .from("news")
         .insert({
           owner_id: userId,
+          producer_id: userId, // Новость производителя - привязываем к producer_id
           title: formData.title,
           content: formData.content || null,
           is_event: formData.is_event,

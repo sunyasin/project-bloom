@@ -183,14 +183,20 @@ serve(async (req: Request) => {
 
       // Формируем текст уведомления
       let text = "";
-      if (producerId) {
+      
+      // Определяем тип уведомления
+      const isProducerContent = entityType === "product" || (entityType === "news" && producerId);
+      
+      if (isProducerContent && producerId) {
         const producerName = await getProducerInfo(producerId);
-        text = `<b>📢 ${producerName}</b>\n\n`;
-      } else {
-        text = `<b>📢 Новость портала</b>\n\n`;
+        text = `<b>📢 Новость портала DolinaBiz от ${producerName}</b>\n\n`;
+      } else if (entityType === "news" && !producerId) {
+        text = `<b>📢 Новость портала DolinaBiz</b>\n\n`;
+      } else if (entityType === "promotion") {
+        text = `<b>🔥 Акция на портале DolinaBiz</b>\n\n`;
       }
 
-      // Логика для товаров в зависимости от типа действия
+      // Логика для товаров
       if (entityType === "product") {
         const productName = newData.name as string;
         const productPrice = newData.price as number;
@@ -203,17 +209,16 @@ serve(async (req: Request) => {
         } else if (update.action === "update" && productPrice) {
           text += `<b> Изменение цены\n${productName}\n📍 ${productPrice} ₽</b>`;
         }
-      } else {
-        const typeEmoji: Record<string, string> = {
-          news: "📰",
-          promotion: "🔥",
-        };
-        const typeName: Record<string, string> = {
-          news: "Новость",
-          promotion: "Акция",
-        };
-        text += `<b>${typeEmoji[entityType] || "📢"} ${typeName[entityType] || entityType}</b>\n\n`;
-        text += `<b>${newData.name || newData.title || "Обновление"}</b>`;
+      }
+      // Логика для новостей
+      else if (entityType === "news") {
+        const entityTitle = newData.title || "Новость";
+        text += `<b>${entityTitle}</b>`;
+      }
+      // Логика для акций
+      else if (entityType === "promotion") {
+        const entityTitle = newData.name || newData.title || "Акция";
+        text += `<b>${entityTitle}</b>`;
       }
 
       const baseUrl = apiBaseUrl;

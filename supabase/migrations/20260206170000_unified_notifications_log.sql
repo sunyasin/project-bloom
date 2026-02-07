@@ -70,21 +70,20 @@ CREATE TRIGGER log_news_insert
 
 -- Триггер на promotions
 CREATE OR REPLACE FUNCTION log_promotion_change()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $
 BEGIN
   INSERT INTO content_updates_log (entity_type, entity_id, producer_id, action, new_data)
   VALUES (
     'promotion',
     COALESCE(NEW.id, OLD.id),
-    NEW.producer_id, -- акции привязаны к производителю
+    NEW.owner_id, -- акции привязаны к производителю (owner_id)
     CASE WHEN TG_OP = 'INSERT' THEN 'insert' ELSE 'update' END,
     row_to_json(NEW)
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$ LANGUAGE plpgsql;
 
--- Раскомментировать если есть таблица promotions
 DROP TRIGGER IF EXISTS log_promotion_insert ON public.promotions;
 CREATE TRIGGER log_promotion_insert
   AFTER INSERT ON public.promotions

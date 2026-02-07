@@ -45,6 +45,35 @@ import { useNews, NewsFormData } from "@/hooks/use-news";
 import { useExchangeCount } from "@/hooks/use-exchange-count";
 import { ExchangeRequestsDialog } from "@/components/ExchangeRequestsDialog";
 import { supabase } from "@/integrations/supabase/client";
+
+// URL для Edge Function process-notifications
+const EDGE_FUNCTION_URL = import.meta.env.VITE_SUPABASE_URL 
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-notifications`
+  : "";
+
+// Функция вызова Edge Function для отправки уведомлений
+const triggerNotifications = async () => {
+  if (!EDGE_FUNCTION_URL) {
+    console.log("[DEBUG] Edge Function URL not configured");
+    return;
+  }
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || "";
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "",
+      },
+    });
+    console.log("[DEBUG] Dashboard notifications response:", response.status);
+  } catch (error) {
+    console.error("[DEBUG] Error triggering notifications:", error);
+  }
+};
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -645,6 +674,8 @@ const Dashboard = () => {
       await updatePromotion(editingPromotionId, promotionFormData);
     } else {
       await createPromotion(promotionFormData);
+      // Вызываем Edge Function для отправки уведомлений в Telegram
+      triggerNotifications();
     }
     setIsPromotionDialogOpen(false);
   };
@@ -744,6 +775,8 @@ const Dashboard = () => {
       await updateNews(editingNewsId, newsFormData);
     } else {
       await createNews(newsFormData);
+      // Вызываем Edge Function для отправки уведомлений
+      triggerNotifications();
     }
     setIsNewsDialogOpen(false);
   };
