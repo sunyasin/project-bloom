@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import AdminNews from "./AdminNews";
+import ModeratorAdmin from "./ModeratorAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1154,6 +1155,8 @@ const AdminContent = () => {
     switch (activeSection) {
       case "Новости":
         return <AdminNews />;
+      case "Заявки":
+        return <ModeratorAdmin />;
       case "Коины":
         return <CoinExchangeSection />;
       case "Роли и права":

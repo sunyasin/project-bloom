@@ -398,7 +398,7 @@ const ModeratorContent = () => {
 
 const ModeratorAdmin = () => {
   return (
-    <RoleGuard allowedRoles={["moderator"]}>
+    <RoleGuard allowedRoles={["moderator", "super_admin"]}>
       <ModeratorContent />
     </RoleGuard>
   );
