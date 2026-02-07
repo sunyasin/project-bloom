@@ -34,7 +34,7 @@ import {
   Check,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useState, useRef, DragEvent, useEffect } from "react";
+import { useState, useRef, DragEvent, useEffect, useCallback } from "react";
 import { ProfileEditDialog } from "@/components/ProfileEditDialog";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { useToast } from "@/hooks/use-toast";
@@ -332,6 +332,9 @@ const Dashboard = () => {
   const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [deletingMessages, setDeletingMessages] = useState(false);
   const [approvingCoinRequest, setApprovingCoinRequest] = useState<number | null>(null);
+  const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const { toast } = useToast();
 
   // Categories state for promotions
@@ -850,14 +853,6 @@ const Dashboard = () => {
     await loadMessages();
   };
 
-  const handleToggleMessage = (messageId: number) => {
-    if (expandedMessageId === messageId) {
-      setExpandedMessageId(null);
-    } else {
-      setExpandedMessageId(messageId);
-    }
-  };
-
   const handleSendReply = async (message: MessageWithSender) => {
     const text = replyText[message.id];
     if (!text?.trim() || !user?.id) return;
@@ -1021,7 +1016,126 @@ const Dashboard = () => {
   };
 
   const conversationThreads = getConversationThreads();
-  const unreadCount = messages.filter((m) => m.to_id === user?.id).length;
+  const unreadCount = messages.filter((m) => m.to_id === user?.id && !m.is_read).length;
+
+  // Mark message as read in database
+  const markMessageAsRead = useCallback(async (messageId: number) => {
+    console.log("[DEBUG] markMessageAsRead called for messageId:", messageId);
+    
+    // Check current user
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("[DEBUG] Current user:", user?.id);
+    
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, from_id, to_id, is_read")
+      .eq("id", messageId)
+      .single();
+      
+    console.log("[DEBUG] Current message data:", data);
+    
+    const { error: updateError } = await supabase
+      .from("messages")
+      .update({ is_read: true })
+      .eq("id", messageId);
+    
+    if (updateError) {
+      console.error("[DEBUG] Supabase update error:", updateError);
+      console.error("[DEBUG] Error message:", updateError.message);
+      console.error("[DEBUG] Error details:", updateError.details);
+      console.error("[DEBUG] Error hint:", updateError.hint);
+    } else {
+      console.log("[DEBUG] Message marked as read successfully:", messageId);
+      // Update local state
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, is_read: true } : m))
+      );
+    }
+  }, []);
+
+  // Handle message read timer
+  const handleToggleMessage = (messageId: number) => {
+    console.log("[DEBUG] handleToggleMessage called with messageId:", messageId, "expandedMessageId:", expandedMessageId);
+    if (expandedMessageId === messageId) {
+      // Close message - clear timer
+      if (readTimerRef.current) {
+        console.log("[DEBUG] Clearing existing timer");
+        clearTimeout(readTimerRef.current);
+        readTimerRef.current = null;
+      }
+      setExpandedMessageId(null);
+    } else {
+      // Open message - set timer to mark as read after 3 seconds
+      if (readTimerRef.current) {
+        console.log("[DEBUG] Clearing previous timer");
+        clearTimeout(readTimerRef.current);
+      }
+      
+      setExpandedMessageId(messageId);
+      console.log("[DEBUG] Setting timer for 3 seconds");
+      
+      // Mark as read after 3 seconds
+      readTimerRef.current = setTimeout(() => {
+        console.log("[DEBUG] Timer fired, calling markMessageAsRead");
+        markMessageAsRead(messageId);
+        readTimerRef.current = null;
+      }, 3000);
+    }
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (readTimerRef.current) {
+        clearTimeout(readTimerRef.current);
+      }
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  // Setup Intersection Observer for marking messages as read on scroll
+  useEffect(() => {
+    // Disconnect previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    // Create new observer
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const messageId = Number(entry.target.getAttribute("data-message-id"));
+            const isRead = entry.target.getAttribute("data-is-read") === "true";
+            
+            if (messageId && !isRead) {
+              console.log("[DEBUG] Message visible on screen:", messageId);
+              markMessageAsRead(messageId);
+            }
+          }
+        });
+      },
+      {
+        threshold: 0.3, // Message is considered visible when 30% is visible
+        rootMargin: "0px 0px -100px 0px", // Don't mark messages near bottom as read
+      }
+    );
+
+    // Observe all message elements
+    messageRefs.current.forEach((element) => {
+      if (element && observerRef.current) {
+        observerRef.current.observe(element);
+      }
+    });
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [messages, markMessageAsRead]);
 
   // Wallet handlers
   const openWalletDialog = async () => {
@@ -2415,7 +2529,18 @@ const Dashboard = () => {
                                         </div>
                                       )}
 
-                                      <div className={`flex ${isFromMe ? "justify-end" : "justify-start"} group`}>
+                                      <div 
+                                        className={`flex ${isFromMe ? "justify-end" : "justify-start"} group`}
+                                        ref={(el) => {
+                                          if (el) {
+                                            messageRefs.current.set(msg.id, el);
+                                          } else {
+                                            messageRefs.current.delete(msg.id);
+                                          }
+                                        }}
+                                        data-message-id={msg.id}
+                                        data-is-read={msg.is_read}
+                                      >
                                         <div
                                           className={`max-w-[80%] rounded-lg p-2 relative ${
                                             isFromMe ? "bg-primary text-primary-foreground" : "bg-muted"

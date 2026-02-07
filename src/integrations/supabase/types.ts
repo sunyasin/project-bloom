@@ -242,6 +242,7 @@ export type Database = {
           created_at: string
           from_id: string
           id: number
+          is_read: boolean
           message: string
           reply_to: number | null
           to_id: string
@@ -251,6 +252,7 @@ export type Database = {
           created_at?: string
           from_id: string
           id?: number
+          is_read?: boolean
           message: string
           reply_to?: number | null
           to_id: string
@@ -260,6 +262,7 @@ export type Database = {
           created_at?: string
           from_id?: string
           id?: number
+          is_read?: boolean
           message?: string
           reply_to?: number | null
           to_id?: string

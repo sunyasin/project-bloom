@@ -38,7 +38,8 @@ export const Header = () => {
     const { count, error } = await supabase
       .from("messages")
       .select("*", { count: "exact", head: true })
-      .eq("to_id", userId);
+      .eq("to_id", userId)
+      .eq("is_read", false);
 
     if (!error && count !== null) {
       setUnreadCount(count);
