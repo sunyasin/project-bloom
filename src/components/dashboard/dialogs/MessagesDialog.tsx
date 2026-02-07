@@ -27,6 +27,7 @@ import type {
 } from "../types/dashboard-types";
 import { MESSAGE_TYPE_LABELS } from "../types/dashboard-types";
 import { extractImageUrls } from "../utils/dashboard-utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MessagesDialogProps {
   open: boolean;
@@ -69,6 +70,12 @@ export function MessagesDialog({
   const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const onLoadMessagesRef = useRef(onLoadMessages);
+  
+  // Keep ref updated with latest onLoadMessages
+  useEffect(() => {
+    onLoadMessagesRef.current = onLoadMessages;
+  }, [onLoadMessages]);
 
   // Group messages into reply chains
   const getConversationThreads = (): ConversationThread[] => {
@@ -150,29 +157,27 @@ export function MessagesDialog({
 
   // Mark message as read
   const markMessageAsRead = useCallback(async (messageId: number) => {
-    const { data } = await (await import("@/integrations/supabase/client")).supabase
-      .from("messages")
-      .update({ is_read: true })
-      .eq("id", messageId);
+    await supabase.from("messages").update({ is_read: true }).eq("id", messageId);
+    await onLoadMessagesRef.current();
   }, []);
 
+  // Mark all unread messages in a thread as read
+  const markThreadAsRead = useCallback(async (thread: ConversationThread) => {
+    const unreadMessages = thread.messages.filter((m) => m.to_id === currentUserId && !m.is_read);
+    if (unreadMessages.length === 0) return;
+    
+    await supabase.from("messages").update({ is_read: true }).in("id", unreadMessages.map(m => m.id));
+    await onLoadMessagesRef.current();
+  }, [currentUserId]);
+
   // Handle toggle message
-  const handleToggleMessage = (messageId: number) => {
-    if (expandedMessageId === messageId) {
-      if (readTimerRef.current) {
-        clearTimeout(readTimerRef.current);
-        readTimerRef.current = null;
-      }
+  const handleToggleMessage = (thread: ConversationThread) => {
+    if (expandedMessageId === thread.messages[0]?.id) {
       setExpandedMessageId(null);
     } else {
-      if (readTimerRef.current) {
-        clearTimeout(readTimerRef.current);
-      }
-      setExpandedMessageId(messageId);
-      readTimerRef.current = setTimeout(() => {
-        markMessageAsRead(messageId);
-        readTimerRef.current = null;
-      }, 3000);
+      setExpandedMessageId(thread.messages[0]?.id || null);
+      // Mark all unread messages in thread as read
+      markThreadAsRead(thread);
     }
   };
 
@@ -290,7 +295,7 @@ export function MessagesDialog({
                 >
                   {/* Thread header */}
                   <button
-                    onClick={() => handleToggleMessage(thread.messages[0]?.id)}
+                    onClick={() => handleToggleMessage(thread)}
                     className="w-full p-3 text-left flex items-start gap-3 hover:bg-muted/50 transition-colors"
                   >
                     <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
