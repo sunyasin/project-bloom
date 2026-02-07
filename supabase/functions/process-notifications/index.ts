@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
-const apiSecretKey = Deno.env.get("SUPAPI_SECRET_KEY") ?? "";
+const supabaseUrl   = Deno.env.get("SUPABASE_URL") ?? "";
+const supabaseKey   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const botToken      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+const apiSecretKey  = Deno.env.get("SUPAPI_SECRET_KEY") ?? "";
+const apiBaseUrl    = Deno.env.get("APP_BASE_URL") ?? ""
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -16,18 +17,31 @@ interface ContentUpdate {
   new_data: Record<string, unknown>;
 }
 
-async function sendTelegramMessage(chatId: string, text: string) {
+async function sendTelegramMessage(chatId: string, text: string, link?: string) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  console.log(`[TELEGRAM] Sending to ${chatId}: ${text.substring(0, 50)}...`);
+  console.log(`[TELEGRAM] Sending to ${chatId}: ${text.substring(0, 350)}...(first 350 chars)`);
+  
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+  };
+  
+  if (link) {
+    body.reply_markup = {
+      inline_keyboard: [[
+        {
+          text: "🔗 Подробнее",
+          url: link,
+        }
+      ]],
+    };
+  }
   
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: "HTML",
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -50,10 +64,10 @@ async function sendTelegramMessage(chatId: string, text: string) {
 async function getProducerInfo(producerId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("name, business_name")
-    .eq("id", producerId)
+    .select("first_name, last_name")
+    .eq("user_id", producerId)
     .single();
-  return data?.business_name || data?.name || "Производитель";
+  return data?.first_name || data?.last_name || "Производитель";
 }
 
 async function getSubscriptions(
@@ -184,10 +198,10 @@ serve(async (req: Request) => {
         if (update.action === "insert") {
           text += `<b>🆕 Новый товар</b>\n${productName}\n`;
           if (productPrice) {
-            text += `💰 ${productPrice} ₽`;
+            text += `<b> ${productPrice} ₽</b>`;
           }
         } else if (update.action === "update" && productPrice) {
-          text += `<b>💰 Изменение цены</b>\n${productName}\n📍 ${productPrice} ₽`;
+          text += `<b> Изменение цены\n${productName}\n📍 ${productPrice} ₽</b>`;
         }
       } else {
         const typeEmoji: Record<string, string> = {
@@ -199,21 +213,23 @@ serve(async (req: Request) => {
           promotion: "Акция",
         };
         text += `<b>${typeEmoji[entityType] || "📢"} ${typeName[entityType] || entityType}</b>\n\n`;
-        text += newData.name || newData.title || "Обновление";
+        text += `<b>${newData.name || newData.title || "Обновление"}</b>`;
       }
 
-      const baseUrl = Deno.env.get("APP_BASE_URL") ?? "https://project-bloom.com";
+      const baseUrl = apiBaseUrl;
       const linkMap: Record<string, string> = {
-        product: `/dashboard/product/${entityId}`,
-        news: `/news/${entityId}`,
-        promotion: `/promotions/${entityId}`,
+        product: `${baseUrl}/dashboard/product/${entityId}`,
+        news: `${baseUrl}/news/${entityId}`,
+        promotion: `${baseUrl}/promotions/${entityId}`,
       };
-      text += `\n\n<a href="${baseUrl}${linkMap[entityType] || "#"}">Подробнее</a>`;
+      const link = linkMap[entityType];
+      console.log("[TELEGRAM] Link=", link); 
+
 
       // Отправляем подписчикам
       for (const sub of subscriptions) {
         try {
-          await sendTelegramMessage(sub.telegram_chat_id, text);
+          await sendTelegramMessage(sub.telegram_chat_id, text, link);
           await logNotification(sub.id, "producer", entityId, "sent");
           sent++;
         } catch (err) {
