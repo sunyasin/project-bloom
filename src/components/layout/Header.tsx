@@ -47,6 +47,8 @@ export const Header = () => {
   };
 
   useEffect(() => {
+    let messagesSubscription: ReturnType<typeof supabase.channel> | null = null;
+
     // Set up auth state listener
     const {
       data: { subscription },
@@ -55,8 +57,34 @@ export const Header = () => {
       setLoading(false);
       if (session?.user) {
         fetchUnreadCount(session.user.id);
+        
+        // Subscribe to message changes for this user
+        if (messagesSubscription) {
+          messagesSubscription.unsubscribe();
+        }
+        
+        messagesSubscription = supabase
+          .channel('messages-count-changes')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'messages',
+              filter: `to_id=eq.${session.user.id}`,
+            },
+            () => {
+              // When any message change happens, refetch the count
+              fetchUnreadCount(session.user.id);
+            }
+          )
+          .subscribe();
       } else {
         setUnreadCount(0);
+        if (messagesSubscription) {
+          messagesSubscription.unsubscribe();
+          messagesSubscription = null;
+        }
       }
     });
 
@@ -69,7 +97,12 @@ export const Header = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (messagesSubscription) {
+        messagesSubscription.unsubscribe();
+      }
+    };
   }, []);
 
   const handleLogout = async () => {

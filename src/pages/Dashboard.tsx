@@ -141,6 +141,7 @@ interface MessageWithSender {
   to_id: string;
   message: string;
   type: string;
+  is_read: boolean;
   created_at: string;
   senderName: string;
   senderEmail: string;
@@ -223,6 +224,11 @@ const Dashboard = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load messages on mount
+  useEffect(() => {
+    loadMessages();
+  }, [user?.id]);
 
   // Open profile dialog for new users
   useEffect(() => {
@@ -321,6 +327,7 @@ const Dashboard = () => {
   const [isMessagesDialogOpen, setIsMessagesDialogOpen] = useState(false);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [expandedMessageId, setExpandedMessageId] = useState<number | null>(null);
   const [replyText, setReplyText] = useState<Record<number, string>>({});
   const [isSendingReply, setIsSendingReply] = useState(false);
@@ -1016,7 +1023,6 @@ const Dashboard = () => {
   };
 
   const conversationThreads = getConversationThreads();
-  const unreadCount = messages.filter((m) => m.to_id === user?.id && !m.is_read).length;
 
   // Mark message as read in database
   const markMessageAsRead = useCallback(async (messageId: number) => {
@@ -1052,6 +1058,15 @@ const Dashboard = () => {
       );
     }
   }, []);
+
+  // Recalculate unread count when messages change
+  useEffect(() => {
+    if (user?.id) {
+      const count = messages.filter((m) => m.to_id === user.id && !m.is_read).length;
+      console.log("[DEBUG] Updating unreadCount:", count, "messages:", messages.length);
+      setUnreadCount(count);
+    }
+  }, [messages, user?.id]);
 
   // Handle message read timer
   const handleToggleMessage = (messageId: number) => {
