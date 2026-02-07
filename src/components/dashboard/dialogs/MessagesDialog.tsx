@@ -239,6 +239,51 @@ export function MessagesDialog({
     };
   }, []);
 
+  // Mark all unread messages as read after 3 seconds when filter with unread is clicked
+  useEffect(() => {
+    // Clear any existing timer when filter changes
+    if (readTimerRef.current) {
+      clearTimeout(readTimerRef.current);
+    }
+    
+    // Only start timer if there are unread messages for this filter type
+    if (open && messages.length > 0) {
+      const filterUnreadCount = unreadCountByType[messageTypeFilter] || 0;
+      
+      // For 'all' filter, check total unread
+      const totalUnread = messageTypeFilter === "all" 
+        ? unreadCount 
+        : filterUnreadCount;
+      
+      if (totalUnread > 0) {
+        // Set timer to mark messages as read after 3 seconds
+        readTimerRef.current = setTimeout(async () => {
+          // Get messages matching current filter
+          const filteredMessages = messageTypeFilter === "all" 
+            ? messages 
+            : messages.filter(m => m.type === messageTypeFilter);
+          
+          const unreadMessages = filteredMessages.filter((m) => 
+            m.to_id === currentUserId && !m.is_read
+          );
+          
+          if (unreadMessages.length > 0) {
+            console.log(`[MessagesDialog] Marking ${unreadMessages.length} ${messageTypeFilter} messages as read after 3s delay`);
+            await supabase.from("messages").update({ is_read: true }).in("id", unreadMessages.map(m => m.id));
+            await onLoadMessagesRef.current();
+          }
+        }, 3000);
+      }
+    }
+    
+    // Clear timer on unmount or dialog close
+    return () => {
+      if (readTimerRef.current) {
+        clearTimeout(readTimerRef.current);
+      }
+    };
+  }, [messageTypeFilter, open, messages, currentUserId, unreadCount, unreadCountByType, onLoadMessagesRef]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
