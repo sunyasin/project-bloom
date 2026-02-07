@@ -1509,6 +1509,11 @@ const Dashboard = () => {
               <Button variant="outline" size="sm" onClick={handleOpenMessagesDialog}>
                 <MessageCircle className="h-4 w-4 mr-1" />
                 Сообщения
+                {unreadCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
               </Button>
               <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
                 <Pencil className="h-4 w-4 mr-1" />
