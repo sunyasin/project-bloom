@@ -53,7 +53,7 @@ async function logNotification(
   });
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   try {
     const notification: NotificationRequest = await req.json();
 

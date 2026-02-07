@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => ({
     // Fallback so client.ts never receives undefined at module-load time
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || "https://bcoraetbfyxxpifavfpd.supabase.co"),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_u1kIyj4xSv1KfzybbRmP1w_Pi9UFLAC"),
+    'import.meta.env.VITE_SUPAPI_SECRET_KEY': JSON.stringify(process.env.VITE_SUPAPI_SECRET_KEY || ""),
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
