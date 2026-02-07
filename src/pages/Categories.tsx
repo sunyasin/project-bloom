@@ -230,7 +230,9 @@ const [categories, setCategories] = useState<CategoryWithCount[]>([]);
                     <h3 className="font-medium text-foreground group-hover:text-primary transition-colors text-center">
                       {category.name}
                     </h3>
-                    <p className="text-sm text-muted-foreground text-center mt-1">{category.count} производителей</p>
+                    <p className="text-sm text-muted-foreground text-center mt-1">
+                      {category.count} {category.count === 1 ? "визитка" : category.count >= 2 && category.count <= 4 ? "визитки" : "визиток"}
+                    </p>
                   </div>
                 </Link>
               );
