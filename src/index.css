@@ -7,6 +7,58 @@
   margin: 16px 0 !important;
 }
 
+/* Image alignment wrapper styles - text-align based centering */
+.jodit-wysiwyg p img,
+.jodit-wysiwyg div img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Left aligned images */
+.jodit-wysiwyg p[style*="text-align: left"],
+.jodit-wysiwyg div[style*="text-align: left"] {
+  text-align: left !important;
+}
+
+.jodit-wysiwyg p[style*="text-align: left"] img,
+.jodit-wysiwyg div[style*="text-align: left"] img {
+  float: left;
+  margin: 8px 16px 8px 0;
+}
+
+/* Center aligned images */
+.jodit-wysiwyg p[style*="text-align: center"],
+.jodit-wysiwyg div[style*="text-align: center"] {
+  text-align: center !important;
+  margin: 0 auto !important;
+}
+
+.jodit-wysiwyg p[style*="text-align: center"] img,
+.jodit-wysiwyg div[style*="text-align: center"] img {
+  display: inline-block;
+  margin: 8px auto;
+}
+
+/* Right aligned images */
+.jodit-wysiwyg p[style*="text-align: right"],
+.jodit-wysiwyg div[style*="text-align: right"] {
+  text-align: right !important;
+}
+
+.jodit-wysiwyg p[style*="text-align: right"] img,
+.jodit-wysiwyg div[style*="text-align: right"] img {
+  float: right;
+  margin: 8px 0 8px 16px;
+}
+
+/* Clearfix for floated elements */
+.jodit-wysiwyg p[style*="text-align"]::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
 .jodit-wysiwyg {
   caret-color: hsl(var(--foreground)) !important;
 }
@@ -143,6 +195,18 @@
 
 .jodit-ui-button:hover {
   background: hsl(var(--muted));
+}
+
+/* Hide Jodit default image properties popup COMPLETELY */
+.jodit-ui-image-properties-form,
+.jodit-ui-image-properties-form * {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');

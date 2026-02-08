@@ -1,6 +1,5 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from "react";
 import JoditEditor from "jodit-react";
-import { Jodit } from "jodit-react";
 import { cn } from "@/lib/utils";
 import { VideoUploadDropzone } from "./VideoUploadDropzone";
 import { createPortal } from "react-dom";
@@ -47,9 +46,7 @@ export const JoditEditorComponent = ({
   }, []);
 
   useEffect(() => {
-    console.log("JoditEditorComponent: onVideoUpload", {
-      provided: typeof onVideoUpload === "function",
-    });
+    // Initial video upload check
   }, [onVideoUpload]);
 
   // Jodit ref becomes available asynchronously; stash the instance in state so effects run reliably.
@@ -102,9 +99,104 @@ export const JoditEditorComponent = ({
     editorArea.addEventListener("mouseover", handleMouseOver);
     editorArea.addEventListener("mouseout", handleMouseOut);
 
+    // Disable Jodit popup on media element click
+    const handleMediaClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("img, video, iframe")) {
+        // Prevent Jodit's default popup behavior
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+
+    const handleMediaMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("img, video, iframe")) {
+        // Prevent popup on mousedown as well
+        e.stopPropagation();
+      }
+    };
+
+    editorArea.addEventListener("click", handleMediaClick);
+    editorArea.addEventListener("mousedown", handleMediaMouseDown);
+
+    // Disable Jodit popup by intercepting window events
+    const handleWindowPopup = (e: any) => {
+      // Check if this is Jodit popup creation
+      if (e.detail && e.detail.args && Array.isArray(e.detail.args)) {
+        const args = e.detail.args;
+        // Check if popup is being created for image/video/iframe
+        const hasImagePopup = args.some((arg: any) => 
+          arg && typeof arg === 'object' && 
+          (arg.img !== undefined || arg.tag === 'IMG' || arg.nodeName === 'IMG')
+        );
+        if (hasImagePopup) {
+          e.stopImmediatePropagation();
+        }
+      }
+    };
+
+    // Use MutationObserver to hide any Jodit popups that appear (except our custom media-delete-overlay)
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            const el = node as Element;
+            // Check for Jodit popup classes, but NOT our custom media-delete-overlay
+            if ((el.classList?.contains('jodit-popup') || 
+                 el.querySelector?.('.jodit-popup__content')) &&
+                !el.classList?.contains('media-delete-overlay')) {
+              console.log("[Jodit] Found Jodit popup node, hiding it");
+              el.remove();
+            }
+          }
+        });
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Also use interval to catch any popups that might be created in shadow DOM or with different classes
+    const intervalId = setInterval(() => {
+      // Since Jodit popup is in shadow DOM, we can't access it directly
+      // This interval is kept for any regular DOM elements
+    }, 100); // Check every 100ms
+    
+    // Intercept clicks at window level to prevent Jodit popup from showing
+    const handleWindowEvent = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Handle both mouse and touch events
+      let img = null;
+      if (e.type === 'touchstart' || e.type === 'touchend') {
+        const touch = (e as TouchEvent).touches?.[0] || (e as TouchEvent).changedTouches?.[0];
+        if (touch) {
+          img = document.elementFromPoint(touch.clientX, touch.clientY);
+        }
+      } else {
+        img = target.closest('img');
+      }
+      
+      if (img && img.closest('.jodit-wysiwyg')) {
+        // Can't prevent default easily from here, but we can track it
+      }
+    };
+    
+    window.addEventListener('click', handleWindowEvent);
+    window.addEventListener('mousedown', handleWindowEvent);
+
     return () => {
       editorArea.removeEventListener("mouseover", handleMouseOver);
       editorArea.removeEventListener("mouseout", handleMouseOut);
+      editorArea.removeEventListener("click", handleMediaClick);
+      editorArea.removeEventListener("mousedown", handleMediaMouseDown);
+      observer.disconnect();
+      clearInterval(intervalId);
+      window.removeEventListener('click', handleWindowEvent);
+      window.removeEventListener('mousedown', handleWindowEvent);
     };
   }, [editorInstance, updateDeleteButtonPosition]);
 
@@ -145,72 +237,61 @@ export const JoditEditorComponent = ({
     const editor = editorRef.current?.editor;
     if (!editor) return;
 
-    console.log("handleAlignMedia", {
-      align,
-      tagName: hoveredMedia.tagName,
-      id: hoveredMedia.id,
-      className: hoveredMedia.className,
-      currentStyles: {
-        width: hoveredMedia.style.width,
-        display: hoveredMedia.style.display,
-        marginLeft: hoveredMedia.style.marginLeft,
-        marginRight: hoveredMedia.style.marginRight,
-        textAlign: hoveredMedia.style.textAlign,
-      }
-    });
-
     // Get the actual media element (not a wrapper)
     const actualMedia = hoveredMedia.tagName === "IMG" || hoveredMedia.tagName === "VIDEO" || hoveredMedia.tagName === "IFRAME" 
       ? hoveredMedia 
       : hoveredMedia.querySelector("img, video, iframe") as HTMLElement;
 
-    if (!actualMedia) {
-      console.error("Could not find actual media element");
-      return;
-    }
+    if (!actualMedia) return;
 
-    console.log("Working with element:", {
-      tagName: actualMedia.tagName,
-      isCorrectElement: actualMedia === hoveredMedia
-    });
-
-    // Clear any text-align from parent elements that might interfere
-    actualMedia.style.textAlign = "";
+    // Strategy: Wrap image in a <p> block with text-align for reliable centering
+    let wrapper = actualMedia.parentElement;
     
-    // Ensure block display for alignment to work
-    actualMedia.style.display = "block";
-    actualMedia.style.float = "none";
-
-    switch (align) {
-      case "left":
+    // Check if already wrapped in a suitable block element
+    const isAlreadyWrapped = wrapper && (wrapper.tagName === "P" || wrapper.tagName === "DIV") && wrapper.contains(actualMedia);
+    
+    if (!isAlreadyWrapped) {
+      // Create a new wrapper paragraph for the image
+      const newWrapper = editor.create.element("p");
+      newWrapper.style.textAlign = align;
+      newWrapper.style.margin = "0 auto";
+      newWrapper.style.padding = "8px 0";
+      
+      // Insert wrapper before the media element and move media into it
+      actualMedia.parentNode?.insertBefore(newWrapper, actualMedia);
+      newWrapper.appendChild(actualMedia);
+      wrapper = newWrapper;
+    } else {
+      // Update existing wrapper's text-align
+      wrapper.style.textAlign = align;
+      
+      // Reset margin for centered alignment
+      if (align === "center") {
+        wrapper.style.margin = "0 auto";
+        actualMedia.style.marginLeft = "auto";
+        actualMedia.style.marginRight = "auto";
+      } else if (align === "left") {
+        wrapper.style.margin = "0";
         actualMedia.style.marginLeft = "0";
         actualMedia.style.marginRight = "auto";
-        break;
-      case "center":
-        // For centering: ensure element has reasonable width if it's too wide
-        const currentWidth = actualMedia.style.width;
-        if (!currentWidth || currentWidth === "100%" || currentWidth === "auto") {
-          console.log("Setting width to 60% for centering");
-          actualMedia.style.width = "60%";
-          actualMedia.style.height = "auto";
-        }
-        actualMedia.style.marginLeft = "auto";
-        actualMedia.style.marginRight = "auto";
-        break;
-      case "right":
+      } else if (align === "right") {
+        wrapper.style.margin = "0";
         actualMedia.style.marginLeft = "auto";
         actualMedia.style.marginRight = "0";
-        break;
+      }
     }
 
-    console.log("After alignment", {
-      width: actualMedia.style.width,
-      display: actualMedia.style.display,
-      marginLeft: actualMedia.style.marginLeft,
-      marginRight: actualMedia.style.marginRight,
-      textAlign: actualMedia.style.textAlign,
-      outerHTML: actualMedia.outerHTML.substring(0, 200)
-    });
+    // For non-centered alignments, also set float on the media element
+    if (align === "left") {
+      actualMedia.style.float = "left";
+      actualMedia.style.clear = "both";
+    } else if (align === "right") {
+      actualMedia.style.float = "right";
+      actualMedia.style.clear = "both";
+    } else {
+      actualMedia.style.float = "none";
+      actualMedia.style.clear = "none";
+    }
     
     editor.synchronizeValues();
     onChange?.(editor.value);
@@ -384,64 +465,12 @@ export const JoditEditorComponent = ({
       // Custom CSS for the editor
       editorClassName: "jodit-editor-content",
       
-      // Inline popup for media elements when clicked
-      popup: {
-        img: Jodit.atom([
-          {
-            name: "bin",
-            icon: "bin",
-            tooltip: "Удалить",
-            exec: (editor: any) => {
-              const img = editor.s.current()?.closest?.("img") || editor.s.current();
-              if (img?.nodeName === "IMG") {
-                img.remove();
-                editor.synchronizeValues();
-              }
-            },
-          },
-          "pencil",
-          "|",
-          "left",
-          "center",
-          "right",
-        ]),
-        video: Jodit.atom([
-          {
-            name: "bin",
-            icon: "bin", 
-            tooltip: "Удалить видео",
-            exec: (editor: any) => {
-              const video = editor.s.current()?.closest?.("video") || editor.s.current();
-              if (video?.nodeName === "VIDEO") {
-                video.remove();
-                editor.synchronizeValues();
-              }
-            },
-          },
-          "|",
-          "left",
-          "center",
-          "right",
-        ]),
-        iframe: Jodit.atom([
-          {
-            name: "bin",
-            icon: "bin",
-            tooltip: "Удалить",
-            exec: (editor: any) => {
-              const iframe = editor.s.current()?.closest?.("iframe") || editor.s.current();
-              if (iframe?.nodeName === "IFRAME") {
-                iframe.remove();
-                editor.synchronizeValues();
-              }
-            },
-          },
-          "|",
-          "left",
-          "center",
-          "right",
-        ]),
-      },
+      // Inline popup for media elements when clicked - DISABLED
+      // popup: {
+      //   img: Jodit.atom([...]),
+      //   video: Jodit.atom([...]),
+      //   iframe: Jodit.atom([...]),
+      // },
       
       controls: {
         video: {
@@ -450,6 +479,29 @@ export const JoditEditorComponent = ({
             return false;
           },
           tooltip: "Вставить видео",
+        },
+      },
+      
+      // Events to block default popup behavior
+      events: {
+        beforeOpenPopup: (editor: any, popupType: string, ...args: any[]) => {
+          // Block popup for images
+          if (popupType === 'image' || 
+              popupType === 'Image' || 
+              popupType === 'single-image' ||
+              popupType === 'imageProperties' ||
+              popupType === 'image-properties' ||
+              String(popupType).toLowerCase().includes('image')) {
+            return false; // Block this popup
+          }
+        },
+        'openPopup.popup': (editor: any) => {
+          // Try to close any popup that opens
+          setTimeout(() => {
+            if (editor.popup && typeof editor.popup.close === 'function') {
+              editor.popup.close();
+            }
+          }, 0);
         },
       },
     }),
@@ -492,7 +544,7 @@ export const JoditEditorComponent = ({
       {/* Media overlay toolbar */}
       {hoveredMedia && (
         <div
-          className="media-delete-overlay absolute z-50 flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border rounded-lg shadow-lg p-1"
+          className="media-delete-overlay jodit-popup absolute z-50 flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border rounded-lg shadow-lg p-1"
           style={{
             top: deleteButtonPos.top,
             left: deleteButtonPos.left,
