@@ -348,12 +348,12 @@ const Index = () => {
           ) : categories.length === 0 ? (
             <p className="text-muted-foreground">Нет категорий с товарами</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-wrap gap-3">
               {categories.map((category) => (
                 <Link
                   key={category.id}
                   to={`/category/${category.id}`}
-                  className="flex flex-col items-center p-2 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
+                  className="flex flex-col items-center p-2 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors w-[140px] shrink-0"
                 >
                   <div className="w-full aspect-square rounded-md overflow-hidden mb-2">
                     <img
