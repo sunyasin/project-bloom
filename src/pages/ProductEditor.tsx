@@ -13,6 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import { cn } from "@/lib/utils";
+import { ProductDetailsDialog } from "@/components/ProductDetailsDialog";
+import type { User } from "@supabase/supabase-js";
 import {
   Save,
   ArrowLeft,
@@ -45,12 +47,12 @@ interface ProductFormData {
   galleryUrls: string[];
   content: string;
   categoryId: string;
-  businessCardId: string; // Если пустая строка - товар для всех визиток
+  businessCardId: string;
   saleType: ProductSaleType;
   coinPrice: number | null;
 }
 
-// Валидация файла изображения (для будущего Storage)
+// Валидация файла изображения
 const validateProductImage = (file: File): { valid: boolean; error?: string } => {
   const maxSize = 5 * 1024 * 1024;
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -64,15 +66,9 @@ const validateProductImage = (file: File): { valid: boolean; error?: string } =>
   return { valid: true };
 };
 
-// Проверка URL на blob (нельзя сохранять в БД)
+// Проверка URL на blob
 const isBlobUrl = (url: string): boolean => {
   return url.startsWith('blob:');
-};
-
-// Данные для предпросмотра
-const mockAPIProductPreviewData = {
-  producerName: "Фермерское хозяйство «Заря»",
-  phone: "+7 (999) 123-45-67",
 };
 
 
@@ -83,6 +79,35 @@ const ProductEditor = () => {
   const { getProduct, createProduct, updateProduct } = useProducts();
   const isNew = id === "new";
 
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check auth on mount
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const isAuth = !!session?.user;
+      setIsAuthenticated(isAuth);
+      setCurrentUser(session?.user ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session?.user);
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // State for public product view
+  const [publicProductOpen, setPublicProductOpen] = useState(false);
+  const [businessInfo, setBusinessInfo] = useState<{
+    businessId: string;
+    businessName: string;
+    ownerId: string;
+    phone: string;
+  } | null>(null);
+
   const [productData, setProductData] = useState<ProductFormData>({
     name: "",
     description: "",
@@ -92,7 +117,7 @@ const ProductEditor = () => {
     galleryUrls: [],
     content: "",
     categoryId: "",
-    businessCardId: "", // Пустая строка = товар для всех визиток
+    businessCardId: "",
     saleType: "sell_only",
     coinPrice: null,
   });
@@ -269,6 +294,53 @@ const ProductEditor = () => {
     }
   };
 
+  // Load business info for public view
+  const loadBusinessInfo = async (producerId: string, businessCardId: string | null) => {
+    try {
+      let businessData;
+
+      if (businessCardId) {
+        // Get specific business card
+        const { data } = await supabase
+          .from("businesses")
+          .select("id, name, owner_id, content_json")
+          .eq("id", businessCardId)
+          .eq("status", "published")
+          .maybeSingle();
+        businessData = data;
+      } else {
+        // Get any published business for producer
+        const { data } = await supabase
+          .from("businesses")
+          .select("id, name, owner_id, content_json")
+          .eq("owner_id", producerId)
+          .eq("status", "published")
+          .maybeSingle();
+        businessData = data;
+      }
+
+      if (businessData) {
+        const contentJson = (businessData.content_json as Record<string, unknown>) || {};
+        setBusinessInfo({
+          businessId: businessData.id,
+          businessName: businessData.name,
+          ownerId: businessData.owner_id,
+          phone: (contentJson.phone as string) || "",
+        });
+      } else {
+        // Fallback: just use producer_id as owner
+        setBusinessInfo({
+          businessId: producerId,
+          businessName: "Производитель",
+          ownerId: producerId,
+          phone: "",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading business info:", error);
+    }
+  };
+
   // Загрузка данных товара при редактировании
   useEffect(() => {
     const loadProductData = async () => {
@@ -278,7 +350,6 @@ const ProductEditor = () => {
           const data = await getProduct(id);
           if (data) {
             let imageUrl = data.image_url || "";
-            // Проверка на blob URL - очищаем если найден
             if (isBlobUrl(imageUrl)) {
               imageUrl = "";
             }
@@ -296,6 +367,14 @@ const ProductEditor = () => {
               coinPrice: (data as any).coin_price || null,
             });
             setProductId(data.id);
+
+            // Load business info for public view
+            await loadBusinessInfo(data.producer_id, data.business_card_id);
+
+            // If not authenticated, show public dialog immediately
+            if (!isAuthenticated) {
+              setPublicProductOpen(true);
+            }
           } else {
             toast({
               title: "Ошибка",
@@ -319,14 +398,14 @@ const ProductEditor = () => {
     };
 
     loadProductData();
-  }, [id, navigate, toast, getProduct]);
+  }, [id, navigate, toast, getProduct, isAuthenticated]);
 
   const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
     setProductData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Фоновый вызов уведомлений (с обработкой ошибок)
- const triggerNotifications = async () => {
+  // Фоновый вызов уведомлений
+  const triggerNotifications = async () => {
     try {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -355,7 +434,6 @@ const ProductEditor = () => {
       return;
     }
 
-    // Проверка на blob URL перед сохранением
     if (isBlobUrl(productData.image)) {
       toast({
         title: "Ошибка изображения",
@@ -378,7 +456,6 @@ const ProductEditor = () => {
         content: productData.content,
         sale_type: productData.saleType,
         coin_price: productData.saleType === "barter_coin" ? productData.coinPrice : null,
-        // business_card_id: null если товар для всех визиток, иначе ID визитки
         business_card_id: productData.businessCardId || null,
       };
 
@@ -386,13 +463,11 @@ const ProductEditor = () => {
         const newProduct = await createProduct(saveData);
         if (newProduct) {
           setProductId(newProduct.id);
-          // Запускаем фоновую обработку уведомлений
           triggerNotifications();
           navigate(`/dashboard/product/${newProduct.id}`, { replace: true });
         }
       } else {
         await updateProduct(productId, saveData);
-        // Запускаем фоновую обработку уведомлений
         triggerNotifications();
       }
     } catch (error) {
@@ -439,7 +514,6 @@ const ProductEditor = () => {
 
     setIsUploading(true);
     try {
-      // Get current user
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         toast({
@@ -450,16 +524,13 @@ const ProductEditor = () => {
         return;
       }
 
-      // Delete old image if exists
       if (productData.image) {
         await deleteImageFromStorage(productData.image);
       }
 
-      // Generate unique filename
       const fileExt = file.name.split(".").pop();
       const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("product-images")
         .upload(fileName, file, { upsert: true });
@@ -468,7 +539,6 @@ const ProductEditor = () => {
         throw uploadError;
       }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from("product-images")
         .getPublicUrl(fileName);
@@ -499,9 +569,7 @@ const ProductEditor = () => {
 
   const handleDeleteImage = async () => {
     if (productData.image) {
-      // Delete from Storage
       await deleteImageFromStorage(productData.image);
-      
       updateField("image", "");
       toast({
         title: "Удалено",
@@ -549,7 +617,6 @@ const ProductEditor = () => {
 
       setProductData(prev => {
         const newGallery = [...prev.galleryUrls, publicUrl];
-        // If main image is empty, use first gallery image
         const newImage = !prev.image && newGallery.length > 0 ? newGallery[0] : prev.image;
         return {
           ...prev,
@@ -624,6 +691,39 @@ const ProductEditor = () => {
     }
   };
 
+  // Prepare product for public dialog
+  const publicProduct = businessInfo ? {
+    id: productId || "",
+    name: productData.name,
+    image: productData.image,
+    price: productData.price ? `${productData.price} ₽/${productData.unit}` : "Цена по запросу",
+    rawPrice: productData.price,
+    coinPrice: productData.coinPrice,
+    saleType: productData.saleType,
+    description: productData.description,
+    content: productData.content,
+    unit: productData.unit,
+    galleryUrls: productData.galleryUrls,
+  } : null;
+
+  // Show public product dialog for non-authenticated users
+  if (!isAuthenticated && !isNew && publicProduct && businessInfo) {
+    return (
+      <MainLayout>
+        <ProductDetailsDialog
+          open={publicProductOpen}
+          onOpenChange={setPublicProductOpen}
+          product={publicProduct}
+          businessId={businessInfo.businessId}
+          businessName={businessInfo.businessName}
+          ownerId={businessInfo.ownerId}
+          currentUser={currentUser}
+          orderPhone=""
+        />
+      </MainLayout>
+    );
+  }
+
   if (isDataLoading) {
     return (
       <MainLayout>
@@ -646,7 +746,9 @@ const ProductEditor = () => {
             <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-bold text-foreground">{isNew ? "Создание товара" : "Редактирование товара"}</h1>
+            <h1 className="text-xl font-bold text-foreground">
+              {isNew ? "Создание товара" : "Редактирование товара"}
+            </h1>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setPreviewOpen(true)}>
@@ -872,7 +974,7 @@ const ProductEditor = () => {
               </label>
             </div>
 
-            {/* Coin Price Input - shown when barter_coin selected */}
+            {/* Coin Price Input */}
             {productData.saleType === "barter_coin" && (
               <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
                 <label className="text-sm font-medium text-foreground mb-2 block">
@@ -1062,8 +1164,8 @@ const ProductEditor = () => {
             </div>
 
             <div className="text-sm text-muted-foreground">
-              <p>Производитель: {mockAPIProductPreviewData.producerName}</p>
-              <p>Телефон: {mockAPIProductPreviewData.phone}</p>
+              <p>Производитель: Фермерское хозяйство «Заря»</p>
+              <p>Телефон: +7 (999) 123-45-67</p>
             </div>
 
             {productData.content && (

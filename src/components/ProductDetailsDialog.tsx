@@ -70,10 +70,11 @@ export const ProductDetailsDialog = ({
   const hasBarter = product.saleType === "barter_goods" || product.saleType === "barter_coin";
 
   const handleOrder = async () => {
-    if (!currentUser) {
+    // Check phone for non-authenticated users
+    if (!currentUser && !phone.trim()) {
       toast({
-        title: "Требуется авторизация",
-        description: "Войдите в аккаунт для заказа",
+        title: "Введите телефон",
+        description: "Укажите номер телефона для оформления заказа",
         variant: "destructive",
       });
       return;
@@ -87,7 +88,7 @@ export const ProductDetailsDialog = ({
 Телефон: ${phone || "не указан"}`;
 
     const { error } = await supabase.from("messages").insert({
-      from_id: currentUser.id,
+      from_id: currentUser?.id || null,
       to_id: ownerId,
       message,
       type: "order" as const,
@@ -339,7 +340,6 @@ ${questionText}`;
             <Button
               onClick={handleOrder}
               disabled={isSubmitting || !currentUser}
-              title={!currentUser ? "Войдите для заказа" : undefined}
             >
               <ShoppingCart className="h-4 w-4 mr-2" />
               {isSubmitting ? "Отправка..." : "Заказать"}
