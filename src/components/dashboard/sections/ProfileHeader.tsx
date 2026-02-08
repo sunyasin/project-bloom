@@ -1,15 +1,14 @@
 import { User, Wallet, MessageCircle, Pencil, Repeat } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import type { ProfileFormData } from "../types/dashboard-types";
 
 interface ProfileHeaderProps {
   formData: ProfileFormData;
   userRoles?: string[];
-  unreadCount: number;
   exchangeCount: number;
   walletBalance: number;
   onOpenWallet: () => void;
-  onOpenMessages: () => void;
   onOpenEdit: () => void;
   onOpenExchangeRequests: () => void;
 }
@@ -17,14 +16,14 @@ interface ProfileHeaderProps {
 export function ProfileHeader({
   formData,
   userRoles,
-  unreadCount,
   exchangeCount,
   walletBalance,
   onOpenWallet,
-  onOpenMessages,
   onOpenEdit,
   onOpenExchangeRequests,
 }: ProfileHeaderProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="content-card">
       <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -61,16 +60,10 @@ export function ProfileHeader({
             <Wallet className="h-4 w-4 mr-1" />
             Кошелёк ({walletBalance})
           </Button>
-          <Button variant="outline" size="sm" onClick={onOpenMessages}>
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/messages")}>
             <MessageCircle className="h-4 w-4 mr-1" />
             Сообщения
-            {unreadCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground rounded-full">
-                {unreadCount}
-              </span>
-            )}
           </Button>
-
         </div>
       </div>
     </div>

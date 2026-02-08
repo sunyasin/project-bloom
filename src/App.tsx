@@ -26,6 +26,7 @@ import AdminCategories from "./pages/AdminCategories";
 import ModeratorAdmin from "./pages/ModeratorAdmin";
 import Barter from "./pages/Barter";
 import NotFound from "./pages/NotFound";
+import Messenger from "./pages/Messenger";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const App = () => (
           
           {/* User dashboard */}
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/messages" element={<Messenger />} />
           <Route path="/dashboard/profile" element={<ProducerProfile />} />
           <Route path="/dashboard/business-card/:id" element={<BusinessCardEditor />} />
           <Route path="/dashboard/product/:id" element={<ProductEditor />} />

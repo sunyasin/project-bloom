@@ -18,7 +18,6 @@ import { BusinessCardsSection } from "@/components/dashboard/sections/BusinessCa
 import { ProductsSection } from "@/components/dashboard/sections/ProductsSection";
 import { PromotionsSection } from "@/components/dashboard/sections/PromotionsSection";
 import { NewsSection } from "@/components/dashboard/sections/NewsSection";
-import { MessagesDialog } from "@/components/dashboard/dialogs/MessagesDialog";
 import { WalletDialog } from "@/components/dashboard/dialogs/WalletDialog";
 import { EditProfileDialog } from "@/components/dashboard/dialogs/EditProfileDialog";
 import { PromotionDialog } from "@/components/dashboard/dialogs/PromotionDialog";
@@ -28,8 +27,6 @@ import { NewsDialog } from "@/components/dashboard/dialogs/NewsDialog";
 import type {
   ProfileData,
   ProfileFormData,
-  MessageWithSender,
-  MessageTypeFilter,
   TransactionHistoryItem,
   TransactionViewMode,
   UserOption,
@@ -110,11 +107,6 @@ const Dashboard = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Load messages on mount
-  useEffect(() => {
-    loadMessages();
-  }, [user?.id]);
 
   // Open profile dialog for new users
   useEffect(() => {
@@ -210,21 +202,7 @@ const Dashboard = () => {
     event_date: "",
   });
 
-  // Messages state
-  const [isMessagesDialogOpen, setIsMessagesDialogOpen] = useState(false);
-  const [messages, setMessages] = useState<MessageWithSender[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [unreadCountByType, setUnreadCountByType] = useState<Record<MessageTypeFilter, number>>({
-    all: 0,
-    admin_status: 0,
-    from_admin: 0,
-    chat: 0,
-    exchange: 0,
-    income: 0,
-    coin_request: 0,
-    order: 0,
-  });
+  // Messages state - removed, now on separate page
 
   // Wallet state
   const [walletBalance, setWalletBalance] = useState(0);
@@ -583,115 +561,6 @@ const Dashboard = () => {
     setIsNewsDialogOpen(false);
   };
 
-  // Messages handlers
-  const loadMessages = async () => {
-    if (!user?.id) return;
-    setMessagesLoading(true);
-
-    const { data: messagesData, error } = await supabase
-      .from("messages")
-      .select("*")
-      .or(`to_id.eq.${user.id},from_id.eq.${user.id}`)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("Error loading messages:", error);
-      setMessagesLoading(false);
-      return;
-    }
-
-    const userIds = [...new Set((messagesData || []).flatMap((m) => [m.from_id, m.to_id]))];
-
-    let profilesMap: Record<string, { name: string; email: string }> = {};
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase.from("profiles").select("user_id, first_name, last_name, email").in("user_id", userIds);
-
-      if (profiles) {
-        profilesMap = profiles.reduce((acc, p) => {
-          acc[p.user_id] = {
-            name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Без имени",
-            email: p.email || "",
-          };
-          return acc;
-        }, {} as Record<string, { name: string; email: string }>);
-      }
-    }
-
-    const messagesWithSender: MessageWithSender[] = (messagesData || []).map((m) => ({
-      ...m,
-      senderName: profilesMap[m.from_id]?.name || "Неизвестный",
-      senderEmail: profilesMap[m.from_id]?.email || "",
-      reply_to: m.reply_to || null,
-    }));
-
-    setMessages(messagesWithSender);
-    setMessagesLoading(false);
-  };
-
-  const handleOpenMessagesDialog = async () => {
-    setIsMessagesDialogOpen(true);
-    await loadMessages();
-  };
-
-  const handleSendReply = async (message: MessageWithSender, text: string) => {
-    if (!text?.trim() || !user?.id) return;
-
-    const recipientId = message.from_id === user.id ? message.to_id : message.from_id;
-
-    const { error } = await supabase.from("messages").insert({
-      from_id: user.id,
-      to_id: recipientId,
-      message: text.trim(),
-      type: "chat" as const,
-      reply_to: message.id,
-    });
-
-    if (error) {
-      toast({ title: "Ошибка", description: "Не удалось отправить сообщение", variant: "destructive" });
-    } else {
-      toast({ title: "Ответ отправлен", description: "Сообщение отправлено" });
-      await loadMessages();
-    }
-  };
-
-  const handleDeleteMessages = async (ids: number[]) => {
-    const { error } = await supabase.from("messages").update({ type: "deleted" as const }).in("id", ids);
-
-    if (error) {
-      toast({ title: "Ошибка", description: "Не удалось удалить сообщение(я)", variant: "destructive" });
-    } else {
-      toast({ title: "Удалено", description: "Сообщение(я) удалено(ы)" });
-      await loadMessages();
-    }
-  };
-
-  // Update unread counts
-  useEffect(() => {
-    if (user?.id) {
-      const totalCount = messages.filter((m) => m.to_id === user.id && !m.is_read).length;
-      setUnreadCount(totalCount);
-
-      const byType: Record<MessageTypeFilter, number> = {
-        all: 0,
-        admin_status: 0,
-        from_admin: 0,
-        chat: 0,
-        exchange: 0,
-        income: 0,
-        coin_request: 0,
-        order: 0,
-      };
-
-      messages.filter((m) => m.to_id === user.id && !m.is_read).forEach((m) => {
-        if (m.type in byType) {
-          byType[m.type as MessageTypeFilter]++;
-        }
-      });
-
-      setUnreadCountByType(byType);
-    }
-  }, [messages, user?.id]);
-
   // Wallet handlers
   const openWalletDialog = async () => {
     setAllUsers([]);
@@ -866,11 +735,9 @@ const Dashboard = () => {
         <ProfileHeader
           formData={formData}
           userRoles={user?.roles}
-          unreadCount={unreadCount}
           exchangeCount={exchangeCount}
           walletBalance={walletBalance}
           onOpenWallet={openWalletDialog}
-          onOpenMessages={handleOpenMessagesDialog}
           onOpenEdit={handleOpenEditDialog}
           onOpenExchangeRequests={handleOpenExchangeRequests}
         />
@@ -943,20 +810,6 @@ const Dashboard = () => {
         />
 
         {/* Dialogs */}
-        <MessagesDialog
-          open={isMessagesDialogOpen}
-          onOpenChange={setIsMessagesDialogOpen}
-          messages={messages}
-          loading={messagesLoading}
-          unreadCount={unreadCount}
-          unreadCountByType={unreadCountByType}
-          onLoadMessages={loadMessages}
-          onSendReply={handleSendReply}
-          onDeleteMessages={handleDeleteMessages}
-          currentUserId={user?.id || ""}
-          userRoles={user?.roles}
-        />
-
         <WalletDialog
           open={walletDialogOpen}
           onOpenChange={setWalletDialogOpen}
