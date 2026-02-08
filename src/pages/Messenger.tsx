@@ -197,9 +197,10 @@ export function Messenger() {
         });
 
         chains.sort((a, b) => {
-          const aLatest = a[a.length - 1];
-          const bLatest = b[b.length - 1];
-          return new Date(bLatest.created_at).getTime() - new Date(aLatest.created_at).getTime();
+          // Сортируем по дате первого сообщения в цепочке (исходного)
+          const aFirst = a[0];
+          const bFirst = b[0];
+          return new Date(aFirst.created_at).getTime() - new Date(bFirst.created_at).getTime();
         });
 
         return {
@@ -211,7 +212,7 @@ export function Messenger() {
           latestMessage: latestMsg,
         };
       })
-      .sort((a, b) => new Date(b.latestMessage.created_at).getTime() - new Date(a.latestMessage.created_at).getTime());
+      .sort((a, b) => new Date(a.latestMessage.created_at).getTime() - new Date(b.latestMessage.created_at).getTime());
   };
 
   const conversationThreads = getConversationThreads();
