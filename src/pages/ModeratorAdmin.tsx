@@ -4,12 +4,15 @@ import {
   Eye,
   RefreshCw,
   Send,
+  MapPin,
+  Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Business = Tables<"businesses">;
@@ -27,16 +31,29 @@ interface BusinessWithOwner extends Business {
   ownerName?: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 const ModeratorContent = () => {
   const { toast } = useToast();
   const { user: currentUser } = useCurrentUserWithRole();
   const [businesses, setBusinesses] = useState<BusinessWithOwner[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithOwner | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [decision, setDecision] = useState<"approve" | "revise">("approve");
   const [reviseComment, setReviseComment] = useState("");
   const [processing, setProcessing] = useState(false);
+  
+  // Editing states
+  const [editedDescription, setEditedDescription] = useState("");
+  const [editedCategory, setEditedCategory] = useState("");
+  const [editedNewCategory, setEditedNewCategory] = useState("");
+  const [editedCity, setEditedCity] = useState("");
+  const [editedAddress, setEditedAddress] = useState("");
 
   const loadBusinesses = async () => {
     setLoading(true);
@@ -83,8 +100,20 @@ const ModeratorContent = () => {
     setLoading(false);
   };
 
+  const loadCategories = async () => {
+    const { data } = await supabase
+      .from("categories")
+      .select("id, name")
+      .order("name", { ascending: true });
+    
+    if (data) {
+      setCategories(data);
+    }
+  };
+
   useEffect(() => {
     loadBusinesses();
+    loadCategories();
   }, []);
 
   // Send notification to business owner
@@ -107,26 +136,78 @@ const ModeratorContent = () => {
     }
   };
 
-  const handlePublish = async (business: BusinessWithOwner) => {
+  const handlePublish = async () => {
+    if (!selectedBusiness) return;
     setProcessing(true);
     
+    // Determine final category
+    let finalCategory = editedCategory;
+    let categoryId: string | null = null;
+    
+    if (editedCategory === "__other__" && editedNewCategory.trim()) {
+      // Check if category already exists
+      const existingCat = categories.find(c => c.name.toLowerCase() === editedNewCategory.trim().toLowerCase());
+      if (existingCat) {
+        finalCategory = existingCat.name;
+        categoryId = existingCat.id;
+      } else {
+        // Create new category
+        const { data: newCat, error: catError } = await supabase
+          .from("categories")
+          .insert({
+            name: editedNewCategory.trim(),
+            icon: "Tag",
+            count: 0,
+            position: categories.length + 1,
+            is_hidden: false,
+          })
+          .select("id, name")
+          .single();
+        
+        if (catError) {
+          toast({ title: "Ошибка", description: "Не удалось создать категорию", variant: "destructive" });
+          setProcessing(false);
+          return;
+        }
+        
+        finalCategory = newCat.name;
+        categoryId = newCat.id;
+        // Refresh categories list
+        loadCategories();
+      }
+    } else {
+      // Find category_id for selected category
+      const existingCat = categories.find(c => c.name === editedCategory);
+      categoryId = existingCat?.id || null;
+    }
+
     const { error } = await supabase
       .from("businesses")
-      .update({ status: "published" })
-      .eq("id", business.id);
+      .update({ 
+        status: "published",
+        category: finalCategory,
+        category_id: categoryId,
+        city: editedCity,
+        location: editedAddress,
+        content_json: {
+          ...(selectedBusiness.content_json as object || {}),
+          description: editedDescription,
+        }
+      })
+      .eq("id", selectedBusiness.id);
     
     if (error) {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     } else {
       // Send notification to owner
-      if (business.owner_id) {
+      if (selectedBusiness.owner_id) {
         await sendNotification(
-          business.owner_id,
-          `✅ Ваша визитка "${business.name}" успешно прошла модерацию и опубликована!`
+          selectedBusiness.owner_id,
+          `✅ Ваша визитка "${selectedBusiness.name}" успешно прошла модерацию и опубликована!`
         );
       }
       
-      toast({ title: "Успешно", description: `Визитка "${business.name}" опубликована` });
+      toast({ title: "Успешно", description: `Визитка "${selectedBusiness.name}" опубликована` });
       setPreviewOpen(false);
       setSelectedBusiness(null);
       loadBusinesses();
@@ -144,13 +225,59 @@ const ModeratorContent = () => {
     
     setProcessing(true);
     
+    // Determine final category
+    let finalCategory = editedCategory;
+    let categoryId: string | null = null;
+    
+    if (editedCategory === "__other__" && editedNewCategory.trim()) {
+      // Check if category already exists
+      const existingCat = categories.find(c => c.name.toLowerCase() === editedNewCategory.trim().toLowerCase());
+      if (existingCat) {
+        finalCategory = existingCat.name;
+        categoryId = existingCat.id;
+      } else {
+        // Create new category
+        const { data: newCat, error: catError } = await supabase
+          .from("categories")
+          .insert({
+            name: editedNewCategory.trim(),
+            icon: "Tag",
+            count: 0,
+            position: categories.length + 1,
+            is_hidden: false,
+          })
+          .select("id, name")
+          .single();
+        
+        if (catError) {
+          toast({ title: "Ошибка", description: "Не удалось создать категорию", variant: "destructive" });
+          setProcessing(false);
+          return;
+        }
+        
+        finalCategory = newCat.name;
+        categoryId = newCat.id;
+        // Refresh categories list
+        loadCategories();
+      }
+    } else {
+      // Find category_id for selected category
+      const existingCat = categories.find(c => c.name === editedCategory);
+      categoryId = existingCat?.id || null;
+    }
+
     // Update status to draft (pending for revision)
     const { error } = await supabase
       .from("businesses")
       .update({ 
         status: "draft",
+        category: finalCategory,
+        category_id: categoryId,
+        city: editedCity,
+        location: editedAddress,
         content_json: {
           ...(selectedBusiness.content_json as object || {}),
+          description: editedDescription,
           moderator_comment: reviseComment,
           rejected_at: new Date().toISOString(),
         }
@@ -183,7 +310,7 @@ const ModeratorContent = () => {
     if (!selectedBusiness) return;
     
     if (decision === "approve") {
-      await handlePublish(selectedBusiness);
+      await handlePublish();
     } else {
       await handleRevise();
     }
@@ -193,6 +320,15 @@ const ModeratorContent = () => {
     setSelectedBusiness(business);
     setDecision("approve");
     setReviseComment("");
+    
+    // Initialize editing states
+    const content = selectedBusiness.content_json as { description?: string } | null;
+    setEditedDescription(content?.description || "");
+    setEditedCategory(business.category || "");
+    setEditedNewCategory("");
+    setEditedCity(business.city || "");
+    setEditedAddress(business.location || "");
+    
     setPreviewOpen(true);
   };
 
@@ -216,6 +352,8 @@ const ModeratorContent = () => {
     const content = business.content_json as { image?: string } | null;
     return content?.image || null;
   };
+
+  const isCategoryOther = editedCategory === "__other__";
 
   return (
     <div className="min-h-screen bg-background">
@@ -321,24 +459,90 @@ const ModeratorContent = () => {
           
           {selectedBusiness && (
             <div className="space-y-4">
-              {/* Main Image */}
+              {/* Logo Image */}
               {getContentImage(selectedBusiness) ? (
-                <img 
-                  src={getContentImage(selectedBusiness)!}
-                  alt={selectedBusiness.name}
-                  className="w-full h-48 object-cover rounded-lg"
-                />
+                <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={getContentImage(selectedBusiness)!}
+                    alt={selectedBusiness.name}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               ) : (
                 <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
                   <Building2 className="h-12 w-12 text-muted-foreground" />
                 </div>
               )}
               
-              {/* Name + Category on one line */}
-              <div className="flex items-center gap-4">
-                <h3 className="text-lg font-semibold">{selectedBusiness.name}</h3>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground">{selectedBusiness.category || "Без категории"}</span>
+              {/* Name */}
+              <div>
+                <Label>Название</Label>
+                <p className="text-lg font-semibold">{selectedBusiness.name}</p>
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label>Описание</Label>
+                <Textarea
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  placeholder="Описание визитки..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <Label>Категория</Label>
+                <Select value={editedCategory} onValueChange={setEditedCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите категорию" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__other__">Другая</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isCategoryOther && (
+                  <Input
+                    placeholder="Введите название новой категории..."
+                    value={editedNewCategory}
+                    onChange={(e) => setEditedNewCategory(e.target.value)}
+                    className="mt-2"
+                  />
+                )}
+              </div>
+
+              {/* City */}
+              <div>
+                <Label>Город</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Город..."
+                    value={editedCity}
+                    onChange={(e) => setEditedCity(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <Label>Адрес</Label>
+                <div className="relative">
+                  <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Адрес..."
+                    value={editedAddress}
+                    onChange={(e) => setEditedAddress(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
 
               {/* HTML Content Preview */}
@@ -385,7 +589,7 @@ const ModeratorContent = () => {
                   className="w-full"
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  Отправить
+                  {decision === "approve" ? "Опубликовать" : "Отправить на доработку"}
                 </Button>
               </div>
             </div>
