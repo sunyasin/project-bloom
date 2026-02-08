@@ -244,6 +244,7 @@ export type Database = {
           id: number
           is_read: boolean
           message: string
+          notification_sent_status: string | null
           reply_to: number | null
           to_id: string
           type: Database["public"]["Enums"]["message_type"]
@@ -254,6 +255,7 @@ export type Database = {
           id?: number
           is_read?: boolean
           message: string
+          notification_sent_status?: string | null
           reply_to?: number | null
           to_id: string
           type?: Database["public"]["Enums"]["message_type"]
@@ -264,6 +266,7 @@ export type Database = {
           id?: number
           is_read?: boolean
           message?: string
+          notification_sent_status?: string | null
           reply_to?: number | null
           to_id?: string
           type?: Database["public"]["Enums"]["message_type"]
@@ -327,10 +330,12 @@ export type Database = {
           last_sent_at: string | null
           send_categories: string[] | null
           send_common: boolean
+          send_messages: boolean
           send_profiles: string[] | null
           subscribed_at: string
           telegram_chat_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -341,10 +346,12 @@ export type Database = {
           last_sent_at?: string | null
           send_categories?: string[] | null
           send_common?: boolean
+          send_messages?: boolean
           send_profiles?: string[] | null
           subscribed_at?: string
           telegram_chat_id?: string | null
           updated_at?: string
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -355,10 +362,12 @@ export type Database = {
           last_sent_at?: string | null
           send_categories?: string[] | null
           send_common?: boolean
+          send_messages?: boolean
           send_profiles?: string[] | null
           subscribed_at?: string
           telegram_chat_id?: string | null
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -567,6 +576,7 @@ export type Database = {
           id: string
           token: string
           type: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -576,6 +586,7 @@ export type Database = {
           id?: string
           token: string
           type: string
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -585,6 +596,7 @@ export type Database = {
           id?: string
           token?: string
           type?: string
+          user_id?: string
         }
         Relationships: []
       }

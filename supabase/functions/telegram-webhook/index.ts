@@ -93,7 +93,41 @@ async function handleStartCommand(chatId: number, firstName: string | undefined,
 
   console.log("Creating subscription for email:", subscriptionToken.email);
 
-  // Determine subscription type and create/update subscription
+  // Handle messages subscription type separately (by user_id)
+  if (subscriptionToken.type === "messages") {
+    console.log("Type: messages, user_id:", subscriptionToken.user_id);
+    if (subscriptionToken.user_id) {
+      // Upsert by telegram_chat_id (update existing or create new)
+      const { error: userSubError } = await supabase
+        .from("newsletter_subscriptions")
+        .upsert({
+          user_id: subscriptionToken.user_id,
+          email: subscriptionToken.email,
+          telegram_chat_id: chatId.toString(),
+          send_messages: true,
+          enabled: true,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "telegram_chat_id" });
+      
+      if (userSubError) {
+        console.error("Error upserting messages subscription:", userSubError);
+        await sendTelegramMessage(chatId, "❌ Произошла ошибка при подписке. Попробуйте позже.");
+        return { success: false, reason: "database_error" };
+      }
+      
+      // Delete used token
+      await supabase.from("telegram_subscription_tokens").delete().eq("id", subscriptionToken.id);
+      
+      await sendTelegramMessage(chatId, "✅ Вы подписались на уведомления о новых сообщениях!\n\n" +
+        "Вы будете получать уведомления, когда вам напишут сообщение на портале.");
+      return { success: true, action: "subscribed", type: "messages" };
+    } else {
+      await sendTelegramMessage(chatId, "❌ Ошибка подписки: user_id не найден в токене.");
+      return { success: false, reason: "no_user_id" };
+    }
+  }
+
+  // Determine subscription type and create/update subscription for non-messages types
   const subscriptionData: Record<string, unknown> = {
     email: subscriptionToken.email,
     telegram_chat_id: chatId.toString(),
@@ -200,12 +234,16 @@ async function handleStatusCommand(chatId: number) {
   statusText += subscription.send_common ? "✅" : "❌";
   statusText += ` Общие новости и события\n`;
 
-  if (subscription.send_profiles && subscription.send_profiles.length > 0) {
-    statusText += `\n📦 Подписки на производителей (${subscription.send_profiles.length}):\n`;
-    // Note: We'd need to fetch producer names here
+  if (subscription.send_messages) {
+    statusText += subscription.send_messages ? "✅" : "❌";
+    statusText += ` Уведомления о сообщениях\n`;
   }
 
-  statusText += `\n\nНапишите /stop для отписки.`;
+  if (subscription.send_profiles && subscription.send_profiles.length > 0) {
+    statusText += `\n📦 Подписки на производителей (${subscription.send_profiles.length}):\n`;
+  }
+
+  statusText += `\nНапишите /stop для отписки.`;
 
   await sendTelegramMessage(chatId, statusText);
 

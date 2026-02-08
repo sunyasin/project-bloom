@@ -15,6 +15,8 @@ import {
   User,
   Check,
   ArrowLeft,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import type {
   MessageWithSender,
@@ -57,6 +59,8 @@ export function Messenger() {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [deletingMessages, setDeletingMessages] = useState(false);
   const [approvingCoinRequest, setApprovingCoinRequest] = useState<number | null>(null);
+  const [isSubscribedToMessages, setIsSubscribedToMessages] = useState(false);
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(false);
   const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -65,8 +69,81 @@ export function Messenger() {
   useEffect(() => {
     if (currentUserId) {
       loadMessages();
+      checkSubscriptionStatus();
     }
   }, [currentUserId]);
+
+  // Check subscription status
+  const checkSubscriptionStatus = async () => {
+    if (!currentUserId) return;
+    const { data } = await supabase
+      .from("newsletter_subscriptions")
+      .select("send_messages, telegram_chat_id")
+      .eq("user_id", currentUserId)
+      .single();
+    
+    setIsSubscribedToMessages(data?.send_messages === true && !!data?.telegram_chat_id);
+  };
+
+  const handleToggleMessageSubscription = async () => {
+    if (!currentUserId) {
+      toast({ title: "Ошибка", description: "Войдите в систему", variant: "destructive" });
+      return;
+    }
+    
+    setIsLoadingSubscription(true);
+    
+    const { data: existingSub } = await supabase
+      .from("newsletter_subscriptions")
+      .select("id, send_messages, telegram_chat_id, email")
+      .eq("user_id", currentUserId)
+      .single();
+    
+    if (existingSub?.send_messages && existingSub?.telegram_chat_id) {
+      // Already subscribed - unsubscribe
+      await supabase
+        .from("newsletter_subscriptions")
+        .update({ send_messages: false })
+        .eq("id", existingSub.id);
+      
+      setIsSubscribedToMessages(false);
+      toast({ title: "Отписка", description: "Вы отписались от уведомлений о сообщениях" });
+    } else if (existingSub && !existingSub.telegram_chat_id) {
+      // Has subscription but no Telegram - need to link
+      const token = crypto.randomUUID();
+      await supabase.from("telegram_subscription_tokens").insert({
+        user_id: currentUserId,
+        email: existingSub.email,
+        token,
+        type: "messages",
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      
+      window.open(`https://t.me/dol_biz_bot?start=${token}`, "_blank");
+      toast({ 
+        title: "Перейдите в Telegram", 
+        description: "Нажмите /start в боте для подтверждения" 
+      });
+    } else {
+      // No subscription - create one
+      const token = crypto.randomUUID();
+      await supabase.from("telegram_subscription_tokens").insert({
+        user_id: currentUserId,
+        email: currentUserId,
+        token,
+        type: "messages",
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      
+      window.open(`https://t.me/dol_biz_bot?start=${token}`, "_blank");
+      toast({ 
+        title: "Перейдите в Telegram", 
+        description: "Нажмите /start в боте для подтверждения" 
+      });
+    }
+    
+    setIsLoadingSubscription(false);
+  };
 
   const loadMessages = async () => {
     if (!currentUserId) return;
@@ -425,6 +502,17 @@ export function Messenger() {
               <span className="text-sm font-normal text-muted-foreground">({messages.length})</span>
             )}
           </h1>
+          
+          {/* Telegram subscription button */}
+          <Button
+            variant={isSubscribedToMessages ? "default" : "outline"}
+            size="sm"
+            onClick={handleToggleMessageSubscription}
+            disabled={isLoadingSubscription}
+          >
+            {isSubscribedToMessages ? <Bell className="w-4 h-4 mr-1" /> : <BellOff className="w-4 h-4 mr-1" />}
+            {isSubscribedToMessages ? "Уведомления вкл" : "Уведомления в Telegram"}
+          </Button>
         </div>
 
         {/* Filter tabs */}
