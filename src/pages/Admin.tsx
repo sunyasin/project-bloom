@@ -23,11 +23,13 @@ import {
   Trash2,
   Check,
   ChevronsUpDown,
+  FolderTree,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import AdminNews from "./AdminNews";
+import AdminCategories from "./AdminCategories";
 import ModeratorAdmin from "./ModeratorAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -65,6 +67,7 @@ interface AdminMenuItem {
 
 const adminMenu: AdminMenuItem[] = [
   { label: "Дашборд", icon: LayoutDashboard, roles: ["super_admin"] },
+  { label: "Категории", icon: FolderTree, roles: ["super_admin"] },
   { label: "Пользователи", icon: Users, roles: ["super_admin"] },
   { label: "Производители", icon: Building2, roles: ["super_admin"] },
   { label: "Акции", icon: Tag, roles: ["super_admin"] },
@@ -1153,6 +1156,8 @@ const AdminContent = () => {
 
   const renderContent = () => {
     switch (activeSection) {
+      case "Категории":
+        return <AdminCategories />;
       case "Новости":
         return <AdminNews />;
       case "Заявки":

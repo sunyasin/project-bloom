@@ -41,7 +41,13 @@ export interface Category {
   position: number;
   is_hidden: boolean;
   cities: string[] | null;
+  parent_id: string | null;  // Для иерархии категорий
   created_at: string;
+}
+
+/** Категория с дочерними элементами (для админки) */
+export interface CategoryWithChildren extends Category {
+  children?: CategoryWithChildren[];
 }
 
 /** Статусы визитки */
