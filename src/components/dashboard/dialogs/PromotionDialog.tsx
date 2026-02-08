@@ -59,13 +59,13 @@ export function PromotionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initialData.title ? "Редактирование акции" : "Создание акции"}</DialogTitle>
+          <DialogTitle>{initialData.title ? "Редактирование объявления" : "Создание объявления"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Image Upload Zone */}
           <div className="space-y-2">
-            <Label>Изображение акции</Label>
+            <Label>Изображение объявления</Label>
             <div
               className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
                 isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
@@ -113,7 +113,7 @@ export function PromotionDialog({
 
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="promo-title">Название акции</Label>
+            <Label htmlFor="promo-title">Название объявления</Label>
             <Input
               id="promo-title"
               value={initialData.title}
@@ -129,7 +129,7 @@ export function PromotionDialog({
               id="promo-description"
               value={initialData.description}
               onChange={(e) => onFieldChange("description", e.target.value)}
-              placeholder="Условия акции..."
+              placeholder="Условия объявления..."
               rows={3}
             />
           </div>

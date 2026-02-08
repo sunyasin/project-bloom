@@ -30,7 +30,7 @@ export function PromotionsSection({
       <div>
         <h2 className="section-title flex items-center gap-2">
           <Percent className="h-5 w-5" />
-          Акции
+          Объявления
         </h2>
         <p className="text-muted-foreground">Загрузка...</p>
       </div>
@@ -41,7 +41,7 @@ export function PromotionsSection({
     <div>
       <h2 className="section-title flex items-center gap-2">
         <Percent className="h-5 w-5" />
-        Акции
+        Объявления
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {promotions.map((promotion) => (

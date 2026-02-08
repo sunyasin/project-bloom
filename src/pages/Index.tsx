@@ -236,16 +236,16 @@ const Index = () => {
         {/* Promotions Carousel */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Актуальные акции</h2>
+            <h2 className="section-title mb-0">Объявления</h2>
             <Link to="/promotions" className="text-sm text-primary hover:underline">
-              Все акции →
+              Все объявления →
             </Link>
           </div>
           
           {promotionsLoading ? (
             <p className="text-muted-foreground">Загрузка...</p>
           ) : promotions.length === 0 ? (
-            <p className="text-muted-foreground">Нет активных акций</p>
+            <p className="text-muted-foreground">Нет активных объявлений</p>
           ) : (
             <div className="relative">
               <Carousel

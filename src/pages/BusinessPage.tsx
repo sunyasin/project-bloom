@@ -1065,7 +1065,7 @@ const BusinessPage = () => {
         {/* Promotions */}
         {promotions.length > 0 && (
           <div className="content-card">
-            <h2 className="section-title">Активные акции</h2>
+            <h2 className="section-title">Активные объявления</h2>
             <div className="space-y-3">
               {promotions.map((promo) => (
                 <div key={promo.id} className="promo-card">
@@ -1189,7 +1189,7 @@ const BusinessPage = () => {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Подпишитесь на новости производителя "{business.name}" и получайте уведомления о новых товарах и акциях в Telegram.
+              Подпишитесь на новости производителя "{business.name}" и получайте уведомления о новых товарах и объявлениях в Telegram.
             </p>
             <div className="bg-muted p-4 rounded-lg space-y-3">
               <p className="text-sm font-medium">Подписка через Telegram:</p>

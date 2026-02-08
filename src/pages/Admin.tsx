@@ -70,7 +70,7 @@ const adminMenu: AdminMenuItem[] = [
   { label: "Категории", icon: FolderTree, roles: ["super_admin"] },
   { label: "Пользователи", icon: Users, roles: ["super_admin"] },
   { label: "Производители", icon: Building2, roles: ["super_admin"] },
-  { label: "Акции", icon: Tag, roles: ["super_admin"] },
+  { label: "Объявления", icon: Tag, roles: ["super_admin"] },
   { label: "Заявки", icon: FileText, roles: ["super_admin"] },
   { label: "Новости", icon: Newspaper, roles: ["super_admin", "news_editor"] },
   { label: "Коины", icon: Coins, roles: ["super_admin"] },

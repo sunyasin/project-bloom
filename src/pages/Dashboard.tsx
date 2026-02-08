@@ -486,7 +486,7 @@ const Dashboard = () => {
 
   const handleSavePromotion = async () => {
     if (!promotionFormData.business_id) {
-      toast({ title: "Ошибка", description: "Выберите визитку для акции", variant: "destructive" });
+      toast({ title: "Ошибка", description: "Выберите визитку для объявления", variant: "destructive" });
       return;
     }
 

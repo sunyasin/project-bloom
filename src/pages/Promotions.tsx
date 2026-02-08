@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Tag, Loader2, Filter, X } from "lucide-react";
+import { Tag, Loader2, Filter, X, ExternalLink, Grid, Image, List } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -13,6 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface Promotion {
   id: string;
@@ -37,6 +44,8 @@ interface Category {
   name: string;
 }
 
+type ViewMode = "full" | "image" | "text";
+
 const Promotions = () => {
   const navigate = useNavigate();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -44,6 +53,9 @@ const Promotions = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [hoveredPromo, setHoveredPromo] = useState<Promotion | null>(null);
+  const [touchTimeout, setTouchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("full");
 
   // Fetch promotions, businesses and categories
   useEffect(() => {
@@ -122,6 +134,28 @@ const Promotions = () => {
     });
   }, [promotions, selectedCategory, businessMap]);
 
+  // Handle mouse enter - show popup after delay
+  const handleMouseEnter = (promo: Promotion) => {
+    const timer = setTimeout(() => {
+      setHoveredPromo(promo);
+    }, 300);
+    setTouchTimeout(timer);
+  };
+
+  // Handle mouse leave - cancel popup
+  const handleMouseLeave = () => {
+    if (touchTimeout) {
+      clearTimeout(touchTimeout);
+      setTouchTimeout(null);
+    }
+    setHoveredPromo(null);
+  };
+
+  // Handle touch start - show popup
+  const handleTouchStart = (promo: Promotion) => {
+    setHoveredPromo(promo);
+  };
+
   // Handle click on promotion - navigate to business page
   const handlePromoClick = (promo: Promotion) => {
     navigate(`/business/${promo.business_id}`);
@@ -152,13 +186,36 @@ const Promotions = () => {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Акции</h1>
-            <p className="text-muted-foreground mt-1">
-              Специальные предложения от производителей
-            </p>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h1 className="text-2xl font-bold text-foreground">Объявления</h1>
+
+          {/* View mode switcher */}
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === "full" ? "default" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode("full")}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "image" ? "default" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode("image")}
+            >
+              <Image className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "text" ? "default" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode("text")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
           </div>
 
           {/* Category filter */}
@@ -190,13 +247,6 @@ const Promotions = () => {
           </div>
         </div>
 
-        {/* Results count */}
-        {!loading && promotions.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            Найдено: {filteredPromotions.length} из {promotions.length}
-          </p>
-        )}
-
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -204,59 +254,160 @@ const Promotions = () => {
         ) : promotions.length === 0 ? (
           <div className="text-center py-12">
             <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Акций пока нет</p>
+            <p className="text-muted-foreground">Объявлений пока нет</p>
           </div>
         ) : filteredPromotions.length === 0 ? (
           <div className="text-center py-12">
             <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              Акций в выбранной категории нет
+              Объявлений в выбранной категории нет
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredPromotions.map((promo) => (
-              <article
-                key={promo.id}
-                className="content-card hover:border-primary/30 transition-colors cursor-pointer"
-                onClick={() => handlePromoClick(promo)}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="relative">
-                    {promo.image_url ? (
-                      <img
-                        src={promo.image_url}
-                        alt={promo.title}
-                        className="w-14 h-14 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Tag className="h-6 w-6 text-primary" />
+          <>
+            {/* Full view */}
+            {viewMode === "full" && (
+              <div className="grid grid-cols-1 gap-4 max-w-md mx-auto">
+                {filteredPromotions.map((promo) => (
+                  <article
+                    key={promo.id}
+                    className="content-card hover:border-primary/30 transition-colors cursor-pointer overflow-hidden"
+                    onClick={() => handlePromoClick(promo)}
+                    onMouseEnter={() => handleMouseEnter(promo)}
+                    onMouseLeave={handleMouseLeave}
+                    onTouchStart={() => handleTouchStart(promo)}
+                  >
+                    <div className="flex h-32">
+                      {/* Left half - Image */}
+                      <div className="w-1/2 relative">
+                        {promo.image_url ? (
+                          <img
+                            src={promo.image_url}
+                            alt={promo.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+                            <Tag className="h-8 w-8 text-primary" />
+                          </div>
+                        )}
+                        <span className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">
+                          {promo.discount}
+                        </span>
                       </div>
-                    )}
-                    <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded">
-                      {promo.discount}
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
+                      {/* Right half - Description */}
+                      <div className="w-1/2 p-3 flex flex-col justify-start overflow-hidden">
+                        <h3 className="font-medium text-foreground text-sm line-clamp-2">{promo.title}</h3>
+                        {promo.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-3">
+                            {promo.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {/* Image only view */}
+            {viewMode === "image" && (
+              <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+                {filteredPromotions.map((promo) => (
+                  <article
+                    key={promo.id}
+                    className="content-card hover:border-primary/30 transition-colors cursor-pointer overflow-hidden"
+                    onClick={() => handlePromoClick(promo)}
+                    onMouseEnter={() => handleMouseEnter(promo)}
+                    onMouseLeave={handleMouseLeave}
+                    onTouchStart={() => handleTouchStart(promo)}
+                  >
+                    <div className="relative">
+                      {promo.image_url ? (
+                        <img
+                          src={promo.image_url}
+                          alt={promo.title}
+                          className="w-full h-32 object-contain bg-muted"
+                        />
+                      ) : (
+                        <div className="w-full h-32 bg-primary/10 flex items-center justify-center">
+                          <Tag className="h-8 w-8 text-primary" />
+                        </div>
+                      )}
+                      <span className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">
+                        {promo.discount}
+                      </span>
+                    </div>
+                    <div className="p-2">
+                      <h3 className="text-xs font-medium text-foreground truncate">{promo.title}</h3>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {/* Text only view */}
+            {viewMode === "text" && (
+              <div className="space-y-4">
+                {filteredPromotions.map((promo) => (
+                  <div
+                    key={promo.id}
+                    className="cursor-pointer"
+                    onClick={() => handlePromoClick(promo)}
+                    onMouseEnter={() => handleMouseEnter(promo)}
+                    onMouseLeave={handleMouseLeave}
+                    onTouchStart={() => handleTouchStart(promo)}
+                  >
                     <h3 className="font-medium text-foreground">{promo.title}</h3>
                     {promo.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
                         {promo.description}
                       </p>
                     )}
-                    <p className="text-xs text-primary mt-1">
-                      {getBusinessName(promo.business_id)}
-                      {getCategoryName(promo.business_id) && ` • ${getCategoryName(promo.business_id)}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Действует до {formatDate(promo.valid_until)}
-                    </p>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
+                ))}
+              </div>
+            )}
+
+            {/* Popup dialog */}
+            <Dialog open={!!hoveredPromo} onOpenChange={() => setHoveredPromo(null)}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{hoveredPromo?.title}</DialogTitle>
+                </DialogHeader>
+                {hoveredPromo && (
+                  <div className="space-y-4">
+                    {hoveredPromo.image_url && (
+                      <img
+                        src={hoveredPromo.image_url}
+                        alt={hoveredPromo.title}
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {hoveredPromo.description}
+                    </p>
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-sm text-muted-foreground">
+                        {getBusinessName(hoveredPromo.business_id)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/business/${hoveredPromo.business_id}`);
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        Визитка
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
         )}
       </div>
     </MainLayout>

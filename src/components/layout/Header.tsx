@@ -19,7 +19,7 @@ import type { User } from "@supabase/supabase-js";
 const mainMenuItems = [
   { label: "Товары и услуги", href: "/categories" },
   { label: "Производители", href: "/businesses" },
-  { label: "Акции", href: "/promotions" },
+  { label: "Объявления", href: "/promotions" },
   { label: "События", href: "/events" },
   { label: "Новости", href: "/news" },
   // { label: "Бартерон", href: "/barter" },

@@ -93,7 +93,7 @@ export function usePromotions(userId: string | null) {
       console.error("Error creating promotion:", error);
       toast({
         title: "Ошибка",
-        description: "Не удалось создать акцию",
+        description: "Не удалось создать объявление",
         variant: "destructive",
       });
       return null;
@@ -130,7 +130,7 @@ export function usePromotions(userId: string | null) {
       console.error("Error updating promotion:", error);
       toast({
         title: "Ошибка",
-        description: "Не удалось обновить акцию",
+        description: "Не удалось обновить объявление",
         variant: "destructive",
       });
       return null;
@@ -156,7 +156,7 @@ export function usePromotions(userId: string | null) {
       console.error("Error deleting promotion:", error);
       toast({
         title: "Ошибка",
-        description: "Не удалось удалить акцию",
+        description: "Не удалось удалить объявление",
         variant: "destructive",
       });
       return false;

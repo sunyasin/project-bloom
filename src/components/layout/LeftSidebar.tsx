@@ -11,7 +11,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Главная", href: "/", icon: Home },
-  { label: "Акции", href: "/promotions", icon: Tag },
+  { label: "Объявления", href: "/promotions", icon: Tag },
   { label: "События", href: "/events", icon: Calendar },
   { label: "Новости долины", href: "/news", icon: Newspaper },
   { label: "Товары и услуги", href: "/categories", icon: LayoutGrid },

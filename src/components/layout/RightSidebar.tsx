@@ -64,7 +64,7 @@ export const RightSidebar = () => {
       {/* Promotions Header */}
       <div className="flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold text-foreground">Актуальные акции</h3>
+        <h3 className="font-semibold text-foreground">Актуальные объявления</h3>
       </div>
 
       {/* Promotions List */}
@@ -72,7 +72,7 @@ export const RightSidebar = () => {
         {loading ? (
           <p className="text-xs text-muted-foreground">Загрузка...</p>
         ) : promotions.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Нет активных акций</p>
+          <p className="text-xs text-muted-foreground">Нет активных объявлений</p>
         ) : (
           promotions.map((promo) => (
             <div 
@@ -102,7 +102,7 @@ export const RightSidebar = () => {
 
       {/* View All Link */}
       <Link to="/promotions" className="w-full block text-center text-sm text-primary hover:underline py-2">
-        Все акции →
+        Все объявления →
       </Link>
 
       {/* Placeholder Banner */}
