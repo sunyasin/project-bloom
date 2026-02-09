@@ -83,7 +83,8 @@ export interface Product {
   gallery_urls: string[] | null;
   category_id: string | null;
   is_available: boolean;
-  sale_type: 'sell_only' | 'barter_goods' | 'barter_coin';
+  product_sale_type: ('sell_only' | 'barter_goods' | 'barter_coin')[];
+  coin_price: number | null;
   created_at: string;
   updated_at: string;
 }

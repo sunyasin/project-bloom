@@ -24,7 +24,7 @@ export interface ProductForDialog {
   price: string;
   rawPrice: number;
   coinPrice: number | null;
-  saleType: string;
+  saleTypes: string[];
   description: string;
   content: string;
   unit: string;
@@ -67,7 +67,7 @@ export const ProductDetailsDialog = ({
   if (!product) return null;
 
   const allImages = [product.image, ...product.galleryUrls].filter(Boolean);
-  const hasBarter = product.saleType === "barter_goods" || product.saleType === "barter_coin";
+  const hasBarter = product.saleTypes?.includes("barter_goods") || product.saleTypes?.includes("barter_coin");
 
   const handleOrder = async () => {
     // Check phone for non-authenticated users

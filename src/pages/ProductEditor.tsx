@@ -48,7 +48,7 @@ interface ProductFormData {
   content: string;
   categoryId: string;
   businessCardId: string;
-  saleType: ProductSaleType;
+  saleTypes: string[];
   coinPrice: number | null;
 }
 
@@ -118,7 +118,7 @@ const ProductEditor = () => {
     content: "",
     categoryId: "",
     businessCardId: "",
-    saleType: "sell_only",
+    saleTypes: ["sell_only"],
     coinPrice: null,
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -363,7 +363,7 @@ const ProductEditor = () => {
               content: data.content || "",
               categoryId: data.category_id || "",
               businessCardId: data.business_card_id || "",
-              saleType: (data as any).sale_type || "sell_only",
+              saleTypes: (data as any).product_sale_type || ["sell_only"],
               coinPrice: (data as any).coin_price || null,
             });
             setProductId(data.id);
@@ -454,8 +454,8 @@ const ProductEditor = () => {
         gallery_urls: productData.galleryUrls,
         category_id: productData.categoryId || null,
         content: productData.content,
-        sale_type: productData.saleType,
-        coin_price: productData.saleType === "barter_coin" ? productData.coinPrice : null,
+        product_sale_type: productData.saleTypes,
+        coin_price: productData.saleTypes.includes("barter_coin") ? productData.coinPrice : null,
         business_card_id: productData.businessCardId || null,
       };
 
@@ -699,7 +699,7 @@ const ProductEditor = () => {
     price: productData.price ? `${productData.price} ₽/${productData.unit}` : "Цена по запросу",
     rawPrice: productData.price,
     coinPrice: productData.coinPrice,
-    saleType: productData.saleType,
+    saleTypes: productData.saleTypes,
     description: productData.description,
     content: productData.content,
     unit: productData.unit,
@@ -941,41 +941,50 @@ const ProductEditor = () => {
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
-                  type="radio"
-                  name="saleType"
-                  value="sell_only"
-                  checked={productData.saleType === "sell_only"}
-                  onChange={() => updateField("saleType", "sell_only")}
-                  className="w-4 h-4 text-primary"
+                  type="checkbox"
+                  checked={productData.saleTypes.includes("sell_only")}
+                  onChange={(e) => {
+                    const newTypes = e.target.checked
+                      ? [...productData.saleTypes, "sell_only"]
+                      : productData.saleTypes.filter(t => t !== "sell_only");
+                    updateField("saleTypes", newTypes);
+                  }}
+                  className="w-4 h-4 text-primary rounded"
                 />
-                <span className="text-sm">Только продажа</span>
+                <span className="text-sm">Продажа</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
-                  type="radio"
-                  name="saleType"
-                  value="barter_goods"
-                  checked={productData.saleType === "barter_goods"}
-                  onChange={() => updateField("saleType", "barter_goods")}
-                  className="w-4 h-4 text-primary"
+                  type="checkbox"
+                  checked={productData.saleTypes.includes("barter_goods")}
+                  onChange={(e) => {
+                    const newTypes = e.target.checked
+                      ? [...productData.saleTypes, "barter_goods"]
+                      : productData.saleTypes.filter(t => t !== "barter_goods");
+                    updateField("saleTypes", newTypes);
+                  }}
+                  className="w-4 h-4 text-primary rounded"
                 />
                 <span className="text-sm">Бартер товар-товар</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
-                  type="radio"
-                  name="saleType"
-                  value="barter_coin"
-                  checked={productData.saleType === "barter_coin"}
-                  onChange={() => updateField("saleType", "barter_coin")}
-                  className="w-4 h-4 text-primary"
+                  type="checkbox"
+                  checked={productData.saleTypes.includes("barter_coin")}
+                  onChange={(e) => {
+                    const newTypes = e.target.checked
+                      ? [...productData.saleTypes, "barter_coin"]
+                      : productData.saleTypes.filter(t => t !== "barter_coin");
+                    updateField("saleTypes", newTypes);
+                  }}
+                  className="w-4 h-4 text-primary rounded"
                 />
                 <span className="text-sm">Бартер цифровой</span>
               </label>
             </div>
 
             {/* Coin Price Input */}
-            {productData.saleType === "barter_coin" && (
+            {productData.saleTypes.includes("barter_coin") && (
               <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
                 <label className="text-sm font-medium text-foreground mb-2 block">
                   Цена в долях (коинах)

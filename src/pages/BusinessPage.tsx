@@ -979,7 +979,7 @@ const BusinessPage = () => {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {products
-                .filter((p) => saleTypeFilter === "all" || (p as any).sale_type === saleTypeFilter)
+                .filter((p) => saleTypeFilter === "all" || ((p as any).product_sale_type || [(p as any).sale_type]).includes(saleTypeFilter))
                 .map((product) => {
                   const selected = isSelected(product.id);
                   return (
@@ -1507,18 +1507,18 @@ const BusinessPage = () => {
 
               {/* Sale Type Badge */}
               <div>
-                {(selectedProductDetail as any).sale_type === "barter_goods" && (
+                {(selectedProductDetail as any).product_sale_type?.includes("barter_goods") && (
                   <span className="inline-block text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-1 rounded">
                     Бартер товар-товар
                   </span>
                 )}
-                {(selectedProductDetail as any).sale_type === "barter_coin" && (
+                {(selectedProductDetail as any).product_sale_type?.includes("barter_coin") && (
                   <span className="inline-block text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded">
                     Бартер цифровой
                   </span>
                 )}
-                {((selectedProductDetail as any).sale_type === "sell_only" ||
-                  !(selectedProductDetail as any).sale_type) && (
+                {(!((selectedProductDetail as any).product_sale_type?.length > 0) &&
+                  !((selectedProductDetail as any).sale_type)) && (
                   <span className="inline-block text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded">
                     Только продажа
                   </span>

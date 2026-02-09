@@ -34,7 +34,7 @@ interface ProductDisplay {
   name: string;
   image: string;
   price: string;
-  saleType: string;
+  saleTypes: string[];
   galleryUrls: string[];
   description: string;
   content: string;
@@ -376,7 +376,7 @@ const CategoryPage = () => {
             name: p.name,
             image: p.image_url || DEFAULT_PRODUCT_IMAGE,
             price: p.price ? `${p.price} ₽${p.unit ? `/${p.unit}` : ""}` : "Цена по запросу",
-            saleType: (p as any).sale_type || "sell_only",
+            saleTypes: (p as any).product_sale_type || ["sell_only"],
             galleryUrls: (p as any).gallery_urls || [],
             description: p.description || "",
             content: (p as any).content || "",
@@ -791,7 +791,7 @@ ${productsList}
     ...b,
     products: saleTypeFilter === "all" 
       ? b.products 
-      : b.products.filter(p => p.saleType === saleTypeFilter)
+      : b.products.filter(p => p.saleTypes.includes(saleTypeFilter))
   }));
 
   const filteredBusinesses = (cityFilter === "Все города" 
@@ -961,7 +961,7 @@ ${productsList}
           price: selectedProduct.product.price,
           rawPrice: selectedProduct.product.rawPrice,
           coinPrice: selectedProduct.product.coinPrice,
-          saleType: selectedProduct.product.saleType,
+          saleTypes: selectedProduct.product.saleTypes,
           description: selectedProduct.product.description,
           content: selectedProduct.product.content,
           unit: selectedProduct.product.unit,

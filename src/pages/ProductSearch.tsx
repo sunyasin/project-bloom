@@ -108,7 +108,7 @@ const ProductSearch = () => {
       .ilike("name", `%${query}%`);
 
     if (barterOnly) {
-      productsQuery = productsQuery.in("sale_type", [
+      productsQuery = productsQuery.in("product_sale_type" as any, [
         "barter_goods",
         "barter_coin",
       ]);
@@ -158,7 +158,7 @@ const ProductSearch = () => {
             : "Цена по запросу",
           rawPrice: p.price || 0,
           coinPrice: p.coin_price || null,
-          saleType: p.sale_type || "sell_only",
+          saleTypes: (p as any).product_sale_type || ["sell_only"],
           description: p.description || "",
           content: p.content || "",
           unit: p.unit || "шт",
@@ -246,8 +246,8 @@ const ProductSearch = () => {
                   <p className="text-sm font-semibold text-primary mt-1">
                     {product.price}
                   </p>
-                  {(product.saleType === "barter_goods" ||
-                    product.saleType === "barter_coin") && (
+                  {(product.saleTypes?.includes("barter_goods") ||
+                    product.saleTypes?.includes("barter_coin")) && (
                     <span className="inline-block mt-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
                       Бартер
                     </span>
