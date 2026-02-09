@@ -173,6 +173,18 @@ export const Header = () => {
           </nav>
         </div>
 
+        {/* Centered Telegram Link */}
+        <div className="flex-1 flex justify-center">
+          <a
+            href="https://t.me/dolinabiz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+          >
+            dolinabiz в Telegram
+          </a>
+        </div>
+
         {/* Right actions */}
         <div className="flex items-center gap-2">
           {!loading && user && (
