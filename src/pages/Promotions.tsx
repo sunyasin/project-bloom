@@ -31,6 +31,7 @@ interface Promotion {
   owner_id: string;
   business_id: string;
   donation: number;
+  updated_at: string | null;
 }
 
 interface Business {
@@ -65,7 +66,7 @@ const Promotions = () => {
         // Fetch active promotions sorted by donation descending
         const { data: promoData, error: promoError } = await supabase
           .from("promotions")
-          .select("*")
+          .select("id, title, description, discount, image_url, valid_until, owner_id, business_id, donation, updated_at")
           .eq("is_active", true)
           .order("donation", { ascending: false });
 
@@ -303,6 +304,11 @@ const Promotions = () => {
                             {promo.description}
                           </p>
                         )}
+                        {promo.updated_at && (
+                          <span className="text-xs text-muted-foreground mt-auto pt-2">
+                            {new Date(promo.updated_at).toLocaleDateString("ru-RU")}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </article>
@@ -340,6 +346,11 @@ const Promotions = () => {
                     </div>
                     <div className="p-2">
                       <h3 className="text-xs font-medium text-foreground truncate">{promo.title}</h3>
+                      {promo.updated_at && (
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(promo.updated_at).toLocaleDateString("ru-RU")}
+                        </span>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -358,7 +369,14 @@ const Promotions = () => {
                     onMouseLeave={handleMouseLeave}
                     onTouchStart={() => handleTouchStart(promo)}
                   >
-                    <h3 className="font-medium text-foreground">{promo.title}</h3>
+                    <h3 className="font-medium text-foreground">
+                      {promo.title}
+                      {promo.updated_at && (
+                        <span className="text-sm text-muted-foreground font-normal ml-2">
+                          ({new Date(promo.updated_at).toLocaleDateString("ru-RU")})
+                        </span>
+                      )}
+                    </h3>
                     {promo.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {promo.description}

@@ -8,6 +8,7 @@ interface Promotion {
   image_url: string | null;
   discount: string;
   valid_until: string | null;
+  updated_at: string | null;
 }
 
 interface PromotionsSectionProps {
@@ -62,9 +63,9 @@ export function PromotionsSection({
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
                   {promotion.discount}
                 </span>
-                {promotion.valid_until && (
+                {promotion.updated_at && (
                   <span className="text-xs text-muted-foreground">
-                    до {new Date(promotion.valid_until).toLocaleDateString("ru-RU")}
+                    {new Date(promotion.updated_at).toLocaleDateString("ru-RU")}
                   </span>
                 )}
               </div>
