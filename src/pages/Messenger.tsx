@@ -502,17 +502,6 @@ export function Messenger() {
               <span className="text-sm font-normal text-muted-foreground">({messages.length})</span>
             )}
           </h1>
-          
-          {/* Telegram subscription button */}
-          <Button
-            variant={isSubscribedToMessages ? "default" : "outline"}
-            size="sm"
-            onClick={handleToggleMessageSubscription}
-            disabled={isLoadingSubscription}
-          >
-            {isSubscribedToMessages ? <Bell className="w-4 h-4 mr-1" /> : <BellOff className="w-4 h-4 mr-1" />}
-            {isSubscribedToMessages ? "Уведомления вкл" : "Уведомления в Telegram"}
-          </Button>
         </div>
 
         {/* Filter tabs */}
@@ -520,20 +509,35 @@ export function Messenger() {
           {(Object.keys(MESSAGE_TYPE_LABELS) as MessageTypeFilter[]).map((type) => {
             const count = unreadCountByType[type] || 0;
             return (
-              <Button
-                key={type}
-                variant={messageTypeFilter === type ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setMessageTypeFilter(type)}
-                className="text-xs h-7 relative"
-              >
-                {MESSAGE_TYPE_LABELS[type]}
-                {count > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground rounded-full">
-                    {count}
-                  </span>
+              <>
+                <Button
+                  key={type}
+                  variant={messageTypeFilter === type ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setMessageTypeFilter(type)}
+                  className="text-xs h-7 relative"
+                >
+                  {MESSAGE_TYPE_LABELS[type]}
+                  {count > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground rounded-full">
+                      {count}
+                    </span>
+                  )}
+                </Button>
+                {type === "order" && (
+                  <Button
+                    key="subscription"
+                    variant={isSubscribedToMessages ? "default" : "outline"}
+                    size="sm"
+                    onClick={handleToggleMessageSubscription}
+                    disabled={isLoadingSubscription}
+                    className="text-xs h-7"
+                  >
+                    {isSubscribedToMessages ? <Bell className="w-3 h-3 mr-1" /> : <BellOff className="w-3 h-3 mr-1" />}
+                    {isSubscribedToMessages ? "Вкл" : "🔔"}
+                  </Button>
                 )}
-              </Button>
+              </>
             );
           })}
         </div>
