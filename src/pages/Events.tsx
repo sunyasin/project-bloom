@@ -3,7 +3,7 @@ import { Calendar as CalendarIcon, Loader2, User, ArrowLeft } from "lucide-react
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format, isSameDay, endOfMonth, addMonths, isWithinInterval } from "date-fns";
+import { format, isSameDay, endOfMonth, addMonths, isWithinInterval, startOfMonth, addMonths as addMonthsFn } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -35,6 +35,7 @@ const Events = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedEvent, setSelectedEvent] = useState<EventWithAuthor | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
 
   useEffect(() => {
     const fetchEventsAndProfiles = async () => {
@@ -54,12 +55,27 @@ const Events = () => {
           // Получаем профиль автора
           let author: Profile | undefined;
           if (eventData?.owner_id) {
-            const { data: profileData } = await supabase
+            console.log("[Events] Запрос профиля для owner_id:", eventData.owner_id);
+            
+            // Используем maybeSingle() вместо single() - не выбрасывает ошибку при 0 строках
+            const { data: profileData, error: profileError } = await supabase
               .from("profiles")
               .select("id, user_id, first_name, last_name")
               .eq("user_id", eventData.owner_id)
-              .single();
-            author = profileData as Profile;
+              .maybeSingle();
+            
+            if (profileError) {
+              console.error("[Events] Ошибка получения профиля:", {
+                code: profileError.code,
+                message: profileError.message,
+                owner_id: eventData.owner_id
+              });
+            } else if (profileData) {
+              console.log("[Events] Профиль найден:", profileData);
+              author = profileData as Profile;
+            } else {
+              console.log("[Events] Профиль не найден для owner_id:", eventData.owner_id);
+            }
           }
           
           const eventWithAuthor = { ...eventData, author } as EventWithAuthor;
@@ -174,12 +190,6 @@ const Events = () => {
     return "Неизвестный автор";
   };
 
-  const handleAuthorClick = (event: EventWithAuthor) => {
-    if (event.author?.id) {
-      navigate(`/profile?id=${event.author.id}`);
-    }
-  };
-
   // Кастомный компонент для отображения дня с количеством событий
   const DayContent = ({ date }: { date: Date }) => {
     const dateKey = format(date, "yyyy-MM-dd");
@@ -243,12 +253,12 @@ const Events = () => {
             <div className="flex items-center gap-1 mt-4 text-sm">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Инициатор: </span>
-              <button
-                onClick={() => handleAuthorClick(event)}
+              <Link
+                to={`/profile?id=${event.author?.user_id || event.author?.id || event.owner_id || ""}`}
                 className="text-primary hover:underline font-medium"
               >
                 {formatAuthorName(event)}
-              </button>
+              </Link>
             </div>
             
             {event.content && (
@@ -278,7 +288,9 @@ const Events = () => {
           mode="single"
           selected={selectedDate}
           onSelect={setSelectedDate}
-          numberOfMonths={2}
+          numberOfMonths={1}
+          month={currentMonth}
+          onMonthChange={setCurrentMonth}
           locale={ru}
           className="p-4 border rounded-lg"
           components={{
@@ -305,7 +317,7 @@ const Events = () => {
             <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
               {selectedDate
-                ? `Событий на ${formatDate(events[0]?.event_date || "")} нет`
+                ? `Событий на ${formatDate(selectedDate.toISOString())} нет`
                 : "Предстоящих событий нет"}
             </p>
             {selectedDate && (
@@ -360,15 +372,13 @@ const Events = () => {
                       <div className="flex items-center gap-1 mt-2 text-sm">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Инициатор: </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAuthorClick(event);
-                          }}
+                        <Link
+                          to={`/profile?id=${event.author?.user_id || event.author?.id || ""}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="text-primary hover:underline font-medium"
                         >
                           {formatAuthorName(event)}
-                        </button>
+                        </Link>
                       </div>
                       {event.content && (
                         <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
@@ -408,18 +418,13 @@ const Events = () => {
               <div className="flex items-center gap-2 text-sm">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Инициатор: </span>
-                {selectedEvent.author ? (
-                  <button
-                    onClick={() => {
-                      setSelectedEvent(null);
-                      if (selectedEvent.author?.id) {
-                        navigate(`/profile?id=${selectedEvent.author.id}`);
-                      }
-                    }}
+                {event.author ? (
+                  <Link
+                    to={`/profile?id=${event.author?.user_id || event.author?.id || event.owner_id || ""}`}
                     className="text-primary hover:underline font-medium"
                   >
-                    {formatAuthorName(selectedEvent)}
-                  </button>
+                    {formatAuthorName(event)}
+                  </Link>
                 ) : (
                   <span className="text-muted-foreground">Неизвестный автор</span>
                 )}
