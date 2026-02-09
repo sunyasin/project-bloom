@@ -1,4 +1,4 @@
-import { useState, useRef, DragEvent } from "react";
+import { useState, useRef, DragEvent, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, MapPin } from "lucide-react";
+import { Upload, X, MapPin, Map } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import type { ProfileFormData } from "../types/dashboard-types";
+
+interface City {
+  id: number;
+  name: string;
+  type: string;
+  region_id: number | null;
+}
+
+interface Region {
+  id: number;
+  country: string;
+  republic: string | null;
+  oblast: string | null;
+  district: string | null;
+}
 
 interface EditProfileDialogProps {
   open: boolean;
@@ -37,20 +53,29 @@ interface EditProfileDialogProps {
   onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
   onDrop: (e: DragEvent<HTMLDivElement>) => void;
   onFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  // Region and custom city props
+  selectedRegionId: number | null;
+  showCustomCity: boolean;
+  customCityName: string;
+  customCityType: string;
+  onCustomCityNameChange: (value: string) => void;
+  onCustomCityTypeChange: (value: string) => void;
+  onShowCustomCityChange: (value: boolean) => void;
+  onSelectedRegionIdChange: (value: number | null) => void;
+  onRefreshCities: () => void;
+  cities?: {id: number, name: string, type: string, region_id: number | null}[];
 }
 
-const CITIES = [
-  "Соколиное",
-  "Аромат",
-  "Куйбышево",
-  "Танковое",
-  "Голубинка",
-  "Нижняя Голубинка",
-  "Поляна",
-  "Солнечноселье",
-  "Счастливое",
-  "Новоульяновка",
-];
+// Get region display text
+const getRegionText = (region: Region): string => {
+  const parts = [
+    region.country,
+    region.republic,
+    region.oblast,
+    region.district,
+  ].filter(Boolean);
+  return parts.join(", ");
+};
 
 export function EditProfileDialog({
   open,
@@ -69,7 +94,82 @@ export function EditProfileDialog({
   onDragLeave,
   onDrop,
   onFileInputChange,
+  selectedRegionId,
+  showCustomCity,
+  customCityName,
+  customCityType,
+  onCustomCityNameChange,
+  onCustomCityTypeChange,
+  onShowCustomCityChange,
+  onSelectedRegionIdChange,
+  onRefreshCities,
+  cities,
 }: EditProfileDialogProps) {
+  const [regions, setRegions] = useState<Region[]>([]);
+
+  // Load regions when dialog opens - use local state for initial load
+  useEffect(() => {
+    const loadRegions = async () => {
+      const { data } = await (supabase as any)
+        .from("region")
+        .select("*")
+        .order("country, republic, district");
+      
+      if (data) {
+        setRegions(data);
+        // Set initial region from props or default to first
+        if (!selectedRegionId && data.length > 0) {
+          onSelectedRegionIdChange(data[0].id);
+        }
+      }
+    };
+
+    if (open) {
+      loadRegions();
+    }
+  }, [open]);
+
+  // Load cities for selected region
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!selectedRegionId) {
+        setCities([]);
+        return;
+      }
+
+      const { data } = await (supabase as any)
+        .from("city")
+        .select("*")
+        .eq("region_id", selectedRegionId)
+        .order("name");
+      
+      if (data) {
+        setCities(data);
+      }
+    };
+
+    loadCities();
+  }, [selectedRegionId]);
+
+  // Handle city selection
+  const handleCityChange = (value: string) => {
+    if (value === "-1") {
+      onShowCustomCityChange(true);
+      onFieldChange("city_id", "-1");
+    } else {
+      onShowCustomCityChange(false);
+      onFieldChange("city_id", value);
+    }
+  };
+
+  // Handle region change
+  const handleRegionChange = (value: string) => {
+    onSelectedRegionIdChange(value ? Number(value) : null);
+    // Reset city selection when region changes
+    onFieldChange("city_id", "");
+    onShowCustomCityChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -170,28 +270,84 @@ export function EditProfileDialog({
             {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
           </div>
 
-          {/* City & Address */}
+          {/* Region select */}
           <div className="space-y-2">
-            <Label htmlFor="city">
-              Город / село {isClient && <span className="text-destructive">*</span>}
+            <Label className="flex items-center gap-2">
+              <Map className="h-4 w-4" />
+              Регион {isClient && <span className="text-destructive">*</span>}
             </Label>
             <Select
-              value={initialData.city}
-              onValueChange={(value) => onFieldChange("city", value)}
+              value={selectedRegionId?.toString() || ""}
+              onValueChange={handleRegionChange}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Выберите населённый пункт" />
+                <SelectValue placeholder="Выберите регион" />
               </SelectTrigger>
               <SelectContent>
-                {CITIES.map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
+                {regions.map((region) => (
+                  <SelectItem key={region.id} value={region.id.toString()}>
+                    {getRegionText(region)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
           </div>
+
+          {/* City & Address */}
+          {selectedRegionId && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Город / село {isClient && <span className="text-destructive">*</span>}
+              </Label>
+              <Select
+                value={initialData.city_id?.toString() || ""}
+                onValueChange={handleCityChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите населённый пункт" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((city) => (
+                    <SelectItem key={city.id} value={city.id.toString()}>
+                      {city.name} ({city.type})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="-1">Другой...</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.city_id && <p className="text-xs text-destructive">{errors.city_id}</p>}
+            </div>
+          )}
+
+          {/* Custom city fields */}
+          {showCustomCity && (
+            <div className="space-y-3 p-3 border rounded-lg bg-muted/50">
+              <Label className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Новый населённый пункт
+              </Label>
+              <Select
+                value={customCityType}
+                onValueChange={onCustomCityTypeChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Тип населённого пункта" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="село">село</SelectItem>
+                  <SelectItem value="поселок">поселок</SelectItem>
+                  <SelectItem value="деревня">деревня</SelectItem>
+                  <SelectItem value="город">город</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Название населённого пункта"
+                value={customCityName}
+                onChange={(e) => onCustomCityNameChange(e.target.value)}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="address">

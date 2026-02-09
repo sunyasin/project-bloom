@@ -43,7 +43,8 @@ export interface ProfileData {
   last_name: string;
   email: string;
   phone: string;
-  city: string;
+  city_id: number | null;
+  city_name?: string;
   address: string;
   gps_lat: string;
   gps_lng: string;
@@ -54,7 +55,8 @@ export interface ProfileFormData {
   name: string;
   email: string;
   phone: string;
-  city: string;
+  city_id: number | null;
+  city_name?: string; // For display purposes
   address: string;
   lat: string;
   lng: string;

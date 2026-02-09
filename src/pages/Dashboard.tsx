@@ -107,6 +107,25 @@ const Dashboard = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Custom city state
+  const [customCityName, setCustomCityName] = useState("");
+  const [customCityType, setCustomCityType] = useState("село");
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+  const [showCustomCity, setShowCustomCity] = useState(false);
+  const [cities, setCities] = useState<{id: number, name: string, type: string, region_id: number | null}[]>([]);
+
+  // Function to refresh cities list
+  const refreshCities = async () => {
+    if (selectedRegionId) {
+      const { data } = await (supabase as any)
+        .from("city")
+        .select("*")
+        .eq("region_id", selectedRegionId)
+        .order("name");
+      if (data) setCities(data);
+    }
+  };
 
   // Open profile dialog for new users
   useEffect(() => {
@@ -127,7 +146,8 @@ const Dashboard = () => {
         last_name: data.last_name || "",
         email: data.email || "",
         phone: data.phone || "",
-        city: data.city || "",
+        city_id: data.city_id || null,
+        city_name: data.city_name || "",
         address: data.address || "",
         gps_lat: data.gps_lat?.toString() || "",
         gps_lng: data.gps_lng?.toString() || "",
@@ -139,7 +159,8 @@ const Dashboard = () => {
         name: `${loaded.first_name} ${loaded.last_name}`.trim() || "Новый пользователь",
         email: loaded.email,
         phone: loaded.phone,
-        city: loaded.city,
+        city_id: loaded.city_id,
+        city_name: loaded.city_name,
         address: loaded.address,
         lat: loaded.gps_lat,
         lng: loaded.gps_lng,
@@ -225,7 +246,8 @@ const Dashboard = () => {
     name: "",
     email: "",
     phone: "",
-    city: "",
+    city_id: null,
+    city_name: "",
     address: "",
     lat: "",
     lng: "",
@@ -259,7 +281,8 @@ const Dashboard = () => {
           last_name: data.last_name || "",
           email: data.email || "",
           phone: data.phone || "",
-          city: data.city || "",
+          city_id: data.city_id || null,
+          city_name: "",
           address: data.address || "",
           gps_lat: data.gps_lat?.toString() || "",
           gps_lng: data.gps_lng?.toString() || "",
@@ -272,7 +295,8 @@ const Dashboard = () => {
           name: `${loaded.first_name} ${loaded.last_name}`.trim() || "Новый пользователь",
           email: loaded.email,
           phone: loaded.phone,
-          city: loaded.city,
+          city_id: loaded.city_id,
+          city_name: "",
           address: loaded.address,
           lat: loaded.gps_lat,
           lng: loaded.gps_lng,
@@ -308,7 +332,8 @@ const Dashboard = () => {
         name: `${data.first_name || ""} ${data.last_name || ""}`.trim() || "Новый пользователь",
         email: data.email || "",
         phone: data.phone || "",
-        city: data.city || "",
+        city_id: data.city_id || null,
+        city_name: "",
         address: data.address || "",
         lat: data.gps_lat?.toString() || "",
         lng: data.gps_lng?.toString() || "",
@@ -334,7 +359,8 @@ const Dashboard = () => {
       if (!first_name) newErrors.name = "Имя обязательно";
       if (!last_name) newErrors.name = "Укажите имя и фамилию";
       if (!formData.phone.trim()) newErrors.phone = "Телефон обязателен";
-      if (!formData.city) newErrors.city = "Город/Село обязазателен";
+      if (!formData.city_id && !showCustomCity) newErrors.city_id = "Город/Село обязазателен";
+      if (showCustomCity && !customCityName.trim()) newErrors.city_id = "Введите название населённого пункта";
       if (!formData.address.trim()) newErrors.address = "Адрес обязателен";
       if (!formData.avatar.trim()) newErrors.avatar = "Логотип обязателен";
     }
@@ -356,13 +382,40 @@ const Dashboard = () => {
       return;
     }
 
+    let cityId = formData.city_id;
+
+    // Создать новый город если выбран "Другой"
+    if (showCustomCity && customCityName.trim() && selectedRegionId) {
+      const { data: newCity, error: cityError } = await (supabase as any)
+        .from("city")
+        .insert({
+          name: customCityName.trim(),
+          type: customCityType,
+          region_id: selectedRegionId,
+        })
+        .select("id")
+        .single();
+
+      if (cityError) {
+        console.error("Error creating city:", cityError);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось создать новый населённый пункт",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      cityId = newCity.id;
+    }
+
     const profileDataUpdate = {
       user_id: user.id,
       first_name,
       last_name,
       email: formData.email.trim() || null,
       phone: formData.phone.trim() || null,
-      city: formData.city || null,
+      city_id: cityId,
       address: formData.address.trim() || null,
       gps_lat: formData.lat ? parseFloat(formData.lat) : null,
       gps_lng: formData.lng ? parseFloat(formData.lng) : null,
@@ -381,15 +434,28 @@ const Dashboard = () => {
       last_name,
       email: formData.email,
       phone: formData.phone,
-      city: formData.city,
+      city_id: cityId,
+      city_name: "",
       address: formData.address,
       gps_lat: formData.lat,
       gps_lng: formData.lng,
       logo_url: formData.avatar,
     });
 
+    // Если был создан новый город, обновляем список и выбираем его
+    if (showCustomCity && cityId) {
+      setFormData((prev) => ({ ...prev, city_id: cityId }));
+      onRefreshCities();
+      setShowCustomCity(false);
+      setCustomCityName("");
+    }
+
     toast({ title: "Профиль сохранён", description: "Данные успешно обновлены" });
-    setIsEditDialogOpen(false);
+    
+    // Даём время на обновление списка городов перед закрытием
+    setTimeout(() => {
+      setIsEditDialogOpen(false);
+    }, 100);
   };
 
   const handleFileUpload = async (file: File) => {
@@ -859,6 +925,15 @@ const Dashboard = () => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onFileInputChange={handleFileInputChange}
+          selectedRegionId={selectedRegionId}
+          showCustomCity={showCustomCity}
+          customCityName={customCityName}
+          customCityType={customCityType}
+          onCustomCityNameChange={setCustomCityName}
+          onCustomCityTypeChange={setCustomCityType}
+          onShowCustomCityChange={setShowCustomCity}
+          onSelectedRegionIdChange={setSelectedRegionId}
+          onRefreshCities={refreshCities}
         />
 
         <PromotionDialog

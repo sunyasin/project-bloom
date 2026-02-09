@@ -425,10 +425,75 @@ export type Database = {
         }
         Relationships: []
       }
+      city: {
+        Row: {
+          id: number
+          name: string
+          type: Database["public"]["Enums"]["city_type"]
+          region_id: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          name: string
+          type: Database["public"]["Enums"]["city_type"]
+          region_id?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          name?: string
+          type?: Database["public"]["Enums"]["city_type"]
+          region_id?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "city_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      region: {
+        Row: {
+          id: number
+          country: string
+          republic: string | null
+          oblast: string | null
+          district: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          country?: string
+          republic?: string | null
+          oblast?: string | null
+          district?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          country?: string
+          republic?: string | null
+          oblast?: string | null
+          district?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
-          city: string | null
+          city_id: number | null
           created_at: string
           email: string | null
           first_name: string | null
@@ -438,13 +503,14 @@ export type Database = {
           last_name: string | null
           logo_url: string | null
           phone: string | null
+          region_id: number | null
           updated_at: string
           user_id: string
           wallet: number
         }
         Insert: {
           address?: string | null
-          city?: string | null
+          city_id?: number | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -454,13 +520,14 @@ export type Database = {
           last_name?: string | null
           logo_url?: string | null
           phone?: string | null
+          region_id?: number | null
           updated_at?: string
           user_id: string
           wallet?: number
         }
         Update: {
           address?: string | null
-          city?: string | null
+          city_id?: number | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -470,11 +537,27 @@ export type Database = {
           last_name?: string | null
           logo_url?: string | null
           phone?: string | null
+          region_id?: number | null
           updated_at?: string
           user_id?: string
           wallet?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "city"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       promotions: {
         Row: {
@@ -724,6 +807,7 @@ export type Database = {
         | "coin_request"
         | "order"
       product_sale_type: "sell_only" | "barter_goods" | "barter_coin"
+      city_type: "село" | "поселок" | "деревня" | "город"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -733,7 +817,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals["public"]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -859,6 +943,7 @@ export const Constants = {
         "super_admin",
       ],
       business_status: ["draft", "moderation", "published", "deleted"],
+      city_type: ["село", "поселок", "деревня", "город"],
       exchange_status: [
         "created",
         "ok_meeting",

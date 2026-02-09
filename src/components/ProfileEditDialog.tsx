@@ -31,25 +31,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 
-const CITIES = [
-  "Соколиное",
-  "Аромат", 
-  "Куйбышево",
-  "Танковое",
-  "Голубинка",
-  "Нижняя Голубинка",
-  "Поляна",
-  "Солнечноселье",
-  "Счастливое",
-  "Новоульяновка",
-];
+interface City {
+  id: number;
+  name: string;
+  type: string;
+  region_id: number | null;
+}
+
+interface Region {
+  id: number;
+  country: string;
+  republic: string | null;
+  oblast: string | null;
+  district: string | null;
+}
 
 interface ProfileFormData {
   email: string;
   phone: string;
   first_name: string;
   last_name: string;
-  city: string;
+  city_id: number | null;
   address: string;
   gps_lat: string;
   gps_lng: string;
@@ -61,7 +63,7 @@ const emptyFormData: ProfileFormData = {
   phone: "",
   first_name: "",
   last_name: "",
-  city: "",
+  city_id: null,
   address: "",
   gps_lat: "",
   gps_lng: "",
@@ -73,6 +75,12 @@ interface ProfileEditDialogProps {
   onOpenChange: (open: boolean) => void;
   isNewUser?: boolean;
   onSaveSuccess?: () => void;
+}
+
+interface ProfileFormErrors extends Partial<Omit<ProfileFormData, 'city_id'>> {
+  city_id?: string;
+  custom_city_name?: string;
+  custom_city_type?: string;
 }
 
 export const ProfileEditDialog = ({ 
@@ -87,9 +95,15 @@ export const ProfileEditDialog = ({
   const [formData, setFormData] = useState<ProfileFormData>(emptyFormData);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
+  const [errors, setErrors] = useState<ProfileFormErrors>({});
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [cities, setCities] = useState<City[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+  const [showCustomCity, setShowCustomCity] = useState(false);
+  const [customCityName, setCustomCityName] = useState("");
+  const [customCityType, setCustomCityType] = useState("село");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isProducer = user?.roles?.some(r => ["moderator", "news_editor", "super_admin"].includes(r));
   const isClient = user?.roles?.includes("client");
@@ -98,6 +112,61 @@ export const ProfileEditDialog = ({
   const isBlobUrl = (url: string): boolean => {
     return url.startsWith('blob:');
   };
+
+  // Get region display text
+  const getRegionText = (region: Region): string => {
+    const parts = [
+      region.country,
+      region.republic,
+      region.oblast,
+      region.district,
+    ].filter(Boolean);
+    return parts.join(", ");
+  };
+
+  // Load regions when dialog opens
+  useEffect(() => {
+    const loadRegions = async () => {
+      const { data: regionsData } = await (supabase as any)
+        .from("region")
+        .select("*")
+        .order("country, republic, district");
+      
+      if (regionsData) {
+        setRegions(regionsData);
+        // Select first region by default
+        if (regionsData.length > 0 && !selectedRegionId) {
+          setSelectedRegionId(regionsData[0].id);
+        }
+      }
+    };
+
+    if (open) {
+      loadRegions();
+    }
+  }, [open]);
+
+  // Load cities for selected region
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!selectedRegionId) {
+        setCities([]);
+        return;
+      }
+
+      const { data: citiesData } = await (supabase as any)
+        .from("city")
+        .select("*")
+        .eq("region_id", selectedRegionId)
+        .order("name");
+      
+      if (citiesData) {
+        setCities(citiesData);
+      }
+    };
+
+    loadCities();
+  }, [selectedRegionId]);
 
   // Load profile data when dialog opens
   useEffect(() => {
@@ -116,12 +185,23 @@ export const ProfileEditDialog = ({
       }
 
       if (data && !isNewUser) {
+        // Find city and its region
+        const { data: cityData } = await (supabase as any)
+          .from("city")
+          .select("*, region_id")
+          .eq("id", data.city_id)
+          .single();
+        
+        if (cityData && cityData.region_id) {
+          setSelectedRegionId(cityData.region_id);
+        }
+
         setFormData({
           email: data.email || "",
           phone: data.phone || "",
           first_name: data.first_name || "",
           last_name: data.last_name || "",
-          city: data.city || "",
+          city_id: data.city_id || null,
           address: data.address || "",
           gps_lat: data.gps_lat?.toString() || "",
           gps_lng: data.gps_lng?.toString() || "",
@@ -130,6 +210,8 @@ export const ProfileEditDialog = ({
       } else {
         // For new users, start with empty form
         setFormData(emptyFormData);
+        setShowCustomCity(false);
+        setCustomCityName("");
       }
       setLoading(false);
     };
@@ -139,15 +221,26 @@ export const ProfileEditDialog = ({
     }
   }, [user, open, isNewUser]);
 
-  const updateField = (field: keyof ProfileFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const updateField = (field: keyof ProfileFormData, value: string | number) => {
+    if (field === "city_id") {
+      const numValue = value === "" ? null : Number(value);
+      setFormData((prev) => ({ ...prev, city_id: numValue }));
+      // Check if "other" city is selected
+      if (numValue === -1) {
+        setShowCustomCity(true);
+      } else {
+        setShowCustomCity(false);
+      }
+    } else {
+      setFormData((prev) => ({ ...prev, [field]: value as string }));
+    }
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<ProfileFormData> = {};
+    const newErrors: ProfileFormErrors = {};
 
     if (!formData.email.trim()) {
       newErrors.email = "Email обязателен";
@@ -167,11 +260,17 @@ export const ProfileEditDialog = ({
       newErrors.last_name = "Фамилия обязательна";
     }
 
+    // City validation
+    if (showCustomCity) {
+      if (!customCityName.trim()) {
+        newErrors.custom_city_name = "Введите название населённого пункта";
+      }
+    } else if (!formData.city_id) {
+      newErrors.city_id = "Выберите населённый пункт";
+    }
+
     // City and address required for client role
     if (isClient) {
-      if (!formData.city.trim()) {
-        newErrors.city = "Город/Село обязателен";
-      }
       if (!formData.address.trim()) {
         newErrors.address = "Адрес обязателен";
       }
@@ -187,9 +286,6 @@ export const ProfileEditDialog = ({
       if (!formData.logo_url.trim() || isBlobUrl(formData.logo_url)) {
         newErrors.logo_url = "Логотип обязателен для производителя";
       }
-      if (!formData.city.trim()) {
-        newErrors.city = "Город/Село обязателен";
-      }
       if (!formData.address.trim()) {
         newErrors.address = "Адрес обязателен для производителя";
       }
@@ -199,7 +295,7 @@ export const ProfileEditDialog = ({
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return Object.keys(newErrors).filter(k => !k.startsWith('custom_') && !k.startsWith('region_')).length === 0;
   };
 
   const handleSave = async () => {
@@ -217,13 +313,59 @@ export const ProfileEditDialog = ({
 
     setSaving(true);
 
+    let cityId = formData.city_id;
+
+    // Create custom city if "other" was selected
+    if (showCustomCity && customCityName.trim() && selectedRegionId) {
+      const { data: newCity, error: cityError } = await (supabase as any)
+        .from("city")
+        .insert({
+          name: customCityName.trim(),
+          type: customCityType,
+          region_id: selectedRegionId,
+        })
+        .select("id")
+        .single();
+
+      if (cityError) {
+        console.error("Error creating city:", cityError);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось создать новый населённый пункт",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      cityId = newCity.id;
+      
+      // Update form data to select the newly created city
+      setFormData((prev) => ({ ...prev, city_id: newCity.id }));
+      setShowCustomCity(false);
+      setCustomCityName("");
+      
+      // Refresh cities list to show the newly created city
+      if (selectedRegionId) {
+        const { data: refreshedCities } = await (supabase as any)
+          .from("city")
+          .select("*")
+          .eq("region_id", selectedRegionId)
+          .order("name");
+        
+        if (refreshedCities) {
+          setCities(refreshedCities);
+        }
+      }
+    }
+
     const profileData = {
       user_id: user.id,
       email: formData.email.trim(),
       phone: formData.phone.trim(),
       first_name: formData.first_name.trim(),
       last_name: formData.last_name.trim(),
-      city: formData.city || null,
+      city_id: cityId,
       address: formData.address.trim() || null,
       gps_lat: formData.gps_lat ? parseFloat(formData.gps_lat) : null,
       gps_lng: formData.gps_lng ? parseFloat(formData.gps_lng) : null,
@@ -498,30 +640,93 @@ export const ProfileEditDialog = ({
               )}
             </div>
 
-            {/* City select */}
+            {/* Region select */}
             <div className="space-y-2">
-              <Label htmlFor="city">
-                Город/Село {(isClient || isProducer) && <span className="text-destructive">*</span>}
+              <Label className="flex items-center gap-2">
+                <Map className="h-4 w-4" />
+                Регион {(isClient || isProducer) && <span className="text-destructive">*</span>}
               </Label>
               <Select
-                value={formData.city}
-                onValueChange={(value) => updateField("city", value)}
+                value={selectedRegionId?.toString() || ""}
+                onValueChange={(value) => {
+                  setSelectedRegionId(value ? Number(value) : null);
+                  // Reset city selection when region changes
+                  updateField("city_id", "");
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите населённый пункт" />
+                  <SelectValue placeholder="Выберите регион" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CITIES.map((city) => (
-                    <SelectItem key={city} value={city}>
-                      {city}
+                  {regions.map((region) => (
+                    <SelectItem key={region.id} value={region.id.toString()}>
+                      {getRegionText(region)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.city && (
-                <p className="text-xs text-destructive">{errors.city}</p>
-              )}
             </div>
+
+            {/* City select */}
+            {selectedRegionId && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Населённый пункт {(isClient || isProducer) && <span className="text-destructive">*</span>}
+                </Label>
+                <Select
+                  value={formData.city_id?.toString() || ""}
+                  onValueChange={(value) => updateField("city_id", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите населённый пункт" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cities.map((city) => (
+                      <SelectItem key={city.id} value={city.id.toString()}>
+                        {city.name} ({city.type})
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="-1">Другой...</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.city_id && (
+                  <p className="text-xs text-destructive">{errors.city_id}</p>
+                )}
+              </div>
+            )}
+
+            {/* Custom city fields */}
+            {showCustomCity && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/50">
+                <Label className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Новый населённый пункт
+                </Label>
+                <Select
+                  value={customCityType}
+                  onValueChange={setCustomCityType}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Тип населённого пункта" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="село">село</SelectItem>
+                    <SelectItem value="поселок">поселок</SelectItem>
+                    <SelectItem value="деревня">деревня</SelectItem>
+                    <SelectItem value="город">город</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Название населённого пункта"
+                  value={customCityName}
+                  onChange={(e) => setCustomCityName(e.target.value)}
+                />
+                {errors.custom_city_name && (
+                  <p className="text-xs text-destructive">{errors.custom_city_name}</p>
+                )}
+              </div>
+            )}
 
             {/* Address */}
             <div className="space-y-2">
