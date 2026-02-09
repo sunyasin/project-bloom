@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, DragEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { 
   User, 
@@ -6,7 +6,9 @@ import {
   Phone, 
   Mail, 
   Map,
-  ImageIcon
+  ImageIcon,
+  Upload,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,8 +88,16 @@ export const ProfileEditDialog = ({
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isProducer = user?.roles?.some(r => ["moderator", "news_editor", "super_admin"].includes(r));
   const isClient = user?.roles?.includes("client");
+
+  // Check if URL is a blob URL (temporary, should not be saved)
+  const isBlobUrl = (url: string): boolean => {
+    return url.startsWith('blob:');
+  };
 
   // Load profile data when dialog opens
   useEffect(() => {
@@ -165,11 +175,16 @@ export const ProfileEditDialog = ({
       if (!formData.address.trim()) {
         newErrors.address = "Адрес обязателен";
       }
+      // Check logo is uploaded (not a blob URL)
+      if (!formData.logo_url.trim() || isBlobUrl(formData.logo_url)) {
+        newErrors.logo_url = "Логотип обязателен";
+      }
     }
 
     // For producers: logo, address, city and coordinates are required
     if (isProducer) {
-      if (!formData.logo_url.trim()) {
+      // Check logo is uploaded (not a blob URL)
+      if (!formData.logo_url.trim() || isBlobUrl(formData.logo_url)) {
         newErrors.logo_url = "Логотип обязателен для производителя";
       }
       if (!formData.city.trim()) {
@@ -189,6 +204,16 @@ export const ProfileEditDialog = ({
 
   const handleSave = async () => {
     if (!validateForm() || !user) return;
+
+    // Check for blob URL before saving
+    if (isBlobUrl(formData.logo_url)) {
+      toast({
+        title: "Ошибка изображения",
+        description: "Изображение не загружено корректно. Пожалуйста, загрузите изображение заново.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSaving(true);
 
@@ -229,6 +254,90 @@ export const ProfileEditDialog = ({
     setSaving(false);
   };
 
+  // File upload handlers
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!user) return;
+    
+    // Clear blob URL if exists
+    if (formData.logo_url && isBlobUrl(formData.logo_url)) {
+      updateField("logo_url", "");
+    }
+    
+    setUploadError(null);
+    
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError("Разрешены только изображения JPEG, PNG, WebP, GIF");
+      return;
+    }
+    
+    // Validate file size (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setUploadError("Размер файла не должен превышать 5MB");
+      return;
+    }
+    
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(fileName, file, { upsert: true });
+      
+      if (uploadError) {
+        setUploadError("Ошибка загрузки изображения");
+        return;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(fileName);
+      
+      updateField("logo_url", publicUrl);
+      setUploadError(null);
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadError("Ошибка загрузки файла");
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    updateField("logo_url", "");
+  };
+
+  const handleOpenFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <Dialog open={open} onOpenChange={(value) => !isNewUser && onOpenChange(value)}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -249,19 +358,64 @@ export const ProfileEditDialog = ({
           </div>
         ) : (
           <div className="space-y-4 mt-4">
-            {/* Logo URL */}
+            {/* Logo Upload */}
             <div className="space-y-2">
-              <Label htmlFor="logo_url" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4" />
-                Логотип (URL) {isProducer && <span className="text-destructive">*</span>}
+                Логотип / Аватар {(isProducer || isClient) && <span className="text-destructive">*</span>}
               </Label>
-              <Input
-                id="logo_url"
-                type="url"
-                placeholder="https://example.com/logo.jpg"
-                value={formData.logo_url}
-                onChange={(e) => updateField("logo_url", e.target.value)}
-              />
+              <div
+                className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : errors.logo_url
+                      ? "border-destructive"
+                      : "border-border hover:border-primary/50"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={handleOpenFileInput}
+              >
+                {formData.logo_url ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={formData.logo_url}
+                      alt="Логотип"
+                      className="w-24 h-24 rounded-full object-cover mx-auto"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveLogo();
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="py-4">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">Перетащите изображение или нажмите для выбора</p>
+                    <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, GIF до 5MB</p>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleFileInputChange}
+                />
+              </div>
+              {uploadError && (
+                <p className="text-sm text-destructive">{uploadError}</p>
+              )}
               {errors.logo_url && (
                 <p className="text-xs text-destructive">{errors.logo_url}</p>
               )}
