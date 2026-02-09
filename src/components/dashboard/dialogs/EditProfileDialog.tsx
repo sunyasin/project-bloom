@@ -308,7 +308,7 @@ export function EditProfileDialog({
                   <SelectValue placeholder="Выберите населённый пункт" />
                 </SelectTrigger>
                 <SelectContent>
-                  {cities.map((city) => (
+                  {(cities || []).map((city) => (
                     <SelectItem key={city.id} value={city.id.toString()}>
                       {city.name} ({city.type})
                     </SelectItem>

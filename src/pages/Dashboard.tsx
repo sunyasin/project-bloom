@@ -124,15 +124,22 @@ const Dashboard = () => {
         .eq("region_id", selectedRegionId)
         .order("name");
       if (data) setCities(data);
+    } else {
+      setCities([]);
     }
   };
 
+  // Load cities when selectedRegionId changes
+  useEffect(() => {
+    refreshCities();
+  }, [selectedRegionId]);
+
   // Open profile dialog for new users
   useEffect(() => {
-    if (isNewUser && !userLoading) {
+    if (isNewUser && !userLoading && !isProfileDialogOpen) {
       setIsProfileDialogOpen(true);
     }
-  }, [isNewUser, userLoading]);
+  }, [isNewUser, userLoading, isProfileDialogOpen]);
 
   const handleProfileSaveSuccess = async () => {
     setSearchParams({}, { replace: true });
@@ -305,6 +312,27 @@ const Dashboard = () => {
           vk: "",
           instagram: "",
         });
+        
+        // Load region for the user's city and set selectedRegionId
+        if (loaded.city_id) {
+          const { data: cityData } = await (supabase as any)
+            .from("city")
+            .select("region_id")
+            .eq("id", loaded.city_id)
+            .single();
+          if (cityData?.region_id) {
+            setSelectedRegionId(cityData.region_id);
+            // Load cities for this region
+            const { data: citiesData } = await (supabase as any)
+              .from("city")
+              .select("*")
+              .eq("region_id", cityData.region_id)
+              .order("name");
+            if (citiesData) {
+              setCities(citiesData);
+            }
+          }
+        }
       }
     };
 
@@ -445,7 +473,7 @@ const Dashboard = () => {
     // Если был создан новый город, обновляем список и выбираем его
     if (showCustomCity && cityId) {
       setFormData((prev) => ({ ...prev, city_id: cityId }));
-      onRefreshCities();
+      refreshCities();
       setShowCustomCity(false);
       setCustomCityName("");
     }
@@ -934,6 +962,7 @@ const Dashboard = () => {
           onShowCustomCityChange={setShowCustomCity}
           onSelectedRegionIdChange={setSelectedRegionId}
           onRefreshCities={refreshCities}
+          cities={cities}
         />
 
         <PromotionDialog

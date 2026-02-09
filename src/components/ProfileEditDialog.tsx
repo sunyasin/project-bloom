@@ -298,7 +298,10 @@ export const ProfileEditDialog = ({
     return Object.keys(newErrors).filter(k => !k.startsWith('custom_') && !k.startsWith('region_')).length === 0;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     if (!validateForm() || !user) return;
 
     // Check for blob URL before saving
@@ -481,7 +484,11 @@ export const ProfileEditDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(value) => !isNewUser && onOpenChange(value)}>
+    <Dialog open={open} onOpenChange={(value) => {
+      if (!isNewUser) {
+        onOpenChange(value);
+      }
+    }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
