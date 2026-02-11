@@ -116,7 +116,7 @@ const Auth = () => {
     if (!validateForm()) return;
 
     setLoading(true);
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${import.meta.env.APP_BASE_URL}/`;
 
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -161,7 +161,7 @@ const Auth = () => {
 
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth`,
+      redirectTo: `${import.meta.env.APP_BASE_URL}/auth`,
     });
 
     if (error) {
