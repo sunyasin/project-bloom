@@ -974,6 +974,7 @@ const Dashboard = () => {
           onSelectedRegionIdChange={setSelectedRegionId}
           onRefreshCities={refreshCities}
           cities={cities}
+          onCitiesChange={setCities}
         />
 
         <PromotionDialog

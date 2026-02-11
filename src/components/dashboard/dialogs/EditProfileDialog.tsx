@@ -64,6 +64,7 @@ interface EditProfileDialogProps {
   onSelectedRegionIdChange: (value: number | null) => void;
   onRefreshCities: () => void;
   cities?: {id: number, name: string, type: string, region_id: number | null}[];
+  onCitiesChange?: (cities: {id: number, name: string, type: string, region_id: number | null}[]) => void;
 }
 
 // Get region display text
@@ -104,10 +105,11 @@ export function EditProfileDialog({
   onSelectedRegionIdChange,
   onRefreshCities,
   cities,
+  onCitiesChange,
 }: EditProfileDialogProps) {
   const [regions, setRegions] = useState<Region[]>([]);
 
-  // Load regions when dialog opens - use local state for initial load
+  // Load regions when dialog opens
   useEffect(() => {
     const loadRegions = async () => {
       const { data } = await (supabase as any)
@@ -127,13 +129,15 @@ export function EditProfileDialog({
     if (open) {
       loadRegions();
     }
-  }, [open]);
+  }, [open, selectedRegionId, onSelectedRegionIdChange]);
 
-  // Load cities for selected region
+  // Load cities for selected region - use local state with parent sync
+  const [localCities, setLocalCities] = useState<City[]>([]);
+  
   useEffect(() => {
     const loadCities = async () => {
       if (!selectedRegionId) {
-        setCities([]);
+        setLocalCities([]);
         return;
       }
 
@@ -144,12 +148,13 @@ export function EditProfileDialog({
         .order("name");
       
       if (data) {
-        setCities(data);
+        setLocalCities(data);
+        onCitiesChange?.(data);
       }
     };
 
     loadCities();
-  }, [selectedRegionId]);
+  }, [selectedRegionId, onCitiesChange]);
 
   // Handle city selection
   const handleCityChange = (value: string) => {
@@ -308,7 +313,7 @@ export function EditProfileDialog({
                   <SelectValue placeholder="Выберите населённый пункт" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(cities || []).map((city) => (
+                  {(localCities || []).map((city) => (
                     <SelectItem key={city.id} value={city.id.toString()}>
                       {city.name} ({city.type})
                     </SelectItem>
