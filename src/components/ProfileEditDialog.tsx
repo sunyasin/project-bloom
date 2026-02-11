@@ -495,9 +495,11 @@ export const ProfileEditDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(value) => {
-      if (!isNewUser) {
-        onOpenChange(value);
+      // For new users, prevent closing via X button or Escape (but allow programmatic close)
+      if (value === false && isNewUser) {
+        return;
       }
+      onOpenChange(value);
     }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
