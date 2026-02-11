@@ -134,6 +134,9 @@ const Auth = () => {
       return;
     }
 
+    // Save email for new user profile
+    localStorage.setItem("pending_email", email.trim());
+
     const redirectUrl = `${import.meta.env.VITE_APP_BASE_URL}/`;
 
     const { error } = await supabase.auth.signUp({

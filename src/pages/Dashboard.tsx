@@ -135,6 +135,17 @@ const Dashboard = () => {
   }, [selectedRegionId]);
 
   // Open profile dialog for new users
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // Get pending email from localStorage
+    const savedEmail = localStorage.getItem("pending_email");
+    if (savedEmail) {
+      setPendingEmail(savedEmail);
+      localStorage.removeItem("pending_email");
+    }
+  }, []);
+
   useEffect(() => {
     if (isNewUser && !userLoading && !isProfileDialogOpen) {
       setIsProfileDialogOpen(true);
@@ -995,6 +1006,7 @@ const Dashboard = () => {
           open={isProfileDialogOpen}
           onOpenChange={setIsProfileDialogOpen}
           isNewUser={isNewUser}
+          initialEmail={pendingEmail}
           onSaveSuccess={handleProfileSaveSuccess}
         />
 
