@@ -116,6 +116,24 @@ const Auth = () => {
     if (!validateForm()) return;
 
     setLoading(true);
+
+    // Check if user already exists
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (!signInError) {
+      // User exists and password is correct
+      setLoading(false);
+      toast({
+        title: "Пользователь уже существует",
+        description: "Попробуйте войти с существующим аккаунтом",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const redirectUrl = `${import.meta.env.VITE_APP_BASE_URL}/`;
 
     const { error } = await supabase.auth.signUp({
