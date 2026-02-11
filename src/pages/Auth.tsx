@@ -187,7 +187,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col justify-start items-center p-4 pt-8 md:pt-4 md:justify-center">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
