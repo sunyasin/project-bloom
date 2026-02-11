@@ -94,7 +94,7 @@ const isBlobUrl = (url: string): boolean => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: userLoading } = useCurrentUserWithRole();
   const isNewUser = searchParams.get("new") === "true";
   const { toast } = useToast();
@@ -185,10 +185,6 @@ const Dashboard = () => {
         avatar: loaded.logo_url,
       }));
     }
-  };
-
-  const setSearchParams = (params: Record<string, string>, options: { replace: boolean }) => {
-    // Simple implementation - in real app would use proper setter
   };
 
   // Business cards
