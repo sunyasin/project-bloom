@@ -8,7 +8,8 @@ export interface BusinessInsert {
   category?: string;
   category_id?: string;
   location?: string;
-  city?: string;
+  city_id?: number | null;
+  city_name?: string;
   content_json?: Record<string, unknown>;
 }
 
@@ -82,7 +83,8 @@ export function useBusinesses() {
           category: data.category || "",
           category_id: data.category_id || null,
           location: data.location || "",
-          city: data.city || "",
+          city_id: data.city_id || null,
+          city_name: data.city_name || "",
           content_json: JSON.parse(JSON.stringify(data.content_json || {})),
           status: "draft" as const,
         };

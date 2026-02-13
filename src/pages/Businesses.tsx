@@ -36,7 +36,7 @@ const Businesses = () => {
     const fetchBusinesses = async () => {
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, name, category, location, city, content_json")
+        .select("id, name, category, location, city_name, content_json")
         .eq("status", "published");
       
       if (error) {

@@ -61,7 +61,8 @@ export interface Business {
   name: string;
   category: string;
   location: string;
-  city: string;
+  city_id: number | null;
+  city_name: string;
   content_json: Record<string, unknown>;
   status: BusinessStatus;
   donation_30d: number;
