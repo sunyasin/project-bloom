@@ -164,15 +164,20 @@ const BusinessCardEditor = () => {
       // Для новой визитки подставляем город из профиля владельца
       if (isNew) {
         const { data: { user } } = await supabase.auth.getUser();
+        console.log("[BusinessCardEditor] Loading profile for new business, user:", user?.id);
         if (user) {
-          // Получаем профиль с city_id
-          const { data: profile } = await supabase
+          // Получаем профиль с city_id и region_id
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('city_id, address')
+            .select('city_id, region_id, address')
             .eq('user_id', user.id)
             .maybeSingle();
           
+          console.log("[BusinessCardEditor] Profile data:", profile, "Error:", profileError);
+          
+          // Если у пользователя есть city_id - используем его
           if (profile && profile.city_id) {
+            console.log("[BusinessCardEditor] User has city_id:", profile.city_id);
             // Получаем город и его регион
             const { data: cityData } = await supabase
               .from('city')
@@ -180,22 +185,50 @@ const BusinessCardEditor = () => {
               .eq('id', profile.city_id)
               .maybeSingle();
             
+            console.log("[BusinessCardEditor] City data:", cityData);
+            
             if (cityData) {
-              // Загружаем все города этого региона
+              // Загружаем города этого региона
               const { data: citiesData } = await supabase
                 .from('city')
                 .select('id, name, type')
                 .eq('region_id', cityData.region_id)
                 .order('name');
               
+              console.log("[BusinessCardEditor] Cities for region:", citiesData);
+              
               if (citiesData) {
                 setCities(citiesData);
               }
               
+              // DEBUG: Log what we're setting
+              const newCityId = String(cityData.id);
+              console.log("[BusinessCardEditor] Setting cityId to:", newCityId, "city name:", cityData.name);
+              console.log("[BusinessCardEditor] Current cities state:", citiesData?.map(c => ({id: c.id, name: c.name})));
+              
               setCardData(prev => ({
                 ...prev,
-                cityId: String(cityData.id),
+                cityId: newCityId,
                 city: cityData.name,
+                location: profile.address || "",
+              }));
+              console.log("[BusinessCardEditor] Set cardData with city:", cityData.id, cityData.name);
+            }
+          } else if (profile?.region_id) {
+            // Если есть region_id но нет city_id - загружаем города региона
+            const { data: citiesData } = await supabase
+              .from('city')
+              .select('id, name, type')
+              .eq('region_id', profile.region_id)
+              .order('name');
+            
+            if (citiesData) {
+              setCities(citiesData);
+            }
+            
+            if (profile?.address) {
+              setCardData(prev => ({
+                ...prev,
                 location: profile.address || "",
               }));
             }
@@ -287,6 +320,51 @@ const BusinessCardEditor = () => {
               }).join("");
             }
             
+          // Если у визитки нет city_id - используем профиль пользователя
+          let finalCityId: string | null = data.city_id ? String(data.city_id) : null;
+          let finalCityName = data.city_name || profileCityName || "";
+          let finalLocation = data.location || profile?.address || "";
+          
+          // Если у визитки нет города, но в профиле есть city_id - используем его
+          if (!data.city_id && profile?.city_id) {
+            console.log("[BusinessCardEditor] Using city from profile:", profile.city_id);
+            finalCityId = String(profile.city_id);
+            finalCityName = profileCityName;
+            // Загружаем города региона профиля
+            const { data: profileCityData } = await supabase
+              .from('city')
+              .select('region_id')
+              .eq('id', profile.city_id)
+              .maybeSingle();
+            
+            if (profileCityData?.region_id) {
+              setSelectedRegionId(profileCityData.region_id);
+              const { data: profileCities } = await supabase
+                .from('city')
+                .select('id, name, type')
+                .eq('region_id', profileCityData.region_id)
+                .order('name');
+              
+              if (profileCities) {
+                setCities(profileCities);
+              }
+            }
+          } else if (!data.city_id && profile?.region_id) {
+            // Если в профиле только region_id без city_id
+            const { data: profileCities } = await supabase
+              .from('city')
+              .select('id, name, type')
+              .eq('region_id', profile.region_id)
+              .order('name');
+            
+            if (profileCities) {
+              setCities(profileCities);
+            }
+          } else if (!data.city_id) {
+            // Если нет города ни в визитке, ни в профиле - загружаем все города
+            await loadAllCities();
+          }
+            
             const loaded: BusinessCardData = {
               id: data.id,
               title: data.name,
@@ -294,27 +372,10 @@ const BusinessCardEditor = () => {
               image: (contentJson.image as string) || "",
               content: htmlContent,
               categoryId: data.category_id || "",
-              cityId: data.city_id ? String(data.city_id) : null,
-              city: data.city_name || profileCityName || "",
-              location: data.location || profile?.address || "",
+              cityId: finalCityId,
+              city: finalCityName,
+              location: finalLocation,
             };
-            
-            // Устанавливаем регион и загружаем города
-            if (data.city_id) {
-              const { data: cityData } = await supabase
-                .from('city')
-                .select('region_id')
-                .eq('id', data.city_id)
-                .maybeSingle();
-              
-              if (cityData?.region_id) {
-                setSelectedRegionId(cityData.region_id);
-                await loadCities(cityData.region_id);
-              }
-            } else {
-              // Загружаем все города если у визитки нет city_id
-              await loadAllCities();
-            }
             
             setCardData(loaded);
             editorKeyRef.current += 1;
@@ -740,25 +801,8 @@ const BusinessCardEditor = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Регион</label>
-              <Select 
-                value={selectedRegionId ? String(selectedRegionId) : ""} 
-                onValueChange={handleRegionChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={regions.length > 0 ? "Выберите регион" : "Загрузка..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {regions.map((region) => (
-                    <SelectItem key={region.id} value={String(region.id)}>
-                      {region.oblast || region.republic || region.country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
               <label className="text-sm text-muted-foreground mb-1 block">Город</label>
+              {console.log("[BusinessCardEditor] Render Select - cityId:", cardData.cityId, "cities count:", cities.length, "cities:", cities.map(c => ({id: c.id, name: c.name})))}
               <Select 
                 value={cardData.cityId || ""} 
                 onValueChange={handleCityChange}
