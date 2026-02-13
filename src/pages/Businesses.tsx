@@ -36,7 +36,7 @@ const Businesses = () => {
     const fetchBusinesses = async () => {
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, name, category, location, city_name, content_json")
+        .select("id, name, category, location, city_id, content_json, city:city_id(name)")
         .eq("status", "published");
       
       if (error) {
@@ -45,9 +45,14 @@ const Businesses = () => {
       }
       
       if (data) {
-        setBusinesses(data as BusinessDisplay[]);
+        // Map to add city_name from embedded relationship
+        const mappedData = (data as any[]).map(b => ({
+          ...b,
+          city_name: b.city?.name || ""
+        }));
+        setBusinesses(mappedData as BusinessDisplay[]);
         // Extract unique cities
-        const uniqueCities = [...new Set(data.map(b => b.city_name))];
+        const uniqueCities = [...new Set(mappedData.map(b => b.city_name).filter(Boolean))];
         setCities(["Все города", ...uniqueCities.sort()]);
       }
       setLoading(false);

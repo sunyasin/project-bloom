@@ -226,21 +226,59 @@ const CategoryPage = () => {
   // Загрузка городов из БД
   useEffect(() => {
     const fetchCities = async () => {
-      const { data, error } = await supabase
+      // Сначала получаем профиль пользователя
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      let regionFilter: number | null = null;
+      
+      // Если пользователь авторизован, получаем его профиль и регион
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('city_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (profile?.city_id) {
+          // Получаем регион пользователя
+          const { data: cityData } = await supabase
+            .from('city')
+            .select('region_id')
+            .eq('id', profile.city_id)
+            .maybeSingle();
+          
+          if (cityData?.region_id) {
+            regionFilter = cityData.region_id;
+          }
+        }
+      }
+      
+      // Загружаем города
+      let query = supabase
         .from("businesses")
-        .select("city")
+        .select("city_id, city:city_id(name, region_id)")
         .eq("status", "published")
-        .not("city", "is", null)
-        .neq("city", "");
+        .not("city_id", "is", null);
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error("[Supabase] Error fetching cities:", error);
         return;
       }
       
+      // Фильтруем города по региону пользователя
       const uniqueCities = new Set<string>();
-      data?.forEach(b => {
-        if (b.city_name) uniqueCities.add(b.city_name);
+      (data as any[])?.forEach(b => {
+        // Если есть регион пользователя, показываем только города из этого региона
+        if (regionFilter) {
+          if (b.city?.region_id === regionFilter && b.city?.name) {
+            uniqueCities.add(b.city.name);
+          }
+        } else {
+          // Иначе показываем все города
+          if (b.city?.name) uniqueCities.add(b.city.name);
+        }
       });
       
       setCities(["Все города", ...Array.from(uniqueCities).sort()]);
@@ -272,14 +310,9 @@ const CategoryPage = () => {
       // 1. Загружаем визитки с category_id = id
       let businessQuery = supabase
         .from("businesses")
-        .select("*")
+        .select("*, city:city_id(name)")
         .eq("category_id", id)
         .eq("status", "published");
-      
-      // Применяем фильтр по городу
-      if (cityFilter && cityFilter !== "Все города") {
-        businessQuery = businessQuery.eq("city", cityFilter);
-      }
       
       const { data: businessesByCat, error: err1 } = await businessQuery;
       
@@ -306,15 +339,10 @@ const CategoryPage = () => {
       if (producerIds.length > 0) {
         let productBusinessQuery = supabase
           .from("businesses")
-          .select("*")
+          .select("*, city:city_id(name)")
           .in("owner_id", producerIds)
           .eq("status", "published");
         
-        // Применяем фильтр по городу
-        if (cityFilter && cityFilter !== "Все города") {
-          productBusinessQuery = productBusinessQuery.eq("city", cityFilter);
-        }
-
         const { data, error: err3 } = await productBusinessQuery;
 
         if (err3) {
@@ -389,7 +417,7 @@ const CategoryPage = () => {
             id: b.id,
             name: b.name,
             location: b.location,
-            city: b.city_name,
+            city: (b as any).city?.name || (b as any).city_name || "",
             phone: (contentJson.phone as string) || "",
             ownerId: b.owner_id || "",
             image,
@@ -796,7 +824,7 @@ ${productsList}
 
   const filteredBusinesses = (cityFilter === "Все города" 
     ? businessesWithFilteredProducts 
-    : businessesWithFilteredProducts.filter(b => b.city_name === cityFilter)
+    : businessesWithFilteredProducts.filter(b => (b as any).city?.name === cityFilter)
   ).filter(b => b.products.length > 0 || saleTypeFilter === "all");
 
   if (loading) {
@@ -875,7 +903,7 @@ ${productsList}
                           <h3 className="font-medium text-foreground">{business.name}</h3>
                           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />
-                            {business.city_name}, {business.location}
+                            {(business as any).city?.name || business.city_name}, {business.location}
                           </div>
                         </div>
                       </Link>
@@ -1187,7 +1215,7 @@ ${productsList}
                 {/* Business info */}
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="font-medium">{business?.name}</p>
-                  <p className="text-sm text-muted-foreground">{business?.city_name}, {business?.location}</p>
+                  <p className="text-sm text-muted-foreground">{(business as any)?.city?.name || business?.city_name}, {business?.location}</p>
                 </div>
 
                 {/* Products list */}

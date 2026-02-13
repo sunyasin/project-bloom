@@ -206,7 +206,7 @@ const BusinessPage = () => {
       // 1. Загрузить визитку по ID (только published)
       const { data: businessData, error: businessError } = await supabase
         .from("businesses")
-        .select("*")
+        .select("*, city:city_id(name)")
         .eq("id", id)
         .eq("status", "published")
         .maybeSingle();
@@ -217,14 +217,20 @@ const BusinessPage = () => {
         return;
       }
 
-      setBusiness(businessData as Business);
+      // Extract city_name from embedded relationship
+      const businessWithCity = {
+        ...businessData,
+        city_name: (businessData as any).city?.name || ""
+      };
+
+      setBusiness(businessWithCity as Business);
 
       const ownerId = businessData.owner_id;
 
       // Параллельно загружаем все остальные данные
       const [cardsResult, productsResult, profileResult, promotionsResult] = await Promise.all([
         // 2. Все визитки этого владельца
-        supabase.from("businesses").select("*").eq("owner_id", ownerId).eq("status", "published"),
+        supabase.from("businesses").select("*, city:city_id(name)").eq("owner_id", ownerId).eq("status", "published"),
 
         // 3. Товары этого владельца (привязанные к этой визитке или без привязки)
         supabase
@@ -834,7 +840,7 @@ const BusinessPage = () => {
               <p className="text-primary mt-1 text-sm sm:text-base">{business.category}</p>
               <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 shrink-0" />
-                <span className="truncate">{business.location}, {business.city_name}</span>
+                <span className="truncate">{business.location}, {(business as any).city?.name || business.city_name}</span>
               </div>
               {/* Short description from content_json - moved here from separate section */}
               {contentJson.shortDescription && (

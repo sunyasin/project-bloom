@@ -110,12 +110,14 @@ const BusinessCardEditor = () => {
 
   // Загрузка городов по региону
   const loadCities = useCallback(async (regionId: number) => {
-    const { data: citiesData } = await supabase
+    console.log("[BusinessCardEditor] Loading cities for region:", regionId);
+    const { data: citiesData, error } = await supabase
       .from('city')
       .select('id, name, type')
       .eq('region_id', regionId)
       .order('name');
     
+    console.log("[BusinessCardEditor] Cities for region:", citiesData, "error:", error);
     if (citiesData) {
       setCities(citiesData);
     }
@@ -123,11 +125,13 @@ const BusinessCardEditor = () => {
 
   // Загрузка всех городов
   const loadAllCities = useCallback(async () => {
-    const { data: citiesData } = await supabase
+    console.log("[BusinessCardEditor] Loading all cities...");
+    const { data: citiesData, error } = await supabase
       .from('city')
       .select('id, name, type')
       .order('name');
     
+    console.log("[BusinessCardEditor] Cities loaded:", citiesData, "error:", error);
     if (citiesData) {
       setCities(citiesData);
     }
@@ -181,26 +185,31 @@ const BusinessCardEditor = () => {
           if (profile && profile.city_id) {
             console.log("[BusinessCardEditor] User has city_id:", profile.city_id);
             // Получаем город и его регион
-            const { data: cityData } = await supabase
+            const { data: cityData, error: cityError } = await supabase
               .from('city')
               .select('id, name, region_id')
               .eq('id', profile.city_id)
               .maybeSingle();
             
-            console.log("[BusinessCardEditor] City data:", cityData);
+            console.log("[BusinessCardEditor] City data:", cityData, "error:", cityError);
             
             if (cityData) {
               // Загружаем города этого региона
-              const { data: citiesData } = await supabase
+              const { data: citiesData, error: citiesError } = await supabase
                 .from('city')
                 .select('id, name, type')
                 .eq('region_id', cityData.region_id)
                 .order('name');
               
-              console.log("[BusinessCardEditor] Cities for region:", citiesData);
+              console.log("[BusinessCardEditor] Cities for region:", citiesData, "error:", citiesError);
               
-              if (citiesData) {
+              if (citiesData && citiesData.length > 0) {
+                console.log("[BusinessCardEditor] Setting cities:", citiesData);
                 setCities(citiesData);
+              } else {
+                // Если городов в регионе нет, загружаем все города
+                console.log("[BusinessCardEditor] No cities in region, loading all");
+                await loadAllCities();
               }
               
               // DEBUG: Log what we're setting
@@ -234,6 +243,8 @@ const BusinessCardEditor = () => {
                 location: profile.address || "",
               }));
             }
+            // Всегда загружаем все города
+            await loadAllCities();
           } else if (profile?.address) {
             setCardData(prev => ({
               ...prev,
@@ -247,6 +258,10 @@ const BusinessCardEditor = () => {
           }
         }
       }
+      
+      // Гарантированно загружаем все города
+      console.log("[BusinessCardEditor] Loading all cities as fallback");
+      await loadAllCities();
     };
     loadInitialData();
   }, [isNew, loadAllCities, loadRegions]);
@@ -489,7 +504,6 @@ const BusinessCardEditor = () => {
             category: selectedCategory?.name || "",
             category_id: cardData.categoryId || null,
             city_id: cardData.cityId || null,
-            city_name: cardData.city || "",
             location: cardData.location || "",
             new_category: cardData.newCategory || null,
             content_json: contentJson,
@@ -514,7 +528,6 @@ const BusinessCardEditor = () => {
             category: selectedCategory?.name || "",
             category_id: cardData.categoryId || null,
             city_id: cardData.cityId || null,
-            city_name: cardData.city || "",
             location: cardData.location || "",
             new_category: cardData.newCategory || null,
             content_json: contentJson,

@@ -65,7 +65,7 @@ const ModeratorContent = () => {
     // Load businesses with draft or moderation status
     const { data: businessesData, error } = await supabase
       .from("businesses")
-      .select("*")
+      .select("*, city:city_id(name)")
       .in("status", ["draft", "moderation"])
       .order("created_at", { ascending: false });
     
@@ -94,8 +94,9 @@ const ModeratorContent = () => {
       }
     }
 
-    const businessesWithOwner: BusinessWithOwner[] = (businessesData || []).map(b => ({
+    const businessesWithOwner: BusinessWithOwner[] = (businessesData || []).map((b: any) => ({
       ...b,
+      city_name: b.city?.name || b.city_name || "",
       ownerEmail: b.owner_id ? profilesMap[b.owner_id]?.email : undefined,
       ownerName: b.owner_id ? `${profilesMap[b.owner_id]?.first_name || ""} ${profilesMap[b.owner_id]?.last_name || ""}`.trim() : undefined,
     }));
@@ -285,13 +286,24 @@ const ModeratorContent = () => {
       categoryId = existingCat?.id || null;
     }
 
+    // Look up city_id from city name
+    let cityId: number | null = null;
+    if (editedCity.trim()) {
+      const { data: cityData } = await supabase
+        .from("city")
+        .select("id")
+        .eq("name", editedCity.trim())
+        .maybeSingle();
+      cityId = cityData?.id || null;
+    }
+
     const { error } = await supabase
       .from("businesses")
       .update({ 
         status: "published",
         category: finalCategory,
         category_id: categoryId,
-        city_name: editedCity,
+        city_id: cityId,
         location: editedAddress,
         content_json: {
           ...(selectedBusiness.content_json as object || {}),
@@ -385,6 +397,17 @@ const ModeratorContent = () => {
       categoryId = existingCat?.id || null;
     }
 
+    // Look up city_id from city name
+    let cityId: number | null = null;
+    if (editedCity.trim()) {
+      const { data: cityData } = await supabase
+        .from("city")
+        .select("id")
+        .eq("name", editedCity.trim())
+        .maybeSingle();
+      cityId = cityData?.id || null;
+    }
+
     // Update status to draft (pending for revision)
     const { error } = await supabase
       .from("businesses")
@@ -392,7 +415,7 @@ const ModeratorContent = () => {
         status: "draft",
         category: finalCategory,
         category_id: categoryId,
-        city_name: editedCity,
+        city_id: cityId,
         location: editedAddress,
         content_json: {
           ...(selectedBusiness.content_json as object || {}),

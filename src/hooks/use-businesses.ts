@@ -9,7 +9,6 @@ export interface BusinessInsert {
   category_id?: string;
   location?: string;
   city_id?: number | null;
-  city_name?: string;
   content_json?: Record<string, unknown>;
 }
 
@@ -33,7 +32,7 @@ export function useBusinesses() {
 
       const { data, error } = await supabase
         .from("businesses")
-        .select("*")
+        .select("*, city:city_id(name)")
         .eq("owner_id", user.id)
         .neq("status", "deleted")
         .order("updated_at", { ascending: false });
@@ -41,8 +40,10 @@ export function useBusinesses() {
       if (error) throw error;
 
       // Map to Business type with proper status handling
-      const mapped: Business[] = (data || []).map((item) => ({
+      // Note: using embedded relationship - city is returned as { name: string }
+      const mapped: Business[] = (data || []).map((item: any) => ({
         ...item,
+        city_name: item.city?.name || item.city_name || "",
         status: item.status as BusinessStatus,
         content_json: (item.content_json || {}) as Record<string, unknown>,
         donation_30d: Number(item.donation_30d) || 0,
@@ -84,17 +85,17 @@ export function useBusinesses() {
           category_id: data.category_id || null,
           location: data.location || "",
           city_id: data.city_id || null,
-          city_name: data.city_name || "",
           content_json: JSON.parse(JSON.stringify(data.content_json || {})),
           status: "draft" as const,
         };
 
-        const { data: newBusiness, error } = await supabase.from("businesses").insert([insertData]).select().single();
+        const { data: newBusiness, error } = await supabase.from("businesses").insert([insertData]).select("*, city:city_id(name)").single();
 
         if (error) throw error;
 
         const mapped: Business = {
-          ...newBusiness,
+          ...(newBusiness as any),
+          city_name: (newBusiness as any).city?.name || "",
           status: newBusiness.status as BusinessStatus,
           content_json: (newBusiness.content_json || {}) as Record<string, unknown>,
           donation_30d: Number(newBusiness.donation_30d) || 0,

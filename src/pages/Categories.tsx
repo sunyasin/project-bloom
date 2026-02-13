@@ -40,21 +40,59 @@ const Categories = () => {
   // Загрузка списка городов (один раз)
   useEffect(() => {
     const fetchCities = async () => {
-      const { data, error } = await supabase
+      // Сначала получаем профиль пользователя
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      let regionFilter: number | null = null;
+      
+      // Если пользователь авторизован, получаем его профиль и регион
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('city_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (profile?.city_id) {
+          // Получаем регион пользователя
+          const { data: cityData } = await supabase
+            .from('city')
+            .select('region_id')
+            .eq('id', profile.city_id)
+            .maybeSingle();
+          
+          if (cityData?.region_id) {
+            regionFilter = cityData.region_id;
+          }
+        }
+      }
+      
+      // Загружаем города
+      let query = supabase
         .from("businesses")
-        .select("city")
+        .select("city_id, city:city_id(name, region_id)")
         .eq("status", "published")
-        .not("city", "is", null)
-        .neq("city", "");
+        .not("city_id", "is", null);
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error("[Supabase] Error fetching cities:", error);
         return;
       }
       
+      // Фильтруем города по региону пользователя
       const uniqueCities = new Set<string>();
-      data?.forEach(b => {
-        if (b.city_name) uniqueCities.add(b.city_name);
+      (data as any[])?.forEach(b => {
+        // Если есть регион пользователя, показываем только города из этого региона
+        if (regionFilter) {
+          if (b.city?.region_id === regionFilter && b.city?.name) {
+            uniqueCities.add(b.city.name);
+          }
+        } else {
+          // Иначе показываем все города
+          if (b.city?.name) uniqueCities.add(b.city.name);
+        }
       });
       
       setCities(["Все города", ...Array.from(uniqueCities).sort()]);
@@ -84,13 +122,9 @@ const Categories = () => {
       // Загружаем визитки с фильтром по городу
       let businessQuery = supabase
         .from("businesses")
-        .select("category_id, owner_id, city")
+        .select("category_id, owner_id, city_id, city:city_id(name)")
         .eq("status", "published")
         .not("category_id", "is", null);
-      
-      if (cityFilter && cityFilter !== "Все города") {
-        businessQuery = businessQuery.eq("city", cityFilter);
-      }
       
       const { data: businesses, error: err2 } = await businessQuery;
       
@@ -135,7 +169,7 @@ products?.forEach(p => {...});
 
 // Добавляем только визитки из выбранного города
 businesses
-  ?.filter(b => cityFilter === "Все города" || b.city_name === cityFilter)
+  ?.filter(b => cityFilter === "Все города" || (b as any).city?.name === cityFilter)
   .forEach(b => {...});
 Изменения в состоянии компонента
 Добавить расширенный тип для категорий с динамическим count:
