@@ -6,6 +6,7 @@ import {
   Send,
   MapPin,
   Home,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -52,6 +53,9 @@ const ModeratorContent = () => {
   const [editedDescription, setEditedDescription] = useState("");
   const [editedCategory, setEditedCategory] = useState("");
   const [editedNewCategory, setEditedNewCategory] = useState("");
+  const [newCategoryCreated, setNewCategoryCreated] = useState(false); // Флаг - категория уже создана через +
+  const [createdCategoryId, setCreatedCategoryId] = useState<string | null>(null); // ID созданной категории
+  const [isAddingCategory, setIsAddingCategory] = useState(false); // Защита от двойного нажатия
   const [editedCity, setEditedCity] = useState("");
   const [editedAddress, setEditedAddress] = useState("");
 
@@ -136,6 +140,97 @@ const ModeratorContent = () => {
     }
   };
 
+  // Функция для добавления новой категории в БД
+  const handleAddNewCategory = async () => {
+    if (isAddingCategory) return; // Защита от двойного нажатия
+    if (!editedNewCategory.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Введите название категории",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingCategory(true);
+
+    try {
+      // Получаем актуальный список категорий напрямую из БД
+      const { data: freshCategories } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name", { ascending: true });
+      
+      const freshCategoriesList = freshCategories || [];
+      console.log("Fresh categories from DB:", freshCategoriesList);
+      
+      const newCategoryTrimmed = editedNewCategory.trim();
+      console.log("Looking for category:", newCategoryTrimmed);
+      
+      // Проверяем по актуальному списку
+      const existingCat = freshCategoriesList.find(
+        (c) => c.name.toLowerCase() === newCategoryTrimmed.toLowerCase()
+      );
+
+      if (existingCat) {
+        console.log("Found existing category:", existingCat);
+        toast({
+          title: "Информация",
+          description: `Категория уже существует: ${existingCat.name} (ID: ${existingCat.id})`,
+        });
+        setEditedCategory(existingCat.name);
+        setNewCategoryCreated(true); // Категория уже существует, не создаём снова
+        setCreatedCategoryId(existingCat.id); // Сохраняем ID категории
+        setEditedNewCategory(""); // Очищаем поле ввода
+        return;
+      }
+
+      // Создаём новую категорию
+      const { data: newCat, error } = await supabase
+        .from("categories")
+        .insert({
+          name: editedNewCategory.trim(),
+          is_hidden: false,
+          position: categories.length + 1,
+        })
+        .select("id, name")
+        .single();
+
+      if (error) throw error;
+
+      if (newCat && newCat.id) {
+        console.log("Created category:", newCat);
+        // Debug toast
+        toast({ 
+          title: "Категория создана", 
+          description: `ID: ${newCat.id}, Name: ${newCat.name}, newCategoryCreated: ${true}, createdCategoryId: ${newCat.id}` 
+        });
+        // Обновляем список категорий
+        await loadCategories();
+        
+        // Устанавливаем новую категорию как выбранную
+        setEditedCategory(newCat.name);
+        setNewCategoryCreated(true); // Категория уже создана
+        setCreatedCategoryId(newCat.id); // Сохраняем ID категории
+        setEditedNewCategory(""); // Очищаем поле ввода
+        
+        toast({
+          title: "Успешно",
+          description: "Категория добавлена",
+        });
+        setIsAddingCategory(false);
+      }
+    } catch (err) {
+      console.error("Error adding category:", err);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось добавить категорию",
+        variant: "destructive",
+      });
+      setIsAddingCategory(false);
+    }
+  };
+
   const handlePublish = async () => {
     if (!selectedBusiness) return;
     setProcessing(true);
@@ -144,7 +239,16 @@ const ModeratorContent = () => {
     let finalCategory = editedCategory;
     let categoryId: string | null = null;
     
-    if (editedCategory === "__other__" && editedNewCategory.trim()) {
+    // Check if category is "other" or contains "другие"
+    const isOtherCategory = editedCategory === "__other__" || editedCategory.toLowerCase().includes("другие");
+    
+    // Если категория уже была создана через + кнопку, просто используем её
+    if (newCategoryCreated && createdCategoryId) {
+      categoryId = createdCategoryId;
+    } else if (newCategoryCreated) {
+      const existingCat = categories.find(c => c.name === editedCategory);
+      categoryId = existingCat?.id || null;
+    } else if (isOtherCategory && editedNewCategory.trim()) {
       // Check if category already exists
       const existingCat = categories.find(c => c.name.toLowerCase() === editedNewCategory.trim().toLowerCase());
       if (existingCat) {
@@ -187,7 +291,7 @@ const ModeratorContent = () => {
         status: "published",
         category: finalCategory,
         category_id: categoryId,
-        city: editedCity,
+        city_name: editedCity,
         location: editedAddress,
         content_json: {
           ...(selectedBusiness.content_json as object || {}),
@@ -195,6 +299,12 @@ const ModeratorContent = () => {
         }
       })
       .eq("id", selectedBusiness.id);
+    
+    // Debug: show category info
+    toast({ 
+      title: "Отладка", 
+      description: `categoryId: ${categoryId}, finalCategory: ${finalCategory}, newCategoryCreated: ${newCategoryCreated}, createdCategoryId: ${createdCategoryId}` 
+    });
     
     if (error) {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
@@ -229,7 +339,16 @@ const ModeratorContent = () => {
     let finalCategory = editedCategory;
     let categoryId: string | null = null;
     
-    if (editedCategory === "__other__" && editedNewCategory.trim()) {
+    // Check if category is "other" or contains "другие"
+    const isOtherCategory = editedCategory === "__other__" || editedCategory.toLowerCase().includes("другие");
+    
+    // Если категория уже была создана через + кнопку, просто используем её
+    if (newCategoryCreated && createdCategoryId) {
+      categoryId = createdCategoryId;
+    } else if (newCategoryCreated) {
+      const existingCat = categories.find(c => c.name === editedCategory);
+      categoryId = existingCat?.id || null;
+    } else if (isOtherCategory && editedNewCategory.trim()) {
       // Check if category already exists
       const existingCat = categories.find(c => c.name.toLowerCase() === editedNewCategory.trim().toLowerCase());
       if (existingCat) {
@@ -273,7 +392,7 @@ const ModeratorContent = () => {
         status: "draft",
         category: finalCategory,
         category_id: categoryId,
-        city: editedCity,
+        city_name: editedCity,
         location: editedAddress,
         content_json: {
           ...(selectedBusiness.content_json as object || {}),
@@ -322,10 +441,13 @@ const ModeratorContent = () => {
     setReviseComment("");
     
     // Initialize editing states
-    const content = selectedBusiness.content_json as { description?: string } | null;
+    const content = business.content_json as { description?: string } | null;
     setEditedDescription(content?.description || "");
     setEditedCategory(business.category || "");
-    setEditedNewCategory("");
+    setEditedNewCategory((business.new_category as string) || "");
+    setNewCategoryCreated(false); // Сбрасываем флаг при открытии новой визитки
+    setCreatedCategoryId(null); // Сбрасываем ID категории
+    setIsAddingCategory(false); // Сбрасываем флаг добавления
     setEditedCity(business.city_name || "");
     setEditedAddress(business.location || "");
     
@@ -353,7 +475,7 @@ const ModeratorContent = () => {
     return content?.image || null;
   };
 
-  const isCategoryOther = editedCategory === "__other__";
+  const isCategoryOther = editedCategory === "__other__" || editedCategory.toLowerCase().includes("другие");
 
   return (
     <div className="min-h-screen bg-background">
@@ -508,12 +630,24 @@ const ModeratorContent = () => {
                   </SelectContent>
                 </Select>
                 {isCategoryOther && (
-                  <Input
-                    placeholder="Введите название новой категории..."
-                    value={editedNewCategory}
-                    onChange={(e) => setEditedNewCategory(e.target.value)}
-                    className="mt-2"
-                  />
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      placeholder="Введите название новой категории..."
+                      value={editedNewCategory}
+                      onChange={(e) => setEditedNewCategory(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={handleAddNewCategory}
+                      disabled={isAddingCategory}
+                      title="Добавить категорию"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
               </div>
 
