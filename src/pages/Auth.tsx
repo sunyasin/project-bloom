@@ -235,11 +235,14 @@ const Auth = () => {
       let message = error.message;
       if (error.message.includes("already registered")) {
         message = "Пользователь с таким email уже зарегистрирован";
+      } else if (error.message.includes("rate limit")) {
+        message = "Слишком много попыток регистрации. Пожалуйста, подождите несколько минут и попробуйте снова, или проверьте папку Spam - письмо для подтверждения уже могло быть отправлено.";
       }
       toast({
         title: "Ошибка регистрации",
         description: message,
         variant: "destructive",
+        duration: 10000,
       });
     } else {
       toast({
