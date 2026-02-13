@@ -60,6 +60,7 @@ interface BusinessCardData {
   cityId: string | null;
   city: string;
   location: string;
+  newCategory: string;
 }
 
 // Валидация файла изображения
@@ -93,6 +94,7 @@ const BusinessCardEditor = () => {
     cityId: null,
     city: "",
     location: "",
+    newCategory: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(!isNew);
@@ -375,6 +377,7 @@ const BusinessCardEditor = () => {
               cityId: finalCityId,
               city: finalCityName,
               location: finalLocation,
+              newCategory: (data.new_category as string) || "",
             };
             
             setCardData(loaded);
@@ -488,6 +491,7 @@ const BusinessCardEditor = () => {
             city_id: cardData.cityId || null,
             city_name: cardData.city || "",
             location: cardData.location || "",
+            new_category: cardData.newCategory || null,
             content_json: contentJson,
             status: 'published',
           }])
@@ -512,6 +516,7 @@ const BusinessCardEditor = () => {
             city_id: cardData.cityId || null,
             city_name: cardData.city || "",
             location: cardData.location || "",
+            new_category: cardData.newCategory || null,
             content_json: contentJson,
           })
           .eq('id', id);
@@ -894,6 +899,18 @@ const BusinessCardEditor = () => {
               </PopoverContent>
             </Popover>
           </div>
+
+          {/* Поле для ввода новой категории (если выбрана категория "Другие товары") */}
+          {cardData.categoryId && categories.find(c => c.id === cardData.categoryId)?.name?.toLowerCase().includes('другие') && (
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Новая категория</label>
+              <Input
+                value={cardData.newCategory}
+                onChange={(e) => updateField("newCategory", e.target.value)}
+                placeholder="Введите название новой категории"
+              />
+            </div>
+          )}
         </div>
 
         {/* Изображение обложки */}

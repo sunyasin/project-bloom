@@ -63,6 +63,7 @@ export interface Business {
   location: string;
   city_id: number | null;
   city_name: string;
+  new_category: string | null;
   content_json: Record<string, unknown>;
   status: BusinessStatus;
   donation_30d: number;
