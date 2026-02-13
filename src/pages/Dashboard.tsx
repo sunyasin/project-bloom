@@ -23,6 +23,16 @@ import { EditProfileDialog } from "@/components/dashboard/dialogs/EditProfileDia
 import { PromotionDialog } from "@/components/dashboard/dialogs/PromotionDialog";
 import { NewsDialog } from "@/components/dashboard/dialogs/NewsDialog";
 import { DeleteBusinessCardDialog } from "@/components/dashboard/dialogs/DeleteBusinessCardDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Import types
 import type {
@@ -235,6 +245,11 @@ const Dashboard = () => {
   // Delete business card state
   const [deleteBusinessCardId, setDeleteBusinessCardId] = useState<string | null>(null);
   const [deleteBusinessCardName, setDeleteBusinessCardName] = useState<string>("");
+
+  // Delete product state
+  const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
+  const [deleteProductName, setDeleteProductName] = useState<string>("");
+
   const [newsFormData, setNewsFormData] = useState<NewsFormData>({
     title: "",
     content: "",
@@ -882,7 +897,11 @@ const Dashboard = () => {
           }))}
           loading={productsLoading}
           onProductClick={(id) => navigate(`/dashboard/product/${id}`)}
-          onDelete={deleteProduct}
+          onDelete={(id) => {
+            const product = products.find(p => p.id === id);
+            setDeleteProductId(id);
+            setDeleteProductName(product?.name || "");
+          }}
           onCreate={async () => {
             const newProduct = await createProduct({ name: "Новый товар" });
             if (newProduct) navigate(`/dashboard/product/${newProduct.id}`);
@@ -1034,6 +1053,37 @@ const Dashboard = () => {
             }
           }}
         />
+
+        {/* Delete Product Confirmation Dialog */}
+        <AlertDialog open={!!deleteProductId} onOpenChange={(open) => {
+          if (!open) {
+            setDeleteProductId(null);
+            setDeleteProductName("");
+          }
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Удалить товар?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Вы уверены, что хотите удалить товар "{deleteProductName}"? Это действие нельзя отменить.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Отмена</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (deleteProductId) {
+                    deleteProduct(deleteProductId);
+                    setDeleteProductId(null);
+                    setDeleteProductName("");
+                  }
+                }}
+              >
+                Удалить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MainLayout>
   );
