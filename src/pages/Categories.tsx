@@ -106,6 +106,8 @@ const Categories = () => {
     const fetchCategories = async () => {
       setLoading(true);
       
+      console.log(`[Categories] Fetching categories, cityFilter: "${cityFilter}"`);
+      
       // Загружаем все категории
       const { data: allCategories, error: err } = await supabase
         .from("categories")
@@ -125,8 +127,29 @@ const Categories = () => {
         .select("category_id, owner_id, city_id, city:city_id(name)")
         .eq("status", "published")
         .not("category_id", "is", null);
+
+      // Фильтруем по городу - сначала получаем ID города по имени
+      if (cityFilter !== "Все города") {
+        console.log(`[Categories] Applying city filter: ${cityFilter}`);
+        
+        // Сначала получаем ID города
+        const { data: cityData } = await supabase
+          .from("city")
+          .select("id")
+          .eq("name", cityFilter)
+          .maybeSingle();
+        
+        if (cityData?.id) {
+          console.log(`[Categories] Found city ID: ${cityData.id} for city: ${cityFilter}`);
+          businessQuery = businessQuery.eq("city_id", cityData.id);
+        } else {
+          console.warn(`[Categories] City not found: ${cityFilter}`);
+        }
+      }
       
       const { data: businesses, error: err2 } = await businessQuery;
+      
+      console.log(`[Categories] Found ${businesses?.length || 0} businesses, cityFilter: "${cityFilter}"`);
       
       if (err2) {
         console.error("[Supabase] Error fetching businesses:", err2);
