@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Mail, Lock, ArrowLeft } from "lucide-react";
+import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { Mail, Lock, ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ const passwordSchema = z.string().min(6, { message: "Минимум 6 симво
 
 const Auth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
@@ -28,12 +29,44 @@ const Auth = () => {
   const [isProducer, setIsProducer] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [emailApprovalRequired, setEmailApprovalRequired] = useState(false);
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (event === "SIGNED_IN" && session?.user) {
+          // Check if this is an email confirmation (has token_hash in URL)
+          const hasTokenHash = searchParams.get("token_hash") || location.search.includes("token_hash");
+          const isConfirmation = searchParams.get("type") === "signup" || searchParams.get("type") === "email_change";
+          const isFromConfirmation = hasTokenHash || isConfirmation;
+          
+          // Check profile for email_approved status
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("email_approved, first_name")
+            .eq("user_id", session.user.id)
+            .maybeSingle();
+          
+          // If this is email confirmation or profile doesn't exist or email_approved is false, update it
+          if (isFromConfirmation || !profile || !profile.email_approved) {
+            // Update email_approved to true
+            await supabase
+              .from("profiles")
+              .update({ email_approved: true })
+              .eq("user_id", session.user.id);
+            
+            setEmailConfirmed(true);
+            setEmailApprovalRequired(false);
+            
+            // Show success message and redirect to complete profile
+            setTimeout(() => {
+              navigate("/dashboard?new=true");
+            }, 500);
+            return;
+          }
+          
           // Check if this is a new signup by checking if profile is empty
           setTimeout(() => {
             supabase
@@ -63,7 +96,7 @@ const Auth = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, searchParams, location]);
 
   const validateForm = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
@@ -89,12 +122,18 @@ const Auth = () => {
     if (!validateForm()) return;
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    setEmailApprovalRequired(false);
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
 
     if (error) {
+      // Check if this is because email is not approved
+      if (error.message.includes("Email not confirmed") || error.message.includes("not confirmed")) {
+        setEmailApprovalRequired(true);
+      }
       toast({
         title: "Ошибка входа",
         description: error.message === "Invalid login credentials" 
@@ -102,11 +141,30 @@ const Auth = () => {
           : error.message,
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Успешный вход",
-        description: "Добро пожаловать!",
-      });
+    } else if (data?.user) {
+      // Check if email_approved is false in profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("email_approved")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+      
+      if (profile && !profile.email_approved) {
+        setEmailApprovalRequired(true);
+        // Sign out since email is not approved
+        await supabase.auth.signOut();
+        toast({
+          title: "Требуется подтверждение email",
+          description: "На указанный адрес уже было выслано письмо для подтверждения. Подтвердите регистрацию по ссылке из письма. Проверьте папку Spam",
+          variant: "destructive",
+          duration: 10000,
+        });
+      } else {
+        toast({
+          title: "Успешный вход",
+          description: "Добро пожаловать!",
+        });
+      }
     }
     setLoading(false);
   };
@@ -116,15 +174,38 @@ const Auth = () => {
     if (!validateForm()) return;
 
     setLoading(true);
+    setEmailApprovalRequired(false);
 
     // Check if user already exists
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
 
-    if (!signInError) {
-      // User exists and password is correct
+    if (!signInError && signInData?.user) {
+      // User exists - check if email_approved is false
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("email_approved")
+        .eq("user_id", signInData.user.id)
+        .maybeSingle();
+      
+      if (profile && !profile.email_approved) {
+        // Email not approved - show message
+        setLoading(false);
+        setEmailApprovalRequired(true);
+        // Sign out since email is not approved
+        await supabase.auth.signOut();
+        toast({
+          title: "Требуется подтверждение email",
+          description: "На указанный адрес уже было выслано письмо для подтверждения. Подтвердите регистрацию по ссылке из письма. Проверьте папку Spam",
+          variant: "destructive",
+          duration: 10000,
+        });
+        return;
+      }
+      
+      // User exists and email is approved
       setLoading(false);
       toast({
         title: "Пользователь уже существует",
@@ -205,6 +286,8 @@ const Auth = () => {
     setPassword("");
     setIsProducer(false);
     setErrors({});
+    setEmailApprovalRequired(false);
+    setEmailConfirmed(false);
   };
 
   return (
@@ -249,6 +332,24 @@ const Auth = () => {
             {mode === "register" && "Создайте новый аккаунт"}
             {mode === "forgot" && "Введите email для восстановления"}
           </p>
+
+          {/* Email approval required message */}
+          {(emailApprovalRequired || emailConfirmed) && (
+            <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${emailConfirmed ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"}`}>
+              {emailConfirmed ? (
+                <span className="text-green-600 text-sm">
+                  ✓ Email подтвержден! Теперь вы можете войти в аккаунт.
+                </span>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-amber-800 text-sm">
+                    На указанный адрес уже было выслано письмо для подтверждения. Подтвердите регистрацию по ссылке из письма. Проверьте папку Spam.
+                  </span>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Login Form */}
           {mode === "login" && (

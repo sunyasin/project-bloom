@@ -531,6 +531,7 @@ export type Database = {
           city_id: number | null
           created_at: string
           email: string | null
+          email_approved: boolean
           first_name: string | null
           gps_lat: number | null
           gps_lng: number | null
@@ -548,6 +549,7 @@ export type Database = {
           city_id?: number | null
           created_at?: string
           email?: string | null
+          email_approved?: boolean
           first_name?: string | null
           gps_lat?: number | null
           gps_lng?: number | null
@@ -565,6 +567,7 @@ export type Database = {
           city_id?: number | null
           created_at?: string
           email?: string | null
+          email_approved?: boolean
           first_name?: string | null
           gps_lat?: number | null
           gps_lng?: number | null
