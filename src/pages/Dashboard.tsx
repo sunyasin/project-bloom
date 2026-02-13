@@ -22,6 +22,7 @@ import { WalletDialog } from "@/components/dashboard/dialogs/WalletDialog";
 import { EditProfileDialog } from "@/components/dashboard/dialogs/EditProfileDialog";
 import { PromotionDialog } from "@/components/dashboard/dialogs/PromotionDialog";
 import { NewsDialog } from "@/components/dashboard/dialogs/NewsDialog";
+import { DeleteBusinessCardDialog } from "@/components/dashboard/dialogs/DeleteBusinessCardDialog";
 
 // Import types
 import type {
@@ -230,6 +231,10 @@ const Dashboard = () => {
   // News state
   const [isNewsDialogOpen, setIsNewsDialogOpen] = useState(false);
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
+
+  // Delete business card state
+  const [deleteBusinessCardId, setDeleteBusinessCardId] = useState<string | null>(null);
+  const [deleteBusinessCardName, setDeleteBusinessCardName] = useState<string>("");
   const [newsFormData, setNewsFormData] = useState<NewsFormData>({
     title: "",
     content: "",
@@ -856,7 +861,11 @@ const Dashboard = () => {
           onCardClick={(id) => navigate(`/dashboard/business-card/${id}`)}
           onMainCardChange={handleMainCardChange}
           onStatusChange={updateBusinessStatus}
-          onDelete={deleteBusiness}
+          onDelete={(id) => {
+            const business = businesses.find(b => b.id === id);
+            setDeleteBusinessCardId(id);
+            setDeleteBusinessCardName(business?.name || "");
+          }}
           onCreate={async () => {
             const newBusiness = await createBusiness({ name: "Новая визитка" });
             if (newBusiness) navigate(`/dashboard/business-card/${newBusiness.id}`);
@@ -1008,6 +1017,23 @@ const Dashboard = () => {
         />
 
         <ExchangeRequestsDialog open={false} onOpenChange={() => {}} profileId={profileId} />
+
+        <DeleteBusinessCardDialog
+          open={!!deleteBusinessCardId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteBusinessCardId(null);
+              setDeleteBusinessCardName("");
+            }
+          }}
+          businessCardId={deleteBusinessCardId || ""}
+          businessCardName={deleteBusinessCardName}
+          onConfirm={() => {
+            if (deleteBusinessCardId) {
+              deleteBusiness(deleteBusinessCardId);
+            }
+          }}
+        />
       </div>
     </MainLayout>
   );
