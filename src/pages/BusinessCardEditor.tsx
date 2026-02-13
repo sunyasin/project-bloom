@@ -444,6 +444,15 @@ const BusinessCardEditor = () => {
       return;
     }
 
+    if (!cardData.categoryId) {
+      toast({
+        title: "Ошибка",
+        description: "Выберите категорию",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
