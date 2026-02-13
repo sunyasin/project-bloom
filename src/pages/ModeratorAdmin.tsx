@@ -326,7 +326,7 @@ const ModeratorContent = () => {
     setEditedDescription(content?.description || "");
     setEditedCategory(business.category || "");
     setEditedNewCategory("");
-    setEditedCity(business.city || "");
+    setEditedCity(business.city_name || "");
     setEditedAddress(business.location || "");
     
     setPreviewOpen(true);
@@ -426,7 +426,7 @@ const ModeratorContent = () => {
                         </div>
                       </TableCell>
                       <TableCell>{business.category}</TableCell>
-                      <TableCell>{business.city}</TableCell>
+                      <TableCell>{business.city_name}</TableCell>
                       <TableCell>{getStatusBadge(business.status)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(business.created_at).toLocaleDateString("ru-RU")}

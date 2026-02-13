@@ -21,7 +21,7 @@ interface BusinessDisplay {
   name: string;
   category: string;
   location: string;
-  city: string;
+  city_name: string;
   content_json: Record<string, unknown> | null;
 }
 
@@ -47,7 +47,7 @@ const Businesses = () => {
       if (data) {
         setBusinesses(data as BusinessDisplay[]);
         // Extract unique cities
-        const uniqueCities = [...new Set(data.map(b => b.city))];
+        const uniqueCities = [...new Set(data.map(b => b.city_name))];
         setCities(["Все города", ...uniqueCities.sort()]);
       }
       setLoading(false);
@@ -57,7 +57,7 @@ const Businesses = () => {
   }, []);
 
   const filteredBusinesses = businesses.filter(b => {
-    const matchesCity = cityFilter === "Все города" || b.city === cityFilter;
+    const matchesCity = cityFilter === "Все города" || b.city_name === cityFilter;
     const matchesName = nameFilter === "" || b.name.toLowerCase().includes(nameFilter.toLowerCase());
     return matchesCity && matchesName;
   });
@@ -124,7 +124,7 @@ const Businesses = () => {
                     <p className="text-sm text-muted-foreground truncate">{business.category}</p>
                     <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                       <MapPin className="h-3 w-3" />
-                      {business.city}, {business.location}
+                      {business.city_name}, {business.location}
                     </div>
                   </div>
                 </div>

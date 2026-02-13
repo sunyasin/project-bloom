@@ -834,7 +834,7 @@ const BusinessPage = () => {
               <p className="text-primary mt-1 text-sm sm:text-base">{business.category}</p>
               <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 shrink-0" />
-                <span className="truncate">{business.location}, {business.city}</span>
+                <span className="truncate">{business.location}, {business.city_name}</span>
               </div>
               {/* Short description from content_json - moved here from separate section */}
               {contentJson.shortDescription && (

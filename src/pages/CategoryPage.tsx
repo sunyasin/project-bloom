@@ -240,7 +240,7 @@ const CategoryPage = () => {
       
       const uniqueCities = new Set<string>();
       data?.forEach(b => {
-        if (b.city) uniqueCities.add(b.city);
+        if (b.city_name) uniqueCities.add(b.city_name);
       });
       
       setCities(["Все города", ...Array.from(uniqueCities).sort()]);
@@ -389,7 +389,7 @@ const CategoryPage = () => {
             id: b.id,
             name: b.name,
             location: b.location,
-            city: b.city,
+            city: b.city_name,
             phone: (contentJson.phone as string) || "",
             ownerId: b.owner_id || "",
             image,
@@ -796,7 +796,7 @@ ${productsList}
 
   const filteredBusinesses = (cityFilter === "Все города" 
     ? businessesWithFilteredProducts 
-    : businessesWithFilteredProducts.filter(b => b.city === cityFilter)
+    : businessesWithFilteredProducts.filter(b => b.city_name === cityFilter)
   ).filter(b => b.products.length > 0 || saleTypeFilter === "all");
 
   if (loading) {
@@ -875,7 +875,7 @@ ${productsList}
                           <h3 className="font-medium text-foreground">{business.name}</h3>
                           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />
-                            {business.location}
+                            {business.city_name}, {business.location}
                           </div>
                         </div>
                       </Link>
@@ -1187,7 +1187,7 @@ ${productsList}
                 {/* Business info */}
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="font-medium">{business?.name}</p>
-                  <p className="text-sm text-muted-foreground">{business?.location}</p>
+                  <p className="text-sm text-muted-foreground">{business?.city_name}, {business?.location}</p>
                 </div>
 
                 {/* Products list */}

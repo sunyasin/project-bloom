@@ -210,9 +210,12 @@ export const ProfileEditDialog = ({
           logo_url: data.logo_url || "",
         });
       } else {
-        // For new users with pending email from registration
+        // For new users with pending email from registration or current session
         if (isNewUser && initialEmail) {
           setFormData((prev) => ({ ...prev, email: initialEmail }));
+        } else if (isNewUser && user?.email) {
+          // Get email from current session for new users logging in
+          setFormData((prev) => ({ ...prev, email: user.email }));
         } else {
           // For new users, start with empty form
           setFormData(emptyFormData);
@@ -372,6 +375,19 @@ export const ProfileEditDialog = ({
       }
     }
 
+    // Get region_id from selected city
+    let regionId = selectedRegionId;
+    if (cityId && !regionId) {
+      const { data: cityData } = await (supabase as any)
+        .from("city")
+        .select("region_id")
+        .eq("id", cityId)
+        .single();
+      if (cityData) {
+        regionId = cityData.region_id;
+      }
+    }
+
     const profileData = {
       user_id: user.id,
       email: formData.email.trim(),
@@ -379,6 +395,7 @@ export const ProfileEditDialog = ({
       first_name: formData.first_name.trim(),
       last_name: formData.last_name.trim(),
       city_id: cityId,
+      region_id: regionId,
       address: formData.address.trim() || null,
       gps_lat: formData.gps_lat ? parseFloat(formData.gps_lat) : null,
       gps_lng: formData.gps_lng ? parseFloat(formData.gps_lng) : null,
@@ -632,8 +649,8 @@ export const ProfileEditDialog = ({
                   value={formData.email}
                   onChange={(e) => updateField("email", e.target.value)}
                   className="pl-10"
-                  disabled={!!initialEmail}
-                  readOnly={!!initialEmail}
+                  disabled={!!initialEmail || (isNewUser && !!formData.email)}
+                  readOnly={!!initialEmail || (isNewUser && !!formData.email)}
                 />
               </div>
               {errors.email && (

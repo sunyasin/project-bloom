@@ -18,7 +18,8 @@ export type Database = {
         Row: {
           category: string
           category_id: string | null
-          city: string
+          city_id: number | null
+          city_name: string | null
           content_json: Json | null
           created_at: string
           donation_30d: number | null
@@ -32,7 +33,8 @@ export type Database = {
         Insert: {
           category: string
           category_id?: string | null
-          city: string
+          city_id?: number | null
+          city_name?: string | null
           content_json?: Json | null
           created_at?: string
           donation_30d?: number | null
@@ -46,7 +48,8 @@ export type Database = {
         Update: {
           category?: string
           category_id?: string | null
-          city?: string
+          city_id?: number | null
+          city_name?: string | null
           content_json?: Json | null
           created_at?: string
           donation_30d?: number | null
@@ -65,11 +68,17 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "businesses_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "city"
+            referencedColumns: ["id"]
+          },
         ]
       }
       categories: {
         Row: {
-          cities: string[] | null
           count: number
           created_at: string
           icon: string
@@ -77,10 +86,10 @@ export type Database = {
           image_url: string | null
           is_hidden: boolean
           name: string
+          parent_id: string | null
           position: number
         }
         Insert: {
-          cities?: string[] | null
           count?: number
           created_at?: string
           icon?: string
@@ -88,10 +97,10 @@ export type Database = {
           image_url?: string | null
           is_hidden?: boolean
           name: string
+          parent_id?: string | null
           position?: number
         }
         Update: {
-          cities?: string[] | null
           count?: number
           created_at?: string
           icon?: string
@@ -99,9 +108,53 @@ export type Database = {
           image_url?: string | null
           is_hidden?: boolean
           name?: string
+          parent_id?: string | null
           position?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      city: {
+        Row: {
+          created_at: string | null
+          id: number
+          name: string
+          region_id: number | null
+          type: Database["public"]["Enums"]["city_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          name: string
+          region_id?: number | null
+          type?: Database["public"]["Enums"]["city_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          name?: string
+          region_id?: number | null
+          type?: Database["public"]["Enums"]["city_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "city_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coins: {
         Row: {
@@ -291,6 +344,7 @@ export type Database = {
           is_event: boolean
           is_published: boolean
           owner_id: string
+          producer_id: string | null
           title: string
           updated_at: string
         }
@@ -303,6 +357,7 @@ export type Database = {
           is_event?: boolean
           is_published?: boolean
           owner_id: string
+          producer_id?: string | null
           title: string
           updated_at?: string
         }
@@ -315,6 +370,7 @@ export type Database = {
           is_event?: boolean
           is_published?: boolean
           owner_id?: string
+          producer_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -351,7 +407,7 @@ export type Database = {
           subscribed_at?: string
           telegram_chat_id?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -367,12 +423,43 @@ export type Database = {
           subscribed_at?: string
           telegram_chat_id?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      product_updates_log: {
+        Row: {
+          created_at: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          producer_id: string
+          product_id: string
+          update_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          producer_id: string
+          product_id: string
+          update_type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          producer_id?: string
+          product_id?: string
+          update_type?: string
         }
         Relationships: []
       }
       products: {
         Row: {
+          business_card_id: string | null
           category_id: string | null
           coin_price: number | null
           content: string | null
@@ -385,11 +472,13 @@ export type Database = {
           name: string
           price: number | null
           producer_id: string
+          product_sale_type: string[] | null
           sale_type: Database["public"]["Enums"]["product_sale_type"]
           unit: string | null
           updated_at: string
         }
         Insert: {
+          business_card_id?: string | null
           category_id?: string | null
           coin_price?: number | null
           content?: string | null
@@ -402,11 +491,13 @@ export type Database = {
           name: string
           price?: number | null
           producer_id: string
+          product_sale_type?: string[] | null
           sale_type?: Database["public"]["Enums"]["product_sale_type"]
           unit?: string | null
           updated_at?: string
         }
         Update: {
+          business_card_id?: string | null
           category_id?: string | null
           coin_price?: number | null
           content?: string | null
@@ -419,76 +510,20 @@ export type Database = {
           name?: string
           price?: number | null
           producer_id?: string
+          product_sale_type?: string[] | null
           sale_type?: Database["public"]["Enums"]["product_sale_type"]
           unit?: string | null
           updated_at?: string
         }
-        Relationships: []
-      }
-      city: {
-        Row: {
-          id: number
-          name: string
-          type: Database["public"]["Enums"]["city_type"]
-          region_id: number | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          name: string
-          type: Database["public"]["Enums"]["city_type"]
-          region_id?: number | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          name?: string
-          type?: Database["public"]["Enums"]["city_type"]
-          region_id?: number | null
-          created_at?: string
-          updated_at?: string
-        }
         Relationships: [
           {
-            foreignKeyName: "city_region_id_fkey"
-            columns: ["region_id"]
+            foreignKeyName: "products_business_card_id_fkey"
+            columns: ["business_card_id"]
             isOneToOne: false
-            referencedRelation: "region"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
-      }
-      region: {
-        Row: {
-          id: number
-          country: string
-          republic: string | null
-          oblast: string | null
-          district: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          country?: string
-          republic?: string | null
-          oblast?: string | null
-          district?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          country?: string
-          republic?: string | null
-          oblast?: string | null
-          district?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
@@ -612,6 +647,36 @@ export type Database = {
           },
         ]
       }
+      region: {
+        Row: {
+          country: string
+          created_at: string | null
+          district: string | null
+          id: number
+          oblast: string | null
+          republic: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          country?: string
+          created_at?: string | null
+          district?: string | null
+          id?: number
+          oblast?: string | null
+          republic?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          country?: string
+          created_at?: string | null
+          district?: string | null
+          id?: number
+          oblast?: string | null
+          republic?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       telegram_notifications: {
         Row: {
           entity_id: string | null
@@ -669,7 +734,7 @@ export type Database = {
           id?: string
           token: string
           type: string
-          user_id?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -679,7 +744,7 @@ export type Database = {
           id?: string
           token?: string
           type?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -764,6 +829,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      has_admin_role: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -789,6 +855,7 @@ export type Database = {
         | "news_editor"
         | "super_admin"
       business_status: "draft" | "moderation" | "published" | "deleted"
+      city_type: "село" | "поселок" | "деревня" | "город"
       exchange_status:
         | "created"
         | "ok_meeting"
@@ -807,7 +874,6 @@ export type Database = {
         | "coin_request"
         | "order"
       product_sale_type: "sell_only" | "barter_goods" | "barter_coin"
-      city_type: "село" | "поселок" | "деревня" | "город"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -817,7 +883,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals["public"]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends

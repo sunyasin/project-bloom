@@ -40,10 +40,10 @@ const Auth = () => {
               .from("profiles")
               .select("first_name")
               .eq("user_id", session.user.id)
-              .single()
-              .then(({ data }) => {
-                // If profile has no first_name, it's a new user
-                if (!data?.first_name) {
+              .maybeSingle()
+              .then(({ data, error }) => {
+                // If profile doesn't exist or has no first_name, it's a new user
+                if (error || !data?.first_name) {
                   navigate("/dashboard?new=true");
                 } else {
                   navigate("/");

@@ -54,7 +54,7 @@ const Categories = () => {
       
       const uniqueCities = new Set<string>();
       data?.forEach(b => {
-        if (b.city) uniqueCities.add(b.city);
+        if (b.city_name) uniqueCities.add(b.city_name);
       });
       
       setCities(["Все города", ...Array.from(uniqueCities).sort()]);
@@ -135,7 +135,7 @@ products?.forEach(p => {...});
 
 // Добавляем только визитки из выбранного города
 businesses
-  ?.filter(b => cityFilter === "Все города" || b.city === cityFilter)
+  ?.filter(b => cityFilter === "Все города" || b.city_name === cityFilter)
   .forEach(b => {...});
 Изменения в состоянии компонента
 Добавить расширенный тип для категорий с динамическим count:

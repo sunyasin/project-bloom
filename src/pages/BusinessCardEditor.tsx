@@ -6,6 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +35,21 @@ interface Category {
   name: string;
 }
 
+interface City {
+  id: number;
+  name: string;
+  type: string;
+  region_id: number | null;
+}
+
+interface Region {
+  id: number;
+  country: string;
+  republic: string | null;
+  oblast: string | null;
+  district: string | null;
+}
+
 interface BusinessCardData {
   id?: string;
   title: string;
@@ -35,6 +57,7 @@ interface BusinessCardData {
   image: string;
   content: string; // HTML string for Jodit
   categoryId: string;
+  cityId: string | null;
   city: string;
   location: string;
 }
@@ -67,6 +90,7 @@ const BusinessCardEditor = () => {
     image: "",
     content: "", // HTML string
     categoryId: "",
+    cityId: null,
     city: "",
     location: "",
   });
@@ -77,7 +101,48 @@ const BusinessCardEditor = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
   const editorKeyRef = useRef(0);
+
+  // Загрузка городов по региону
+  const loadCities = useCallback(async (regionId: number) => {
+    const { data: citiesData } = await supabase
+      .from('city')
+      .select('id, name, type')
+      .eq('region_id', regionId)
+      .order('name');
+    
+    if (citiesData) {
+      setCities(citiesData);
+    }
+  }, []);
+
+  // Загрузка всех городов
+  const loadAllCities = useCallback(async () => {
+    const { data: citiesData } = await supabase
+      .from('city')
+      .select('id, name, type')
+      .order('name');
+    
+    if (citiesData) {
+      setCities(citiesData);
+    }
+  }, []);
+
+  // Загрузка регионов
+  const loadRegions = useCallback(async () => {
+    const { data: regionsData } = await supabase
+      .from('region')
+      .select('id, country, republic, oblast, district')
+      .order('oblast')
+      .order('republic');
+    
+    if (regionsData) {
+      setRegions(regionsData);
+    }
+  }, []);
 
   // Загрузка категорий и профиля пользователя
   useEffect(() => {
@@ -93,28 +158,63 @@ const BusinessCardEditor = () => {
         setCategories(categoriesData);
       }
 
+      // Загрузка регионов
+      await loadRegions();
+
       // Для новой визитки подставляем город из профиля владельца
       if (isNew) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // Получаем профиль с city_id
           const { data: profile } = await supabase
             .from('profiles')
-            .select('city, address')
+            .select('city_id, address')
             .eq('user_id', user.id)
             .maybeSingle();
           
-          if (profile) {
+          if (profile && profile.city_id) {
+            // Получаем город и его регион
+            const { data: cityData } = await supabase
+              .from('city')
+              .select('id, name, region_id')
+              .eq('id', profile.city_id)
+              .maybeSingle();
+            
+            if (cityData) {
+              // Загружаем все города этого региона
+              const { data: citiesData } = await supabase
+                .from('city')
+                .select('id, name, type')
+                .eq('region_id', cityData.region_id)
+                .order('name');
+              
+              if (citiesData) {
+                setCities(citiesData);
+              }
+              
+              setCardData(prev => ({
+                ...prev,
+                cityId: String(cityData.id),
+                city: cityData.name,
+                location: profile.address || "",
+              }));
+            }
+          } else if (profile?.address) {
             setCardData(prev => ({
               ...prev,
-              city: profile.city || "",
               location: profile.address || "",
             }));
+            // Загружаем все города если у пользователя нет city_id
+            await loadAllCities();
+          } else {
+            // Загружаем все города если профиль пустой
+            await loadAllCities();
           }
         }
       }
     };
     loadInitialData();
-  }, [isNew]);
+  }, [isNew, loadAllCities, loadRegions]);
 
   // Загрузка данных визитки при редактировании
   useEffect(() => {
@@ -132,13 +232,24 @@ const BusinessCardEditor = () => {
           
           const [businessResult, profileResult] = await Promise.all([
             supabase.from('businesses').select('*').eq('id', id).maybeSingle(),
-            user ? supabase.from('profiles').select('city, address').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+            user ? supabase.from('profiles').select('city_id, address').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
           ]);
           
           if (businessResult.error) throw businessResult.error;
           
           const data = businessResult.data;
           const profile = profileResult.data;
+          
+          // Получаем название города из профиля
+          let profileCityName = "";
+          if (profile?.city_id) {
+            const { data: cityData } = await supabase
+              .from('city')
+              .select('name')
+              .eq('id', profile.city_id)
+              .maybeSingle();
+            profileCityName = cityData?.name || "";
+          }
           
           if (data) {
             const contentJson = data.content_json as Record<string, unknown> || {};
@@ -183,9 +294,28 @@ const BusinessCardEditor = () => {
               image: (contentJson.image as string) || "",
               content: htmlContent,
               categoryId: data.category_id || "",
-              city: data.city || profile?.city || "",
+              cityId: data.city_id ? String(data.city_id) : null,
+              city: data.city_name || profileCityName || "",
               location: data.location || profile?.address || "",
             };
+            
+            // Устанавливаем регион и загружаем города
+            if (data.city_id) {
+              const { data: cityData } = await supabase
+                .from('city')
+                .select('region_id')
+                .eq('id', data.city_id)
+                .maybeSingle();
+              
+              if (cityData?.region_id) {
+                setSelectedRegionId(cityData.region_id);
+                await loadCities(cityData.region_id);
+              }
+            } else {
+              // Загружаем все города если у визитки нет city_id
+              await loadAllCities();
+            }
+            
             setCardData(loaded);
             editorKeyRef.current += 1;
           } else {
@@ -211,11 +341,33 @@ const BusinessCardEditor = () => {
     };
 
     loadCardData();
-  }, [id, isNew, navigate, toast]);
+  }, [id, isNew, navigate, toast, loadCities, loadAllCities]);
 
   const updateField = <K extends keyof BusinessCardData>(field: K, value: BusinessCardData[K]) => {
     setCardData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Обработчик изменения региона
+  const handleRegionChange = useCallback(async (regionId: string) => {
+    const regionIdNum = Number(regionId);
+    setSelectedRegionId(regionIdNum);
+    setCardData(prev => ({ 
+      ...prev, 
+      cityId: null,
+      city: ""
+    }));
+    await loadCities(regionIdNum);
+  }, [loadCities]);
+
+  // Обработчик изменения города
+  const handleCityChange = useCallback(async (cityId: string) => {
+    const city = cities.find(c => c.id === Number(cityId));
+    setCardData(prev => ({ 
+      ...prev, 
+      cityId: cityId, 
+      city: city?.name || "" 
+    }));
+  }, [cities]);
 
   const handleEditorChange = useCallback((content: string) => {
     setCardData((prev) => ({ ...prev, content }));
@@ -263,7 +415,8 @@ const BusinessCardEditor = () => {
             name: cardData.title,
             category: selectedCategory?.name || "",
             category_id: cardData.categoryId || null,
-            city: cardData.city || "",
+            city_id: cardData.cityId || null,
+            city_name: cardData.city || "",
             location: cardData.location || "",
             content_json: contentJson,
             status: 'published',
@@ -286,7 +439,8 @@ const BusinessCardEditor = () => {
             name: cardData.title,
             category: selectedCategory?.name || "",
             category_id: cardData.categoryId || null,
-            city: cardData.city || "",
+            city_id: cardData.cityId || null,
+            city_name: cardData.city || "",
             location: cardData.location || "",
             content_json: contentJson,
           })
@@ -586,13 +740,44 @@ const BusinessCardEditor = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Город</label>
-              <Input
-                value={cardData.city}
-                onChange={(e) => updateField("city", e.target.value)}
-                placeholder="Город"
-              />
+              <label className="text-sm text-muted-foreground mb-1 block">Регион</label>
+              <Select 
+                value={selectedRegionId ? String(selectedRegionId) : ""} 
+                onValueChange={handleRegionChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={regions.length > 0 ? "Выберите регион" : "Загрузка..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {regions.map((region) => (
+                    <SelectItem key={region.id} value={String(region.id)}>
+                      {region.oblast || region.republic || region.country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Город</label>
+              <Select 
+                value={cardData.cityId || ""} 
+                onValueChange={handleCityChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={cities.length > 0 ? "Выберите город" : "Нет доступных городов"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((city) => (
+                    <SelectItem key={city.id} value={String(city.id)}>
+                      {city.name} {city.type ? `(${city.type})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Адрес</label>
               <Input
@@ -727,7 +912,7 @@ const BusinessCardEditor = () => {
         <div className="content-card space-y-4">
           <h2 className="font-semibold text-foreground">Содержимое</h2>
           <p className="text-sm text-muted-foreground">
-            Используйте панель инструментов для форматирования. Перетаскивайте изображения и изменяйте их размер.
+            Чтобы вставить картинку нажмите три точки на панели инструментов
           </p>
           
           <JoditEditorComponent

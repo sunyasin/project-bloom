@@ -3,7 +3,7 @@ import JoditEditor from "jodit-react";
 import { cn } from "@/lib/utils";
 import { VideoUploadDropzone } from "./VideoUploadDropzone";
 import { createPortal } from "react-dom";
-import { X, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
+import { X, AlignLeft, AlignCenter, AlignRight, Maximize2, Minimize2 } from "lucide-react";
 
 interface JoditEditorComponentProps {
   initialValue?: string;
@@ -25,6 +25,7 @@ export const JoditEditorComponent = ({
   const savedContentRef = useRef<string>("");
   const [showVideoDropzone, setShowVideoDropzone] = useState(false);
   const [dropzonePosition, setDropzonePosition] = useState({ top: 0, left: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Overlay delete button state
   const [hoveredMedia, setHoveredMedia] = useState<HTMLElement | null>(null);
@@ -402,7 +403,7 @@ export const JoditEditorComponent = ({
     () => ({
       readonly: false,
       placeholder,
-      height: 400,
+      height: isFullscreen ? "calc(100vh - 120px)" : 400,
       language: "ru",
       
       buttons: [
@@ -505,7 +506,7 @@ export const JoditEditorComponent = ({
         },
       },
     }),
-    [placeholder, handleVideoButtonClick]
+    [placeholder, handleVideoButtonClick, isFullscreen]
   );
 
   const handleChange = useCallback(
@@ -533,7 +534,33 @@ export const JoditEditorComponent = ({
   }, [showVideoDropzone]);
 
   return (
-    <div ref={wrapperRef} className={cn("jodit-wrapper relative", className)}>
+    <div 
+      ref={wrapperRef} 
+      className={cn(
+        "jodit-wrapper relative", 
+        className,
+        isFullscreen && "fixed inset-0 z-[9998] bg-background p-4"
+      )}
+    >
+      {/* Fullscreen toggle button */}
+      <button
+        className={cn(
+          "absolute top-2 right-2 z-50 p-2 rounded-md transition-colors",
+          isFullscreen 
+            ? "bg-muted hover:bg-muted/80 text-foreground" 
+            : "bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground",
+          "border border-border shadow-sm"
+        )}
+        onClick={() => setIsFullscreen(!isFullscreen)}
+        title={isFullscreen ? "Свернуть" : "На весь экран"}
+      >
+        {isFullscreen ? (
+          <Minimize2 className="w-4 h-4" />
+        ) : (
+          <Maximize2 className="w-4 h-4" />
+        )}
+      </button>
+      
       <JoditEditor
         ref={editorRef}
         value={initialValue}
