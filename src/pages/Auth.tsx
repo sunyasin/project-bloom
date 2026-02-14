@@ -218,7 +218,8 @@ const Auth = () => {
     // Save email for new user profile
     localStorage.setItem("pending_email", email.trim());
 
-    const redirectUrl = `${import.meta.env.VITE_APP_BASE_URL}/`;
+    //const redirectUrl = `${import.meta.env.VITE_APP_BASE_URL}/`;
+    const redirectUrl = "https://dolinabiz.lovable.app/";
 
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
