@@ -18,8 +18,7 @@ export type Database = {
         Row: {
           category: string
           category_id: string | null
-          city_id: number | null
-          city_name: string | null
+          city: string
           content_json: Json | null
           created_at: string
           donation_30d: number | null
@@ -33,8 +32,7 @@ export type Database = {
         Insert: {
           category: string
           category_id?: string | null
-          city_id?: number | null
-          city_name?: string | null
+          city: string
           content_json?: Json | null
           created_at?: string
           donation_30d?: number | null
@@ -48,8 +46,7 @@ export type Database = {
         Update: {
           category?: string
           category_id?: string | null
-          city_id?: number | null
-          city_name?: string | null
+          city?: string
           content_json?: Json | null
           created_at?: string
           donation_30d?: number | null
@@ -68,17 +65,11 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "businesses_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "city"
-            referencedColumns: ["id"]
-          },
         ]
       }
       categories: {
         Row: {
+          cities: string[] | null
           count: number
           created_at: string
           icon: string
@@ -86,10 +77,10 @@ export type Database = {
           image_url: string | null
           is_hidden: boolean
           name: string
-          parent_id: string | null
           position: number
         }
         Insert: {
+          cities?: string[] | null
           count?: number
           created_at?: string
           icon?: string
@@ -97,10 +88,10 @@ export type Database = {
           image_url?: string | null
           is_hidden?: boolean
           name: string
-          parent_id?: string | null
           position?: number
         }
         Update: {
+          cities?: string[] | null
           count?: number
           created_at?: string
           icon?: string
@@ -108,53 +99,9 @@ export type Database = {
           image_url?: string | null
           is_hidden?: boolean
           name?: string
-          parent_id?: string | null
           position?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "categories_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      city: {
-        Row: {
-          created_at: string | null
-          id: number
-          name: string
-          region_id: number | null
-          type: Database["public"]["Enums"]["city_type"]
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: number
-          name: string
-          region_id?: number | null
-          type?: Database["public"]["Enums"]["city_type"]
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          name?: string
-          region_id?: number | null
-          type?: Database["public"]["Enums"]["city_type"]
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "city_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       coins: {
         Row: {
@@ -295,9 +242,7 @@ export type Database = {
           created_at: string
           from_id: string
           id: number
-          is_read: boolean
           message: string
-          notification_sent_status: string | null
           reply_to: number | null
           to_id: string
           type: Database["public"]["Enums"]["message_type"]
@@ -306,9 +251,7 @@ export type Database = {
           created_at?: string
           from_id: string
           id?: number
-          is_read?: boolean
           message: string
-          notification_sent_status?: string | null
           reply_to?: number | null
           to_id: string
           type?: Database["public"]["Enums"]["message_type"]
@@ -317,9 +260,7 @@ export type Database = {
           created_at?: string
           from_id?: string
           id?: number
-          is_read?: boolean
           message?: string
-          notification_sent_status?: string | null
           reply_to?: number | null
           to_id?: string
           type?: Database["public"]["Enums"]["message_type"]
@@ -344,7 +285,6 @@ export type Database = {
           is_event: boolean
           is_published: boolean
           owner_id: string
-          producer_id: string | null
           title: string
           updated_at: string
         }
@@ -357,7 +297,6 @@ export type Database = {
           is_event?: boolean
           is_published?: boolean
           owner_id: string
-          producer_id?: string | null
           title: string
           updated_at?: string
         }
@@ -370,7 +309,6 @@ export type Database = {
           is_event?: boolean
           is_published?: boolean
           owner_id?: string
-          producer_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -386,12 +324,10 @@ export type Database = {
           last_sent_at: string | null
           send_categories: string[] | null
           send_common: boolean
-          send_messages: boolean
           send_profiles: string[] | null
           subscribed_at: string
           telegram_chat_id: string | null
           updated_at: string
-          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -402,12 +338,10 @@ export type Database = {
           last_sent_at?: string | null
           send_categories?: string[] | null
           send_common?: boolean
-          send_messages?: boolean
           send_profiles?: string[] | null
           subscribed_at?: string
           telegram_chat_id?: string | null
           updated_at?: string
-          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -418,48 +352,15 @@ export type Database = {
           last_sent_at?: string | null
           send_categories?: string[] | null
           send_common?: boolean
-          send_messages?: boolean
           send_profiles?: string[] | null
           subscribed_at?: string
           telegram_chat_id?: string | null
           updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      product_updates_log: {
-        Row: {
-          created_at: string | null
-          id: string
-          new_data: Json | null
-          old_data: Json | null
-          producer_id: string
-          product_id: string
-          update_type: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          new_data?: Json | null
-          old_data?: Json | null
-          producer_id: string
-          product_id: string
-          update_type: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          new_data?: Json | null
-          old_data?: Json | null
-          producer_id?: string
-          product_id?: string
-          update_type?: string
         }
         Relationships: []
       }
       products: {
         Row: {
-          business_card_id: string | null
           category_id: string | null
           coin_price: number | null
           content: string | null
@@ -472,13 +373,11 @@ export type Database = {
           name: string
           price: number | null
           producer_id: string
-          product_sale_type: string[] | null
           sale_type: Database["public"]["Enums"]["product_sale_type"]
           unit: string | null
           updated_at: string
         }
         Insert: {
-          business_card_id?: string | null
           category_id?: string | null
           coin_price?: number | null
           content?: string | null
@@ -491,13 +390,11 @@ export type Database = {
           name: string
           price?: number | null
           producer_id: string
-          product_sale_type?: string[] | null
           sale_type?: Database["public"]["Enums"]["product_sale_type"]
           unit?: string | null
           updated_at?: string
         }
         Update: {
-          business_card_id?: string | null
           category_id?: string | null
           coin_price?: number | null
           content?: string | null
@@ -510,28 +407,18 @@ export type Database = {
           name?: string
           price?: number | null
           producer_id?: string
-          product_sale_type?: string[] | null
           sale_type?: Database["public"]["Enums"]["product_sale_type"]
           unit?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "products_business_card_id_fkey"
-            columns: ["business_card_id"]
-            isOneToOne: false
-            referencedRelation: "businesses"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
           address: string | null
-          city_id: number | null
+          city: string | null
           created_at: string
           email: string | null
-          email_approved: boolean
           first_name: string | null
           gps_lat: number | null
           gps_lng: number | null
@@ -539,17 +426,15 @@ export type Database = {
           last_name: string | null
           logo_url: string | null
           phone: string | null
-          region_id: number | null
           updated_at: string
           user_id: string
           wallet: number
         }
         Insert: {
           address?: string | null
-          city_id?: number | null
+          city?: string | null
           created_at?: string
           email?: string | null
-          email_approved?: boolean
           first_name?: string | null
           gps_lat?: number | null
           gps_lng?: number | null
@@ -557,17 +442,15 @@ export type Database = {
           last_name?: string | null
           logo_url?: string | null
           phone?: string | null
-          region_id?: number | null
           updated_at?: string
           user_id: string
           wallet?: number
         }
         Update: {
           address?: string | null
-          city_id?: number | null
+          city?: string | null
           created_at?: string
           email?: string | null
-          email_approved?: boolean
           first_name?: string | null
           gps_lat?: number | null
           gps_lng?: number | null
@@ -575,27 +458,11 @@ export type Database = {
           last_name?: string | null
           logo_url?: string | null
           phone?: string | null
-          region_id?: number | null
           updated_at?: string
           user_id?: string
           wallet?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "city"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       promotions: {
         Row: {
@@ -650,36 +517,6 @@ export type Database = {
           },
         ]
       }
-      region: {
-        Row: {
-          country: string
-          created_at: string | null
-          district: string | null
-          id: number
-          oblast: string | null
-          republic: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          country?: string
-          created_at?: string | null
-          district?: string | null
-          id?: number
-          oblast?: string | null
-          republic?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          country?: string
-          created_at?: string | null
-          district?: string | null
-          id?: number
-          oblast?: string | null
-          republic?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       telegram_notifications: {
         Row: {
           entity_id: string | null
@@ -727,7 +564,6 @@ export type Database = {
           id: string
           token: string
           type: string
-          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -737,7 +573,6 @@ export type Database = {
           id?: string
           token: string
           type: string
-          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -747,7 +582,6 @@ export type Database = {
           id?: string
           token?: string
           type?: string
-          user_id?: string | null
         }
         Relationships: []
       }
@@ -832,7 +666,6 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
-      has_admin_role: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -843,6 +676,16 @@ export type Database = {
       pgp_armor_headers: {
         Args: { "": string }
         Returns: Record<string, unknown>[]
+      }
+      process_notifications_job: {
+        Args: never
+        Returns: {
+          entity_id: string
+          entity_type: string
+          id: string
+          new_data: Json
+          producer_id: string
+        }[]
       }
       telegram_webhook: { Args: { request: Json }; Returns: Json }
       transfer_coins: {
@@ -858,7 +701,6 @@ export type Database = {
         | "news_editor"
         | "super_admin"
       business_status: "draft" | "moderation" | "published" | "deleted"
-      city_type: "село" | "поселок" | "деревня" | "город"
       exchange_status:
         | "created"
         | "ok_meeting"
@@ -875,7 +717,6 @@ export type Database = {
         | "deleted"
         | "wallet"
         | "coin_request"
-        | "order"
       product_sale_type: "sell_only" | "barter_goods" | "barter_coin"
     }
     CompositeTypes: {
@@ -1012,7 +853,6 @@ export const Constants = {
         "super_admin",
       ],
       business_status: ["draft", "moderation", "published", "deleted"],
-      city_type: ["село", "поселок", "деревня", "город"],
       exchange_status: [
         "created",
         "ok_meeting",
@@ -1030,7 +870,6 @@ export const Constants = {
         "deleted",
         "wallet",
         "coin_request",
-        "order",
       ],
       product_sale_type: ["sell_only", "barter_goods", "barter_coin"],
     },
