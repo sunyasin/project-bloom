@@ -24,6 +24,8 @@ import {
   Inbox,
   Check,
   ChevronsUpDown,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 interface Category {
@@ -175,6 +177,7 @@ const ProductEditor = () => {
 
   const quillRef = useRef<ReactQuill>(null);
   const [isEditorDragging, setIsEditorDragging] = useState(false);
+  const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
 
   // Quill modules config
   const quillModules = useMemo(() => ({
@@ -1120,16 +1123,33 @@ const ProductEditor = () => {
         </div>
 
         {/* Quill WYSIWYG Editor */}
-        <div className="content-card space-y-4">
-          <h2 className="font-semibold text-foreground">Подробное описание</h2>
-          <p className="text-sm text-muted-foreground">
-            Перетащите изображения прямо в редактор для быстрой загрузки
-          </p>
+        <div className={cn("content-card space-y-4", isEditorFullscreen && "fixed inset-0 z-[9998] bg-background p-4 overflow-auto")}>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-foreground">Подробное описание</h2>
+            <button
+              className={cn(
+                "p-2 rounded-md transition-colors",
+                isEditorFullscreen 
+                  ? "bg-muted hover:bg-muted/80 text-foreground" 
+                  : "bg-background hover:bg-muted text-muted-foreground hover:text-foreground",
+                "border border-border shadow-sm"
+              )}
+              onClick={() => setIsEditorFullscreen(!isEditorFullscreen)}
+              title={isEditorFullscreen ? "Свернуть" : "На весь экран"}
+            >
+              {isEditorFullscreen ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
+            </button>
+          </div>
 
           <div
             className={cn(
               "quill-editor-wrapper rounded-lg border transition-all",
-              isEditorDragging ? "border-primary bg-primary/5" : "border-border"
+              isEditorDragging ? "border-primary bg-primary/5" : "border-border",
+              isEditorFullscreen && "min-h-[calc(100vh-200px)]"
             )}
             onDragOver={handleEditorDragOver}
             onDragLeave={handleEditorDragLeave}
@@ -1180,7 +1200,7 @@ const ProductEditor = () => {
             {productData.content && (
               <div className="border-t border-border pt-4">
                 <div
-                  className="prose prose-sm max-w-none"
+                  className="quill-preview"
                   dangerouslySetInnerHTML={{
                     __html: productData.content,
                   }}

@@ -403,7 +403,7 @@ export const JoditEditorComponent = ({
     () => ({
       readonly: false,
       placeholder,
-      height: isFullscreen ? "calc(100vh - 120px)" : 400,
+      height: isFullscreen ? "calc(100vh - 80px)" : 400,
       language: "ru",
       
       buttons: [
