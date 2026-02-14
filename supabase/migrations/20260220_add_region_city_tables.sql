@@ -72,7 +72,7 @@ INSERT INTO city (name, type, region_id) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Add region_id column to profiles table (optional - for future use)
---ALTER TABLE profiles ADD COLUMN IF NOT EXISTS region_id INTEGER REFERENCES region(id) ON DELETE SET NULL;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS region_id INTEGER REFERENCES region(id) ON DELETE SET NULL;
 
 -- Replace city TEXT column with city_id INTEGER FK
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS city_id INTEGER REFERENCES city(id) ON DELETE SET NULL;

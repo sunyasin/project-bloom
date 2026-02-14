@@ -70,7 +70,7 @@ CREATE TRIGGER log_news_insert
 
 -- Триггер на promotions
 CREATE OR REPLACE FUNCTION log_promotion_change()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO content_updates_log (entity_type, entity_id, producer_id, action, new_data)
   VALUES (
@@ -82,7 +82,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS log_promotion_insert ON public.promotions;
 CREATE TRIGGER log_promotion_insert

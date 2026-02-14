@@ -162,13 +162,13 @@ FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE proname LIKE 'log_%' AND nspname = 'public';
 
-SELECT 'Триггеры созданы:' AS status;
-SELECT tgname AS trigger_name, tablename AS table_name
-FROM pg_trigger t
-JOIN pg_class c ON t.tgrelid = c.oid
-WHERE tgname LIKE 'log_%';
+-- SELECT 'Триггеры созданы:' AS status;
+-- SELECT tgname AS trigger_name, tablename AS table_name
+-- FROM pg_trigger t
+-- JOIN pg_class c ON t.tgrelid = c.oid
+-- WHERE tgname LIKE 'log_%';
 
-SELECT 'Политики news:' AS status;
-SELECT polname AS policy_name, tablename AS table_name
-FROM pg_policy
-WHERE polname LIKE '%news%';
+-- SELECT 'Политики news:' AS status;
+-- SELECT polname AS policy_name, tablename AS table_name
+-- FROM pg_policy
+-- WHERE polname LIKE '%news%';

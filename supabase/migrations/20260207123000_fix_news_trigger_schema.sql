@@ -44,9 +44,9 @@ JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE proname = 'log_news_change';
 
 -- 6. Проверяем что триггер создан
-SELECT 
-  tgname AS trigger_name,
-  tablename AS table_name
-FROM pg_trigger t
-JOIN pg_class c ON t.tgrelid = c.oid
-WHERE tgname = 'log_news_insert';
+-- SELECT 
+--   tgname AS trigger_name,
+--   tablename AS table_name
+-- FROM pg_trigger t
+-- JOIN pg_class c ON t.tgrelid = c.oid
+-- WHERE tgname = 'log_news_insert';
