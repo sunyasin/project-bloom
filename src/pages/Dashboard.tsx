@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useCurrentUserWithRole } from "@/hooks/use-current-user-with-role";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ import { useExchangeCount } from "@/hooks/use-exchange-count";
 import { ProfileEditDialog } from "@/components/ProfileEditDialog";
 import { ExchangeRequestsDialog } from "@/components/ExchangeRequestsDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { AlertCircle } from "lucide-react";
 
 // Import new dashboard components
 import { ProfileHeader } from "@/components/dashboard/sections/ProfileHeader";
@@ -110,6 +111,30 @@ const Dashboard = () => {
   const isNewUser = searchParams.get("new") === "true";
   const { toast } = useToast();
 
+  // State for email and city verification
+  const [emailApproved, setEmailApproved] = useState<boolean | null>(null);
+  const [userCityId, setUserCityId] = useState<number | null>(null);
+
+  // Load profile to check email_approved and city_id
+  useEffect(() => {
+    const loadProfileStatus = async () => {
+      if (!user) return;
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("email_approved, city_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (profile) {
+        setEmailApproved(profile.email_approved);
+        setUserCityId(profile.city_id);
+      }
+    };
+
+    loadProfileStatus();
+  }, [user]);
+
   // State
   const [mainCardId, setMainCardId] = useState<string | null>(null);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
@@ -157,11 +182,11 @@ const Dashboard = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (isNewUser && !userLoading && !isProfileDialogOpen) {
-      setIsProfileDialogOpen(true);
-    }
-  }, [isNewUser, userLoading, isProfileDialogOpen]);
+  // useEffect(() => {
+  //   if (isNewUser && !userLoading && !isProfileDialogOpen) {
+  //     setIsProfileDialogOpen(true);
+  //   }
+  // }, [isNewUser, userLoading, isProfileDialogOpen]);
 
   const handleProfileSaveSuccess = async () => {
     setSearchParams({}, { replace: true });
@@ -852,6 +877,30 @@ const Dashboard = () => {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Email not confirmed banner */}
+        {emailApproved === false && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium mb-1">Подтвердите email</p>
+              <p>Нажмите на ссылку в письме, которое мы отправили на вашу почту. Проверьте папку «Спам».</p>
+            </div>
+          </div>
+        )}
+
+        {/* City not set banner */}
+        {emailApproved !== null && userCityId === null && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <p className="font-medium mb-1">Укажите город</p>
+              <p>
+                Нажмите <Link to="?" onClick={(e) => { e.preventDefault(); setIsProfileDialogOpen(true); }} className="underline font-medium">здесь</Link> и установите город в профиле.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Profile Header */}
         <ProfileHeader
           formData={formData}
@@ -882,6 +931,15 @@ const Dashboard = () => {
             setDeleteBusinessCardName(business?.name || "");
           }}
           onCreate={async () => {
+            if (userCityId === null) {
+              toast({
+                title: "Установите город",
+                description: "Пожалуйста, укажите город в профиле перед созданием визитки.",
+                variant: "destructive",
+              });
+              setIsProfileDialogOpen(true);
+              return;
+            }
             const newBusiness = await createBusiness({ name: "Новая визитка" });
             if (newBusiness) navigate(`/dashboard/business-card/${newBusiness.id}`);
           }}
@@ -903,6 +961,15 @@ const Dashboard = () => {
             setDeleteProductName(product?.name || "");
           }}
           onCreate={async () => {
+            if (userCityId === null) {
+              toast({
+                title: "Установите город",
+                description: "Пожалуйста, укажите город в профиле перед созданием товара.",
+                variant: "destructive",
+              });
+              setIsProfileDialogOpen(true);
+              return;
+            }
             const newProduct = await createProduct({ name: "Новый товар" });
             if (newProduct) navigate(`/dashboard/product/${newProduct.id}`);
           }}

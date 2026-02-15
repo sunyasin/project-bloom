@@ -45,13 +45,12 @@ const Auth = () => {
           // Check profile for email_approved status
           const { data: profile } = await supabase
             .from("profiles")
-            .select("email_approved, first_name")
+            .select("email_approved, first_name, city_id")
             .eq("user_id", session.user.id)
             .maybeSingle();
           
-          // If this is email confirmation or profile doesn't exist or email_approved is false, update it
-          if (isFromConfirmation || !profile || !profile.email_approved) {
-            // Update email_approved to true
+          // If this is email confirmation, update email_approved to true
+          if (isFromConfirmation) {
             await supabase
               .from("profiles")
               .update({ email_approved: true })
@@ -60,22 +59,22 @@ const Auth = () => {
             setEmailConfirmed(true);
             setEmailApprovalRequired(false);
             
-            // Show success message and redirect to complete profile
+            // Redirect to main page after confirmation
             setTimeout(() => {
-              navigate("/dashboard?new=true");
+              navigate("/");
             }, 500);
             return;
           }
           
-          // Check if this is a new signup by checking if profile is empty
+          // For regular login - check if profile is complete
           setTimeout(() => {
             supabase
               .from("profiles")
-              .select("first_name")
+              .select("first_name, city_id")
               .eq("user_id", session.user.id)
               .maybeSingle()
               .then(({ data, error }) => {
-                // If profile doesn't exist or has no first_name, it's a new user
+                // If profile doesn't exist or has no first_name, redirect to dashboard
                 if (error || !data?.first_name) {
                   navigate("/dashboard?new=true");
                 } else {
@@ -130,10 +129,6 @@ const Auth = () => {
     });
 
     if (error) {
-      // Check if this is because email is not approved
-      if (error.message.includes("Email not confirmed") || error.message.includes("not confirmed")) {
-        setEmailApprovalRequired(true);
-      }
       toast({
         title: "Ошибка входа",
         description: error.message === "Invalid login credentials" 
@@ -142,29 +137,10 @@ const Auth = () => {
         variant: "destructive",
       });
     } else if (data?.user) {
-      // Check if email_approved is false in profile
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("email_approved")
-        .eq("user_id", data.user.id)
-        .maybeSingle();
-      
-      if (profile && !profile.email_approved) {
-        setEmailApprovalRequired(true);
-        // Sign out since email is not approved
-        await supabase.auth.signOut();
-        toast({
-          title: "Требуется подтверждение email",
-          description: "На указанный адрес уже было выслано письмо для подтверждения. Подтвердите регистрацию по ссылке из письма. Проверьте папку Spam",
-          variant: "destructive",
-          duration: 10000,
-        });
-      } else {
-        toast({
-          title: "Успешный вход",
-          description: "Добро пожаловать!",
-        });
-      }
+      toast({
+        title: "Успешный вход",
+        description: "Добро пожаловать!",
+      });
     }
     setLoading(false);
   };
@@ -221,7 +197,7 @@ const Auth = () => {
     const redirectUrl = `${import.meta.env.VITE_APP_BASE_URL}/auth`;
     //const redirectUrl = "https://dolinabiz.lovable.app/";
 
-    const { error } = await supabase.auth.signUp({
+    const { error, data } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
@@ -246,11 +222,56 @@ const Auth = () => {
         duration: 10000,
       });
     } else {
-      toast({
-        title: "Регистрация успешна",
-        description: "На вашу почту отправлено письмо для подтверждения. Проверьте папку «Входящие» и «Спам».",
-        duration: 10000,
-      });
+      // Create profile - email is auto-confirmed by Supabase
+      if (data?.user) {
+        await supabase.from("profiles").insert({
+          user_id: data.user.id,
+          email: email.trim(),
+          email_approved: true,
+        });
+      }
+
+      // Automatically sign in after registration
+      let signInError: Error | null = null;
+      
+      if (data?.session) {
+        // Session available - set it manually
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        signInError = setSessionError;
+      } else {
+        // No session - create timeout to prevent hanging
+        const timeoutPromise = new Promise<{ error: Error }>((resolve) => 
+          setTimeout(() => resolve({ error: new Error("Превышен таймаут ожидания") }), 10000)
+        );
+        
+        const signInPromise = supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        
+        const result = await Promise.race([signInPromise, timeoutPromise]);
+        signInError = result.error;
+      }
+
+      if (!signInError) {
+        toast({
+          title: "Регистрация успешна",
+          description: "Добро пожаловать!",
+          duration: 5000,
+        });
+        // Redirect to main page with new=true to trigger profile dialog
+        navigate("/?new=true");
+      } else {
+        toast({
+          title: "Ошибка входа",
+          description: signInError.message,
+          variant: "destructive",
+          duration: 10000,
+        });
+      }
     }
     setLoading(false);
   };
